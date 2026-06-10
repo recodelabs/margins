@@ -7,6 +7,11 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  server: {
+    fs: {
+      allow: [".."],
+    },
+  },
   test: {
     coverage: {
       provider: "v8",
@@ -32,6 +37,7 @@ export default defineConfig({
       "src/**/*.test.tsx",
       "test/**/*.test.ts",
       "test/**/*.test.tsx",
+      "../auth/**/*.test.ts",
     ],
   },
 });
