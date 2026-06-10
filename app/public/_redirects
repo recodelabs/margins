@@ -1,4 +1,0 @@
-# SPA fallback: serve index.html for client-side entry points.
-# Pages Functions (/api/auth/*) are matched BEFORE these rules, so the auth
-# routes are unaffected. Static assets are served before the fallback too.
-/*    /index.html    200
