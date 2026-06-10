@@ -81,4 +81,4 @@ assets/patch-url.mjs            # the SPA URL-normalization patch
 
 ## License
 
-TBD.
+MIT (same as Roughdraft). See [LICENSE](LICENSE).
