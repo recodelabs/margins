@@ -32,8 +32,7 @@ roughneck stop [FOLDER|all]                          # stop a server
 roughneck enhance                                    # (re)apply the in-browser enhancements
 ```
 
-- Default binds to `0.0.0.0` so devices on your LAN can reach it at `http://<host>.local:<port>/`.
-  Use `--local` to bind loopback only.
+- Each server is **confined to FOLDER** — it can only read markdown inside it (paths that escape return 403) — and runs **without a token**. Default binds to `0.0.0.0` so devices on your LAN can reach it at `http://<host>.local:<port>/?path=<relative.md>`. Use `--local` to bind loopback only.
 - The root URL (`http://<host>.local:<port>/`) is the **repo browser**.
 - A subtle **⬡ roughneck** chip (top-left, on doc pages) returns you to the browser.
 
