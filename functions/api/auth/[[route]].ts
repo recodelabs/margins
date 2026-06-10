@@ -18,7 +18,8 @@ export const onRequestGet: (ctx: {
       const token = await exchangeCodeForToken(url.searchParams.get("code") || "", {
         clientId: env.GITHUB_CLIENT_ID, clientSecret: env.GITHUB_CLIENT_SECRET,
       });
-      return Response.redirect(`${url.origin}/#token=${encodeURIComponent(token)}`, 302);
+      const state = url.searchParams.get("state") || "";
+      return Response.redirect(`${url.origin}/#token=${encodeURIComponent(token)}&state=${encodeURIComponent(state)}`, 302);
     } catch (e) {
       return new Response(e instanceof Error ? e.message : String(e), { status: 500 });
     }

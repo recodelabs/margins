@@ -1603,7 +1603,9 @@ export function App() {
           return;
         }
 
-        syncRequestedPathInUrl(requestedPathState.rawPath);
+        if (!isGitHubMode()) {
+          syncRequestedPathInUrl(requestedPathState.rawPath);
+        }
 
         if (
           !requestedPathState.projectPath ||
@@ -1621,7 +1623,10 @@ export function App() {
 
         if (cancelled) return;
 
-        await loadDocument(detectedBackend, requestedPathState.documentPath);
+        const docPath = isGitHubMode()
+          ? requestedPathState.rawPath ?? requestedPathState.documentPath
+          : requestedPathState.documentPath;
+        await loadDocument(detectedBackend, docPath);
         if (cancelled) return;
 
         setLoading(false);

@@ -28,8 +28,9 @@ function authDevPlugin(env: Record<string, string>) {
               clientId: env.GITHUB_CLIENT_ID || "",
               clientSecret: env.GITHUB_CLIENT_SECRET || "",
             });
+            const state = url.searchParams.get("state") || "";
             res.statusCode = 302;
-            res.setHeader("Location", `/#token=${encodeURIComponent(token)}`);
+            res.setHeader("Location", `/#token=${encodeURIComponent(token)}&state=${encodeURIComponent(state)}`);
             res.end();
           } catch (e) {
             res.statusCode = 500;
