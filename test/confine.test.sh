@@ -59,7 +59,7 @@ check "status projectDir pinned" "$PROJ" \
 check "pct-encoded dotdot blocked" 403 \
   "$(code "$BASE/api/markdown-file?path=%2e%2e%2fsecret.md")"
 
-# 7/8. CLI: the printed "open:" URL carries no token
+# 8. CLI: the printed "open:" URL carries no token
 OPEN_LINE="$(ROUGHNECK_PORT_BASE=7401 "$RN_DIR/roughneck" --no-open "$PROJ" 2>/dev/null | grep '^open:')"
 case "$OPEN_LINE" in
   *token=*) echo "FAIL - open URL still contains a token: $OPEN_LINE"; fail=1 ;;

@@ -24,9 +24,9 @@ have node || die "node is required"
 have curl || die "curl is required"
 
 RD_ROOT="$(npm root -g 2>/dev/null)/roughdraft"
-CHILD="$RD_ROOT/packages/server/dist/child.js"
+RD_INDEX="$RD_ROOT/packages/server/dist/index.js"
 APPDIR="$RD_ROOT/packages/app/dist"
-[ -f "$CHILD" ] || die "Roughdraft not found. Install it: npm i -g roughdraft"
+[ -f "$RD_INDEX" ] || die "Roughdraft not found. Install it: npm i -g roughdraft"
 
 # Resolve roughneck's own dir (following the symlink) to find bundled assets.
 RN_SRC="$0"; while [ -L "$RN_SRC" ]; do RN_SRC="$(readlink "$RN_SRC")"; done
@@ -103,13 +103,12 @@ server_for_folder(){
 start_server(){
   local folder="$1" bind="$2" port pid tmp
   port="$(free_port)"
-  ROUGHDRAFT_BIND_HOST="$bind" \
-    nohup node "$RN_ASSETS/roughneck-server.mjs" \
-      --port "$port" --project-dir "$folder" --host "$bind" --rd-root "$RD_ROOT" \
+  nohup node "$RN_ASSETS/roughneck-server.mjs" \
+    --port "$port" --project-dir "$folder" --host "$bind" --rd-root "$RD_ROOT" \
     > "$STATE_DIR/roughneck-$port.log" 2>&1 &
   pid=$!
   disown 2>/dev/null || true
-  if ! curl -s --retry 20 --retry-delay 1 --retry-connrefused -o /dev/null "http://127.0.0.1:$port/"; then
+  if ! curl -s --retry 20 --retry-delay 1 --retry-connrefused --max-time 2 -o /dev/null "http://127.0.0.1:$port/"; then
     die "server failed to start (see $STATE_DIR/roughneck-$port.log)"
   fi
   tmp="$(mktemp)"
