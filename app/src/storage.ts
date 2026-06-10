@@ -41,12 +41,13 @@ export interface ReviewWatchStatus {
 }
 
 export interface BackendInfo {
-  kind: "local-files" | "local-storage" | "remote";
+  kind: "local-files" | "local-storage" | "remote" | "github";
   label: string;
   detail: string;
   projectPath?: string;
   sessionId?: string;
   originPath?: string;
+  authorLabel?: string;
 }
 
 export interface StorageBackend {
