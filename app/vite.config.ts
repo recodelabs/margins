@@ -9,7 +9,8 @@ function authDevPlugin(env: Record<string, string>) {
     name: "roughneck-auth-dev",
     configureServer(server: import("vite").ViteDevServer) {
       server.middlewares.use(async (req, res, next) => {
-        const url = new URL(req.url || "", "http://localhost");
+        const host = (req.headers && (req.headers as Record<string, string>)["host"]) || "localhost";
+        const url = new URL(req.url || "", `http://${host}`);
         if (url.pathname === "/api/auth/login") {
           const redirectUri = `${url.origin}/api/auth/callback`;
           const authorize = new URL("https://github.com/login/oauth/authorize");
