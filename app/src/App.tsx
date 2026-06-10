@@ -44,7 +44,8 @@ import {
   DialogTrigger,
 } from "./components/ui/dialog";
 import { DocumentWorkspace } from "./DocumentWorkspace";
-import { detectBackend, isGitHubMode } from "./detect-backend";
+import { detectBackend, isGitHubMode, gitHubSelectionFromUrl } from "./detect-backend";
+import { GitHubPicker } from "./GitHubPicker";
 import {
   getCommentAnchorMeasurements,
   groupCommentAnchorMeasurements,
@@ -1910,6 +1911,15 @@ export function App() {
 
   if (isPreviewRoute) {
     return <PreviewPage />;
+  }
+
+  if (isGitHubMode()) {
+    const sel = gitHubSelectionFromUrl();
+    const params = new URLSearchParams(window.location.search);
+    const hasDoc = !!params.get("path");
+    if (!sel.token || !sel.repo || !hasDoc) {
+      return <GitHubPicker />;
+    }
   }
 
   if (!requestedPathState.rawPath || loadError) {
