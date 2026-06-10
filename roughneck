@@ -84,29 +84,28 @@ free_port(){
   printf '%s' "$p"
 }
 
-# Prints "port token" and returns 0 if a live server already serves $1, else returns 1.
+# Prints "port" and returns 0 if a live server already serves $1, else returns 1.
 server_for_folder(){
-  local folder="$1" port pid token status
+  local folder="$1" port pid status
   port="$(jq -r --arg f "$folder" '.[$f].port // empty' "$STATE")"
   [ -z "$port" ] && return 1
   pid="$(jq -r --arg f "$folder" '.[$f].pid // empty' "$STATE")"
-  token="$(jq -r --arg f "$folder" '.[$f].token // empty' "$STATE")"
   if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
     status="$(curl -s "http://127.0.0.1:$port/api/status" 2>/dev/null)"
     if printf '%s' "$status" | jq -e --arg f "$folder" '.projectDir == $f' >/dev/null 2>&1; then
-      printf '%s %s' "$port" "$token"; return 0
+      printf '%s' "$port"; return 0
     fi
   fi
   return 1
 }
 
-# Starts a server for $1 bound to $2. Prints "port token".
+# Starts a gatekeeper server for $1 bound to $2. Prints "port".
 start_server(){
-  local folder="$1" bind="$2" port token pid tmp
+  local folder="$1" bind="$2" port pid tmp
   port="$(free_port)"
-  token="$(openssl rand -hex 16)"
-  ROUGHDRAFT_BIND_HOST="$bind" ROUGHDRAFT_TOKEN="$token" \
-    nohup node "$CHILD" --port "$port" --project-dir "$folder" \
+  ROUGHDRAFT_BIND_HOST="$bind" \
+    nohup node "$RN_ASSETS/roughneck-server.mjs" \
+      --port "$port" --project-dir "$folder" --host "$bind" --rd-root "$RD_ROOT" \
     > "$STATE_DIR/roughneck-$port.log" 2>&1 &
   pid=$!
   disown 2>/dev/null || true
@@ -114,9 +113,9 @@ start_server(){
     die "server failed to start (see $STATE_DIR/roughneck-$port.log)"
   fi
   tmp="$(mktemp)"
-  jq --arg f "$folder" --argjson port "$port" --argjson pid "$pid" --arg token "$token" \
-     '.[$f] = {port:$port, pid:$pid, token:$token}' "$STATE" > "$tmp" && mv "$tmp" "$STATE"
-  printf '%s %s' "$port" "$token"
+  jq --arg f "$folder" --argjson port "$port" --argjson pid "$pid" \
+     '.[$f] = {port:$port, pid:$pid}' "$STATE" > "$tmp" && mv "$tmp" "$STATE"
+  printf '%s' "$port"
 }
 
 cmd_list(){
@@ -191,9 +190,9 @@ else
 fi
 
 # Reuse a live server for this folder, or start one.
-read -r PORT TOKEN < <(server_for_folder "$FOLDER" || true)
+PORT="$(server_for_folder "$FOLDER" || true)"
 if [ -z "${PORT:-}" ]; then
-  read -r PORT TOKEN < <(start_server "$FOLDER" "$BIND")
+  PORT="$(start_server "$FOLDER" "$BIND")"
   STARTED=1
 else
   STARTED=0
@@ -213,9 +212,9 @@ echo "markdown in this folder:"
 echo
 
 if [ -n "$FILE_REL" ]; then
-  URL="$BASE/?path=$(python3 -c 'import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))' "$FILE_REL")&token=$TOKEN"
+  URL="$BASE/?path=$(python3 -c 'import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))' "$FILE_REL")"
 else
-  URL="$BASE/?token=$TOKEN"
+  URL="$BASE/"
 fi
 echo "open: $URL"
 if [ "$OPEN" = 1 ]; then open "$URL" 2>/dev/null && echo "(opened in your browser)"; fi
