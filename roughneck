@@ -1,0 +1,222 @@
+#!/usr/bin/env bash
+# roughneck — browse a folder's markdown and open files in Roughdraft over your LAN.
+#
+#   roughneck [--local] [--no-open] [FOLDER] [FILE.md]
+#   roughneck list                 # show running roughneck servers
+#   roughneck stop [FOLDER|all]    # stop a server (default: the one for FOLDER/cwd)
+#
+# Defaults: serves FOLDER (or cwd) on your local network (0.0.0.0) so other devices
+# can reach it at http://<this-host>.local:<port>/. Use --local to bind loopback only.
+# One Roughdraft server is run per folder; re-running reuses the live one.
+set -uo pipefail
+
+STATE_DIR="$HOME/.roughdraft"
+STATE="$STATE_DIR/roughneck.json"
+PORT_BASE="${ROUGHNECK_PORT_BASE:-7375}"
+mkdir -p "$STATE_DIR"
+[ -f "$STATE" ] || printf '{}\n' > "$STATE"
+
+die(){ printf 'roughneck: %s\n' "$*" >&2; exit 1; }
+have(){ command -v "$1" >/dev/null 2>&1; }
+
+have jq   || die "jq is required (brew install jq)"
+have node || die "node is required"
+have curl || die "curl is required"
+
+RD_ROOT="$(npm root -g 2>/dev/null)/roughdraft"
+CHILD="$RD_ROOT/packages/server/dist/child.js"
+APPDIR="$RD_ROOT/packages/app/dist"
+[ -f "$CHILD" ] || die "Roughdraft not found. Install it: npm i -g roughdraft"
+
+# Resolve roughneck's own dir (following the symlink) to find bundled assets.
+RN_SRC="$0"; while [ -L "$RN_SRC" ]; do RN_SRC="$(readlink "$RN_SRC")"; done
+RN_DIR="$(cd "$(dirname "$RN_SRC")" && pwd)"
+RN_ASSETS="$RN_DIR/assets"
+
+abspath(){ python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$1"; }
+
+# Fix Roughdraft 0.1.9's broken SPA fallback (res.sendFile(absolutePath) 404s
+# under Express 5, so deep links / reloads fail). Idempotent. Affects servers
+# started AFTER this runs. Re-applies after a roughdraft update.
+ensure_spa_fix(){
+  local f="$RD_ROOT/packages/server/dist/index.js"
+  [ -f "$f" ] || return 0
+  grep -q 'res.sendFile("index.html", { root: staticDirPath })' "$f" 2>/dev/null && return 0
+  perl -0pi -e 's{app\.get\("/\{\*splat\}", \(_req, res\) => \{\s*res\.sendFile\(path\.join\(staticDirPath, "index\.html"\)\);\s*\}\);}{app.get(/.*/, (_req, res) => { res.sendFile("index.html", { root: staticDirPath }); });}s' "$f" \
+    && echo "roughneck: fixed Roughdraft SPA deep-link fallback"
+}
+
+# Normalize Roughdraft's client-side URL handling so the address bar doesn't
+# flip-flop between "/x" and "/?path=/x" on reload (which sometimes dropped to the
+# landing page). Idempotent; re-applies after a roughdraft update.
+ensure_url_fix(){
+  [ -d "$APPDIR/assets" ] || return 0
+  [ -f "$RN_ASSETS/patch-url.mjs" ] || return 0
+  node "$RN_ASSETS/patch-url.mjs" "$APPDIR/assets"/index-*.js 2>/dev/null || true
+}
+
+# Inject roughneck's enhancements (wider column, light-mode toggle, mermaid) into
+# Roughdraft's index.html as a single DEFERRED (non-blocking) script. Mermaid is
+# loaded async by that script, so it never blocks page load.
+# Idempotent; re-applies automatically after a roughdraft update wipes it.
+ensure_enhance_patch(){
+  local idx="$APPDIR/index.html"
+  [ -f "$idx" ] || return 0
+  grep -q "roughneck-enhance.js" "$idx" 2>/dev/null && return 0
+  if [ ! -f "$RN_ASSETS/mermaid.min.js" ] || [ ! -f "$RN_ASSETS/roughneck-enhance.js" ]; then
+    echo "roughneck: enhancement assets missing in $RN_ASSETS — skipping" >&2; return 0
+  fi
+  cp -f "$RN_ASSETS/mermaid.min.js" "$APPDIR/assets/mermaid.min.js"
+  cp -f "$RN_ASSETS/roughneck-enhance.js" "$APPDIR/assets/roughneck-enhance.js"
+  perl -0pi -e 's{\s*</body>}{\n    <!-- roughneck-enhance -->\n    <script defer src="/assets/roughneck-enhance.js"></script>\n  </body>}' "$idx" \
+    && echo "roughneck: applied enhancements (wider column, light mode, mermaid)"
+}
+
+public_host(){ # $1 = bind host -> public hostname to put in URLs
+  if [ "$1" = "127.0.0.1" ]; then printf 'localhost'; return; fi
+  local lh; lh="$(scutil --get LocalHostName 2>/dev/null | tr '[:upper:]' '[:lower:]')"
+  if [ -n "$lh" ]; then printf '%s.local' "$lh"; else hostname; fi
+}
+
+free_port(){
+  local p="$PORT_BASE"
+  while lsof -nP -iTCP:"$p" -sTCP:LISTEN >/dev/null 2>&1; do p=$((p+1)); done
+  printf '%s' "$p"
+}
+
+# Prints "port token" and returns 0 if a live server already serves $1, else returns 1.
+server_for_folder(){
+  local folder="$1" port pid token status
+  port="$(jq -r --arg f "$folder" '.[$f].port // empty' "$STATE")"
+  [ -z "$port" ] && return 1
+  pid="$(jq -r --arg f "$folder" '.[$f].pid // empty' "$STATE")"
+  token="$(jq -r --arg f "$folder" '.[$f].token // empty' "$STATE")"
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    status="$(curl -s "http://127.0.0.1:$port/api/status" 2>/dev/null)"
+    if printf '%s' "$status" | jq -e --arg f "$folder" '.projectDir == $f' >/dev/null 2>&1; then
+      printf '%s %s' "$port" "$token"; return 0
+    fi
+  fi
+  return 1
+}
+
+# Starts a server for $1 bound to $2. Prints "port token".
+start_server(){
+  local folder="$1" bind="$2" port token pid tmp
+  port="$(free_port)"
+  token="$(openssl rand -hex 16)"
+  ROUGHDRAFT_BIND_HOST="$bind" ROUGHDRAFT_TOKEN="$token" \
+    nohup node "$CHILD" --port "$port" --project-dir "$folder" \
+    > "$STATE_DIR/roughneck-$port.log" 2>&1 &
+  pid=$!
+  disown 2>/dev/null || true
+  if ! curl -s --retry 20 --retry-delay 1 --retry-connrefused -o /dev/null "http://127.0.0.1:$port/"; then
+    die "server failed to start (see $STATE_DIR/roughneck-$port.log)"
+  fi
+  tmp="$(mktemp)"
+  jq --arg f "$folder" --argjson port "$port" --argjson pid "$pid" --arg token "$token" \
+     '.[$f] = {port:$port, pid:$pid, token:$token}' "$STATE" > "$tmp" && mv "$tmp" "$STATE"
+  printf '%s %s' "$port" "$token"
+}
+
+cmd_list(){
+  local any=0
+  while IFS= read -r folder; do
+    [ -z "$folder" ] && continue
+    any=1
+    local port pid alive="dead"
+    port="$(jq -r --arg f "$folder" '.[$f].port' "$STATE")"
+    pid="$(jq -r --arg f "$folder" '.[$f].pid' "$STATE")"
+    kill -0 "$pid" 2>/dev/null && alive="up"
+    printf '%-5s port %-6s pid %-7s %s\n' "$alive" "$port" "$pid" "$folder"
+  done < <(jq -r 'keys[]' "$STATE")
+  [ "$any" = 0 ] && echo "no roughneck servers tracked"
+}
+
+cmd_stop(){
+  local target="${1:-$PWD}"
+  if [ "$target" = "all" ]; then
+    while IFS= read -r folder; do [ -n "$folder" ] && cmd_stop "$folder"; done < <(jq -r 'keys[]' "$STATE")
+    return
+  fi
+  target="$(abspath "$target")"
+  local pid port tmp
+  pid="$(jq -r --arg f "$target" '.[$f].pid // empty' "$STATE")"
+  port="$(jq -r --arg f "$target" '.[$f].port // empty' "$STATE")"
+  [ -z "$pid" ] && die "no server tracked for $target"
+  kill "$pid" 2>/dev/null && echo "stopped server for $target (port $port, pid $pid)" || echo "server pid $pid already gone"
+  tmp="$(mktemp)"; jq --arg f "$target" 'del(.[$f])' "$STATE" > "$tmp" && mv "$tmp" "$STATE"
+}
+
+# ---- main ----
+case "${1:-}" in
+  list) shift; cmd_list "$@"; exit 0 ;;
+  stop) shift; cmd_stop "$@"; exit 0 ;;
+  patch-mermaid) ensure_enhance_patch; exit 0 ;;
+  enhance) ensure_enhance_patch; exit 0 ;;
+  -h|--help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+esac
+
+BIND="0.0.0.0"; OPEN=1
+POSITIONAL=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --local) BIND="127.0.0.1"; shift ;;
+    --no-open) OPEN=0; shift ;;
+    -h|--help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) POSITIONAL+=("$1"); shift ;;
+  esac
+done
+
+ensure_spa_fix
+ensure_url_fix
+ensure_enhance_patch
+
+ARG1="${POSITIONAL[0]:-$PWD}"
+ARG2="${POSITIONAL[1]:-}"
+
+# Resolve folder + optional file from the positional args.
+FILE_REL=""
+if [ -f "$ARG1" ]; then
+  case "$ARG1" in *.md) ;; *) die "$ARG1 is not a .md file";; esac
+  FOLDER="$(abspath "$(dirname "$ARG1")")"
+  FILE_REL="$(basename "$ARG1")"
+else
+  [ -d "$ARG1" ] || die "no such folder: $ARG1"
+  FOLDER="$(abspath "$ARG1")"
+  if [ -n "$ARG2" ]; then
+    [ -f "$FOLDER/$ARG2" ] || die "no such file: $FOLDER/$ARG2"
+    FILE_REL="$ARG2"
+  fi
+fi
+
+# Reuse a live server for this folder, or start one.
+read -r PORT TOKEN < <(server_for_folder "$FOLDER" || true)
+if [ -z "${PORT:-}" ]; then
+  read -r PORT TOKEN < <(start_server "$FOLDER" "$BIND")
+  STARTED=1
+else
+  STARTED=0
+fi
+
+HOST="$(public_host "$BIND")"
+BASE="http://$HOST:$PORT"
+
+echo "roughneck → $FOLDER"
+echo "server: $BASE  (pid tracked in $STATE, log $STATE_DIR/roughneck-$PORT.log)"
+[ "$STARTED" = 1 ] && echo "(started new server)" || echo "(reusing running server)"
+echo
+
+echo "markdown in this folder:"
+( cd "$FOLDER" && find . -type d \( -name .git -o -name node_modules \) -prune -o -name '*.md' -print \
+    | sed 's#^\./##' | sort | sed 's/^/  /' ) || true
+echo
+
+if [ -n "$FILE_REL" ]; then
+  URL="$BASE/?path=$(python3 -c 'import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))' "$FILE_REL")&token=$TOKEN"
+else
+  URL="$BASE/?token=$TOKEN"
+fi
+echo "open: $URL"
+if [ "$OPEN" = 1 ]; then open "$URL" 2>/dev/null && echo "(opened in your browser)"; fi
+exit 0

@@ -1,0 +1,10 @@
+# OS / editor
+.DS_Store
+*.swp
+
+# runtime state (not part of the tool)
+.roughdraft/
+*.log
+
+# node (in case tooling is added later)
+node_modules/
