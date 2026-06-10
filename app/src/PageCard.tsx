@@ -624,6 +624,8 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     string | null
   >(null);
 
+  const authorId = backend?.info.authorLabel ?? "user";
+
   const resolveFileUrl = useCallback(
     (path: string) => backend.resolveFileUrl(path),
     [backend],
@@ -818,7 +820,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
             if (hasOriginalText) {
               const oldChange = createCriticChange(
                 "substitution-old",
-                undefined,
+                { authorId },
                 {
                   existingChanges: getDocumentCriticChanges(currentEditor),
                 },
@@ -857,7 +859,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
               const mark =
                 existingMark ??
                 view.state.schema.marks.criticChange.create(
-                  createCriticChange("addition", undefined, {
+                  createCriticChange("addition", { authorId }, {
                     existingChanges: getDocumentCriticChanges(currentEditor),
                   }),
                 );
@@ -874,7 +876,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
             const mark =
               existingMark ??
               view.state.schema.marks.criticChange.create(
-                createCriticChange("addition", undefined, {
+                createCriticChange("addition", { authorId }, {
                   existingChanges: getDocumentCriticChanges(currentEditor),
                 }),
               );
@@ -930,7 +932,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
             if (hasOriginalText) {
               const oldChange = createCriticChange(
                 "substitution-old",
-                undefined,
+                { authorId },
                 {
                   existingChanges: getDocumentCriticChanges(currentEditor),
                 },
@@ -969,7 +971,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
               const mark =
                 existingMark ??
                 view.state.schema.marks.criticChange.create(
-                  createCriticChange("addition", undefined, {
+                  createCriticChange("addition", { authorId }, {
                     existingChanges: getDocumentCriticChanges(currentEditor),
                   }),
                 );
@@ -986,7 +988,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
             const mark =
               existingMark ??
               view.state.schema.marks.criticChange.create(
-                createCriticChange("addition", undefined, {
+                createCriticChange("addition", { authorId }, {
                   existingChanges: getDocumentCriticChanges(currentEditor),
                 }),
               );
@@ -1013,7 +1015,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
             if (!$from.parent.isTextblock) return true;
             if ($from.parentOffset !== $from.parent.content.size) return true;
 
-            const change = createCriticChange("addition", undefined, {
+            const change = createCriticChange("addition", { authorId }, {
               existingChanges: getDocumentCriticChanges(currentEditor),
             });
             const mark = view.state.schema.marks.criticChange.create(change);
@@ -1094,7 +1096,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
                     seg.to,
                   ) ??
                   view.state.schema.marks.criticChange.create(
-                    createCriticChange("deletion", undefined, {
+                    createCriticChange("deletion", { authorId }, {
                       existingChanges: getDocumentCriticChanges(currentEditor),
                     }),
                   );
@@ -1198,7 +1200,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
                   seg.to,
                 ) ??
                 view.state.schema.marks.criticChange.create(
-                  createCriticChange("deletion", undefined, {
+                  createCriticChange("deletion", { authorId }, {
                     existingChanges: getDocumentCriticChanges(currentEditor),
                   }),
                 );
@@ -1471,7 +1473,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     if (!currentEditor || currentEditor.state.selection.empty) return;
 
     const existingIds = getSelectionCommentIds(currentEditor);
-    const comment = createCriticComment(undefined, {
+    const comment = createCriticComment({ authorId }, {
       existingComments: commentsRef.current.values(),
     });
     const nextComments = new Map(commentsRef.current);
@@ -1500,7 +1502,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     const currentEditor = editorRef.current;
     if (!currentEditor || currentEditor.state.selection.empty) return;
 
-    const change = createCriticChange("deletion", undefined, {
+    const change = createCriticChange("deletion", { authorId }, {
       existingChanges: getDocumentCriticChanges(currentEditor),
     });
 
@@ -1534,7 +1536,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     }
 
     if (draftSuggestion.type === "insertion") {
-      const change = createCriticChange("addition", undefined, {
+      const change = createCriticChange("addition", { authorId }, {
         existingChanges: getDocumentCriticChanges(currentEditor),
       });
 
@@ -1559,7 +1561,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
       return;
     }
 
-    const change = createCriticChange("substitution-old", undefined, {
+    const change = createCriticChange("substitution-old", { authorId }, {
       existingChanges: getDocumentCriticChanges(currentEditor),
     });
     const replacementChange: CriticChangeAttrs = {
@@ -1635,6 +1637,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
 
       const comment = createCriticComment(
         {
+          authorId,
           parentCommentId: commentId,
         },
         {
@@ -1735,6 +1738,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
 
       const comment = createCriticComment(
         {
+          authorId,
           parentCommentId: changeId,
         },
         {
