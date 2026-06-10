@@ -191,10 +191,7 @@
     } catch (e) { return; }
     function resolve(t) { t = t.split('#')[0].split('|')[0].trim().toLowerCase(); return map[t] || map[t.split('/').pop()] || null; }
     function display(name) { var parts = name.split('|'); return (parts[1] || parts[0].split('#')[0]).trim(); }
-    // Roughdraft's AG() splits ?path= at the last slash to derive projectPath
-    // (dirname) + documentPath (basename), so the link MUST be the absolute path.
-    function abs(p) { return /^([a-zA-Z]:[\\/]|\/)/.test(p) ? p : projectDir.replace(/\/+$/, '') + '/' + p.replace(/^\/+/, ''); }
-    function navTo(path) { var u = new URL(window.location.href); u.pathname = '/'; u.searchParams.set('path', abs(path)); window.location.assign(u.pathname + u.search); }
+    function navTo(path) { var u = new URL(window.location.href); u.pathname = '/'; u.searchParams.set('path', path); window.location.assign(u.pathname + u.search); }
 
     var sc = { el: document.body, win: true };
     function detectSc() {            // re-detect each build: the inner scroller may not exist until content is laid out
@@ -284,9 +281,7 @@
       else node.dirs[last] = node.dirs[last] || { name: last, dirs: {}, files: [] };
     });
     function hasFiles(n) { if (n.files.length) return true; return Object.keys(n.dirs).some(function (k) { return hasFiles(n.dirs[k]); }); }
-    // Absolute path required: Roughdraft derives projectPath from dirname(?path=).
-    function abs(p) { return /^([a-zA-Z]:[\\/]|\/)/.test(p) ? p : projectDir.replace(/\/+$/, '') + '/' + p.replace(/^\/+/, ''); }
-    function openPath(path) { var u = new URL(window.location.href); u.pathname = '/'; u.searchParams.set('path', abs(path)); window.location.assign(u.pathname + u.search); }
+    function openPath(path) { var u = new URL(window.location.href); u.pathname = '/'; u.searchParams.set('path', path); window.location.assign(u.pathname + u.search); }
 
     var d2 = (typeof dark !== 'undefined') ? dark : false;
     function render(n, depth) {
@@ -300,7 +295,7 @@
       });
       n.files.sort(function (a, b) { return a.name.localeCompare(b.name); }).forEach(function (f) {
         var a = document.createElement('a');
-        a.textContent = '📄 ' + f.name; a.href = '/?path=' + encodeURIComponent(abs(f.path)); a.title = f.path;
+        a.textContent = '📄 ' + f.name; a.href = '/?path=' + encodeURIComponent(f.path); a.title = f.path;
         a.style.cssText = 'display:block;padding:6px 8px;margin-left:' + (depth * 18) + 'px;color:#2563eb;text-decoration:none;border-radius:6px;';
         a.onmouseenter = function () { a.style.background = d2 ? '#1e293b' : '#eff6ff'; }; a.onmouseleave = function () { a.style.background = ''; };
         a.onclick = function (e) { e.preventDefault(); openPath(f.path); };
