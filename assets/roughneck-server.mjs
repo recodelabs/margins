@@ -38,6 +38,9 @@ if (typeof createApp !== "function") {
 
 const { app: rd } = createApp({ port, projectDir });
 
+// NOTE: string-prefix check on the resolved path. A symlink inside projectDir whose
+// realpath escapes would pass this; acceptable for v1 (trusted repo content). Harden
+// with fs.realpath if we ever serve untrusted repos.
 // True iff `resolved` is the folder itself or lives inside it.
 function inside(resolved) {
   return resolved === projectDir || resolved.startsWith(projectDir + path.sep);
@@ -45,7 +48,7 @@ function inside(resolved) {
 
 const parent = express();
 parent.use((req, res, next) => {
-  if (req.path.startsWith("/api/remote-document/")) return res.sendStatus(404);
+  if (req.path.startsWith("/api/remote-document")) return res.sendStatus(404);
   if (req.path.startsWith("/api/")) {
     const u = new URL(req.url, "http://localhost");
     const rel = u.searchParams.get("path");

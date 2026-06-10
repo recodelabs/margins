@@ -6,7 +6,7 @@ set -uo pipefail
 RN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ENTRY="$RN_DIR/assets/roughneck-server.mjs"
 RD_ROOT="$(npm root -g)/roughdraft"
-PORT=7399
+PORT="$(node -e 'const s=require("net").createServer();s.listen(0,()=>{console.log(s.address().port);s.close()})')"
 HOST=127.0.0.1
 BASE="http://$HOST:$PORT"
 
@@ -54,5 +54,9 @@ check "remote-document blocked" 404 "$(code "$BASE/api/remote-document/whatever"
 # 6. status still reports the pinned folder
 check "status projectDir pinned" "$PROJ" \
   "$(curl -s "$BASE/api/status" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write((JSON.parse(s).projectDir)||""))')"
+
+# 7. percent-encoded dotdot traversal is decoded then blocked
+check "pct-encoded dotdot blocked" 403 \
+  "$(code "$BASE/api/markdown-file?path=%2e%2e%2fsecret.md")"
 
 exit $fail
