@@ -1971,6 +1971,7 @@ export function App() {
         onOverwriteDocumentOnDisk={handleOverwriteDocumentOnDisk}
         onCompleteReview={handleCompleteReview}
         backend={backend}
+        manualCommit={backend?.info.kind === "github"}
       />
     </main>
   );

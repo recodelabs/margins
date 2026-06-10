@@ -257,6 +257,7 @@ interface DocumentWorkspaceProps {
     options?: CompleteReviewOptions,
   ) => Promise<{ delivered: boolean }>;
   backend: StorageBackend | null;
+  manualCommit?: boolean;
 }
 
 export function DocumentWorkspace({
@@ -276,6 +277,7 @@ export function DocumentWorkspace({
   onOverwriteDocumentOnDisk,
   onCompleteReview,
   backend,
+  manualCommit = false,
 }: DocumentWorkspaceProps) {
   const [documentInteractionMode, setDocumentInteractionMode] =
     useState<DocumentInteractionMode>("editing");
@@ -523,6 +525,25 @@ export function DocumentWorkspace({
         data-document-status-stack="true"
       >
         <div className="flex max-w-full items-center justify-end gap-1.5">
+          {manualCommit && saveState !== "saved" ? (
+            <Button
+              type="button"
+              data-testid="github-commit-button"
+              size="lg"
+              disabled={saveState === "saving"}
+              className="h-9 rounded-[7px] border-0 bg-black px-3 text-sm font-bold text-white shadow-[0_10px_28px_rgba(0,0,0,0.18)] hover:bg-black/85 focus-visible:ring-black/25 dark:bg-black dark:text-white dark:hover:bg-black/85 dark:focus-visible:ring-white/30"
+              onClick={() => void saveControllerRef.current?.flushSave()}
+            >
+              {saveState === "saving" ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Committing…
+                </>
+              ) : (
+                "Commit"
+              )}
+            </Button>
+          ) : null}
           {showReviewHandoffButton ? (
             <Popover
               open={reviewHandoffPopoverOpen}
@@ -864,6 +885,7 @@ export function DocumentWorkspace({
               }}
               saveBlocked={documentDiskChangeState !== "clean"}
               forceResetKey={documentForceResetKey}
+              manualCommit={manualCommit}
             />
           ) : null
         ) : (
