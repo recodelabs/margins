@@ -1,0 +1,735 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
+
+@font-face {
+  font-family: "Die Grotesk A";
+  src: url("./assets/fonts/die-grotesk-a-bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Die Grotesk B";
+  src: url("./assets/fonts/die-grotesk-b-bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Die Grotesk C";
+  src: url("./assets/fonts/die-grotesk-c-bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Die Grotesk D";
+  src: url("./assets/fonts/die-grotesk-d-bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@custom-variant dark (&:is(.dark *));
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    @apply antialiased bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+@layer components {
+  .tiptap {
+    @apply min-h-[120px] text-slate-800 dark:text-slate-200 outline-none;
+    --editor-font-size: 16px;
+    font-size: var(--editor-font-size);
+    line-height: 1.58;
+  }
+
+  .tiptap p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    color: rgb(148 163 184);
+    float: left;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .tiptap h1 {
+    @apply mt-[0.1em] mb-[0.7em] font-semibold text-slate-950 dark:text-slate-50;
+    font-size: 2.15em;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+  }
+
+  .tiptap h2 {
+    @apply mt-[1.8em] mb-[0.5em] font-semibold text-slate-950 dark:text-slate-50;
+    font-size: 1.65em;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  .tiptap h3 {
+    @apply mt-[1.45em] mb-[0.35em] font-semibold text-slate-950 dark:text-slate-50;
+    font-size: 1.25em;
+    line-height: 1.28;
+    letter-spacing: -0.01em;
+  }
+
+  .tiptap p {
+    margin: 0 0 1.05em;
+  }
+
+  .tiptap > p {
+    margin-bottom: 1.05em;
+  }
+
+  .tiptap a {
+    @apply text-sky-700 dark:text-sky-400 underline decoration-sky-500/50 dark:decoration-sky-400/50 underline-offset-4;
+  }
+
+  .tiptap .comment-anchor {
+    @apply text-inherit;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
+  .tiptap .comment-decoration {
+    @apply px-0.5 text-inherit;
+    background-color: #fff5c7;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    transition:
+      background-color 140ms ease,
+      color 140ms ease;
+  }
+
+  .tiptap .comment-decoration.comment-decoration-hovered {
+    @apply text-inherit;
+    background-color: #ffd000;
+  }
+
+  .tiptap .comment-decoration.comment-decoration-active {
+    @apply text-inherit;
+    background-color: #ffd000;
+  }
+
+  .dark .tiptap .comment-decoration {
+    background-color: rgb(133 77 14 / 0.35);
+  }
+
+  .dark .tiptap .comment-decoration.comment-decoration-hovered,
+  .dark .tiptap .comment-decoration.comment-decoration-active {
+    background-color: rgb(180 83 9 / 0.55);
+  }
+
+  .tiptap .comment-decoration.comment-decoration-on-critic-change {
+    background-color: transparent;
+  }
+
+  .tiptap .critic-change {
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
+  .tiptap .critic-change-addition,
+  .tiptap .critic-change-substitution-new {
+    @apply rounded-sm px-0.5 text-emerald-850 dark:text-emerald-300;
+    background-color: rgb(236 253 245 / 0.95);
+    text-decoration: underline;
+    text-decoration-color: rgb(16 185 129 / 0.75);
+    text-underline-offset: 0.16em;
+  }
+
+  .dark .tiptap .critic-change-addition,
+  .dark .tiptap .critic-change-substitution-new {
+    background-color: rgb(6 78 59 / 0.5);
+    text-decoration-color: rgb(52 211 153 / 0.6);
+  }
+
+  .tiptap .critic-change-deletion,
+  .tiptap .critic-change-substitution-old {
+    @apply rounded-sm px-0.5 text-rose-950 dark:text-rose-300;
+    background-color: rgb(255 241 242 / 0.95);
+    text-decoration: line-through;
+    text-decoration-color: rgb(225 29 72 / 0.75);
+  }
+
+  .dark .tiptap .critic-change-deletion,
+  .dark .tiptap .critic-change-substitution-old {
+    background-color: rgb(136 19 55 / 0.35);
+    text-decoration-color: rgb(251 113 133 / 0.6);
+  }
+
+  .tiptap .critic-change-decoration-hovered {
+    border-radius: 0.2rem;
+  }
+
+  .tiptap .critic-change-decoration-active {
+    border-radius: 0.2rem;
+  }
+
+  .tiptap .critic-change-addition.critic-change-decoration-hovered,
+  .tiptap .critic-change-substitution-new.critic-change-decoration-hovered,
+  .tiptap .critic-change-decoration-addition.critic-change-decoration-hovered,
+  .tiptap
+    .critic-change-decoration-substitution-new.critic-change-decoration-hovered,
+  .tiptap .critic-change-decoration-hovered .critic-change-addition,
+  .tiptap .critic-change-decoration-hovered .critic-change-substitution-new,
+  .tiptap .critic-change-addition .critic-change-decoration-hovered,
+  .tiptap .critic-change-substitution-new .critic-change-decoration-hovered {
+    background-color: rgb(209 250 229 / 0.95);
+  }
+
+  .tiptap .critic-change-addition.critic-change-decoration-active,
+  .tiptap .critic-change-substitution-new.critic-change-decoration-active,
+  .tiptap .critic-change-decoration-addition.critic-change-decoration-active,
+  .tiptap
+    .critic-change-decoration-substitution-new.critic-change-decoration-active,
+  .tiptap .critic-change-decoration-active .critic-change-addition,
+  .tiptap .critic-change-decoration-active .critic-change-substitution-new,
+  .tiptap .critic-change-addition .critic-change-decoration-active,
+  .tiptap .critic-change-substitution-new .critic-change-decoration-active {
+    background-color: rgb(167 243 208 / 0.95);
+  }
+
+  .tiptap .critic-change-deletion.critic-change-decoration-hovered,
+  .tiptap .critic-change-substitution-old.critic-change-decoration-hovered,
+  .tiptap .critic-change-decoration-deletion.critic-change-decoration-hovered,
+  .tiptap
+    .critic-change-decoration-substitution-old.critic-change-decoration-hovered,
+  .tiptap .critic-change-decoration-hovered .critic-change-deletion,
+  .tiptap .critic-change-decoration-hovered .critic-change-substitution-old,
+  .tiptap .critic-change-deletion .critic-change-decoration-hovered,
+  .tiptap .critic-change-substitution-old .critic-change-decoration-hovered {
+    background-color: rgb(255 228 230 / 0.95);
+  }
+
+  .tiptap .critic-change-deletion.critic-change-decoration-active,
+  .tiptap .critic-change-substitution-old.critic-change-decoration-active,
+  .tiptap .critic-change-decoration-deletion.critic-change-decoration-active,
+  .tiptap
+    .critic-change-decoration-substitution-old.critic-change-decoration-active,
+  .tiptap .critic-change-decoration-active .critic-change-deletion,
+  .tiptap .critic-change-decoration-active .critic-change-substitution-old,
+  .tiptap .critic-change-deletion .critic-change-decoration-active,
+  .tiptap .critic-change-substitution-old .critic-change-decoration-active {
+    background-color: rgb(254 205 211 / 0.95);
+  }
+
+  .dark .tiptap .critic-change-addition.critic-change-decoration-hovered,
+  .dark
+    .tiptap
+    .critic-change-substitution-new.critic-change-decoration-hovered,
+  .dark
+    .tiptap
+    .critic-change-decoration-addition.critic-change-decoration-hovered,
+  .dark
+    .tiptap
+    .critic-change-decoration-substitution-new.critic-change-decoration-hovered,
+  .dark .tiptap .critic-change-decoration-hovered .critic-change-addition,
+  .dark
+    .tiptap
+    .critic-change-decoration-hovered
+    .critic-change-substitution-new,
+  .dark .tiptap .critic-change-addition .critic-change-decoration-hovered,
+  .dark
+    .tiptap
+    .critic-change-substitution-new
+    .critic-change-decoration-hovered {
+    background-color: rgb(6 78 59 / 0.65);
+  }
+
+  .dark .tiptap .critic-change-addition.critic-change-decoration-active,
+  .dark .tiptap .critic-change-substitution-new.critic-change-decoration-active,
+  .dark
+    .tiptap
+    .critic-change-decoration-addition.critic-change-decoration-active,
+  .dark
+    .tiptap
+    .critic-change-decoration-substitution-new.critic-change-decoration-active,
+  .dark .tiptap .critic-change-decoration-active .critic-change-addition,
+  .dark
+    .tiptap
+    .critic-change-decoration-active
+    .critic-change-substitution-new,
+  .dark .tiptap .critic-change-addition .critic-change-decoration-active,
+  .dark
+    .tiptap
+    .critic-change-substitution-new
+    .critic-change-decoration-active {
+    background-color: rgb(6 78 59 / 0.8);
+  }
+
+  .dark .tiptap .critic-change-deletion.critic-change-decoration-hovered,
+  .dark
+    .tiptap
+    .critic-change-substitution-old.critic-change-decoration-hovered,
+  .dark
+    .tiptap
+    .critic-change-decoration-deletion.critic-change-decoration-hovered,
+  .dark
+    .tiptap
+    .critic-change-decoration-substitution-old.critic-change-decoration-hovered,
+  .dark .tiptap .critic-change-decoration-hovered .critic-change-deletion,
+  .dark
+    .tiptap
+    .critic-change-decoration-hovered
+    .critic-change-substitution-old,
+  .dark .tiptap .critic-change-deletion .critic-change-decoration-hovered,
+  .dark
+    .tiptap
+    .critic-change-substitution-old
+    .critic-change-decoration-hovered {
+    background-color: rgb(136 19 55 / 0.5);
+  }
+
+  .dark .tiptap .critic-change-deletion.critic-change-decoration-active,
+  .dark .tiptap .critic-change-substitution-old.critic-change-decoration-active,
+  .dark
+    .tiptap
+    .critic-change-decoration-deletion.critic-change-decoration-active,
+  .dark
+    .tiptap
+    .critic-change-decoration-substitution-old.critic-change-decoration-active,
+  .dark .tiptap .critic-change-decoration-active .critic-change-deletion,
+  .dark
+    .tiptap
+    .critic-change-decoration-active
+    .critic-change-substitution-old,
+  .dark .tiptap .critic-change-deletion .critic-change-decoration-active,
+  .dark
+    .tiptap
+    .critic-change-substitution-old
+    .critic-change-decoration-active {
+    background-color: rgb(136 19 55 / 0.65);
+  }
+
+  .tiptap code {
+    @apply rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[0.9em] text-slate-900 dark:text-slate-200;
+  }
+
+  .tiptap .comment-decoration code,
+  .tiptap .comment-anchor code,
+  .tiptap .critic-change code {
+    @apply bg-transparent;
+    box-shadow: inset 0 0 0 1px rgb(15 23 42 / 12%);
+  }
+
+  .dark .tiptap .comment-decoration code,
+  .dark .tiptap .comment-anchor code,
+  .dark .tiptap .critic-change code {
+    box-shadow: inset 0 0 0 1px rgb(226 232 240 / 15%);
+  }
+
+  .tiptap pre {
+    @apply overflow-x-auto rounded-2xl border p-4;
+    margin: 1.35em 0;
+    background-color: var(--code-block-background);
+    border-color: var(--code-block-border);
+    color: var(--code-block-foreground);
+  }
+
+  .tiptap pre code {
+    @apply bg-transparent p-0 text-inherit;
+  }
+
+  .tiptap blockquote {
+    @apply border-l-4 border-slate-300 dark:border-slate-600 pl-4 text-slate-600 dark:text-slate-400;
+    margin: 1.3em 0;
+  }
+
+  .tiptap ul {
+    @apply list-disc;
+    margin: 0.45em 0 1.05em;
+    padding-left: 1.35em;
+  }
+
+  .tiptap ol {
+    @apply list-decimal;
+    margin: 0.45em 0 1.05em;
+    padding-left: 1.35em;
+  }
+
+  .tiptap li > ul,
+  .tiptap li > ol {
+    margin-top: 0.45em;
+    padding-left: 1.35em;
+  }
+
+  .tiptap li p {
+    margin: 0 0 0.55em 0;
+  }
+
+  .tiptap li > p:last-child {
+    margin-bottom: 0;
+  }
+
+  .tiptap ol ol li {
+    list-style-type: lower-alpha;
+  }
+
+  .tiptap ol ol ol li {
+    list-style-type: lower-roman;
+  }
+
+  .tiptap ol ol ol ol li {
+    list-style-type: decimal;
+  }
+
+  .tiptap li::marker {
+    color: rgb(51 65 85);
+  }
+
+  .dark .tiptap li::marker {
+    color: rgb(148 163 184);
+  }
+
+  .tiptap hr {
+    @apply my-6 border-0 border-t border-slate-200 dark:border-slate-700;
+  }
+
+  .tiptap img {
+    @apply my-4 block h-auto max-w-full rounded-2xl;
+  }
+
+  .tiptap .tableWrapper {
+    @apply my-4 overflow-x-auto rounded-2xl;
+  }
+
+  .tiptap table {
+    @apply table-fixed border-collapse;
+    /* biome-ignore lint/complexity/noImportantStyles: override Tiptap inline min-width */
+    min-width: 100% !important;
+  }
+
+  .tiptap th,
+  .tiptap td {
+    @apply relative min-w-[1em] border border-slate-200 dark:border-slate-700 px-3 py-2 text-left align-top;
+  }
+
+  .tiptap th {
+    @apply bg-slate-50 dark:bg-slate-800 font-semibold text-slate-900 dark:text-slate-100;
+  }
+
+  .tiptap td > *,
+  .tiptap th > * {
+    margin-bottom: 0;
+  }
+
+  .tiptap .selectedCell::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgb(14 165 233 / 0.12);
+    pointer-events: none;
+  }
+
+  .tiptap .column-resize-handle {
+    position: absolute;
+    top: 0;
+    right: -2px;
+    bottom: -2px;
+    width: 4px;
+    background: rgb(2 132 199);
+    pointer-events: none;
+  }
+
+  .tiptap.resize-cursor {
+    cursor: col-resize;
+  }
+
+  .tiptap ul[data-type="taskList"] {
+    @apply my-3 list-none p-0;
+  }
+
+  .tiptap ul[data-type="taskList"] li {
+    @apply my-1.5 flex items-start gap-2.5;
+  }
+
+  .tiptap ul[data-type="taskList"] li > label {
+    @apply mt-1 shrink-0;
+  }
+
+  .tiptap ul[data-type="taskList"] li > label input[type="checkbox"] {
+    @apply size-4 cursor-pointer;
+  }
+
+  .tiptap ul[data-type="taskList"] li > div {
+    @apply flex-1;
+  }
+
+  .tiptap ul[data-type="taskList"] li[data-checked="true"] > div > p {
+    @apply line-through opacity-70;
+  }
+
+  .tiptap ul[data-type="taskList"] li > div p {
+    margin: 0;
+  }
+
+  .markdown-code-editor {
+    color: rgb(15 23 42);
+  }
+
+  .dark .markdown-code-editor {
+    color: rgb(226 232 240);
+    --cm-selection-bg: rgb(30 58 138 / 0.45);
+  }
+
+  .markdown-code-editor .cm-editor {
+    background: transparent;
+  }
+
+  .markdown-code-editor .cm-scroller {
+    overflow: auto;
+  }
+
+  .markdown-code-editor .cm-gutters {
+    flex-shrink: 0;
+  }
+
+  .markdown-code-editor .cm-content,
+  .markdown-code-editor .cm-line {
+    caret-color: rgb(15 23 42);
+  }
+
+  .markdown-code-editor .cm-cursor,
+  .markdown-code-editor .cm-dropCursor {
+    border-left-color: rgb(15 23 42);
+  }
+
+  .dark .markdown-code-editor .cm-content,
+  .dark .markdown-code-editor .cm-line {
+    caret-color: rgb(226 232 240);
+  }
+
+  .dark .markdown-code-editor .cm-cursor,
+  .dark .markdown-code-editor .cm-dropCursor {
+    border-left-color: rgb(226 232 240);
+  }
+
+  .rfm-source-editor .cm-editor {
+    min-height: calc(70vh + 4.5rem);
+  }
+
+  .rfm-source-editor .cm-scroller {
+    min-height: calc(70vh + 4.5rem);
+  }
+
+  .rfm-source-editor .cm-content {
+    min-height: 19rem;
+    padding: 1rem;
+  }
+
+  .rfm-source-editor .cm-line {
+    padding: 0;
+  }
+
+  .rfm-source-editor .cm-content,
+  .rfm-source-editor .cm-line {
+    caret-color: rgb(226 232 240);
+  }
+
+  .rfm-source-editor .cm-cursor,
+  .rfm-source-editor .cm-dropCursor {
+    border-left-color: rgb(226 232 240);
+  }
+
+  .rfm-source-editor .cm-gutters {
+    color: rgb(148 163 184);
+  }
+
+  .rfm-source-editor .cm-activeLineGutter {
+    color: rgb(226 232 240);
+  }
+
+  .rfm-result-editor .tiptap {
+    min-height: 17rem;
+    --editor-font-size: 14px;
+  }
+
+  .rfm-result-editor .tiptap h1 {
+    font-size: 1.65em;
+  }
+
+  .rfm-result-editor .tiptap h2 {
+    margin-top: 1.2em;
+    font-size: 1.3em;
+  }
+
+  .rfm-result-editor .tiptap h3 {
+    margin-top: 1em;
+    font-size: 1.12em;
+  }
+}
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: "Inter Variable", sans-serif;
+  --font-die-grotesk-a: "Die Grotesk A", sans-serif;
+  --font-die-grotesk-b: "Die Grotesk B", sans-serif;
+  --font-die-grotesk-c: "Die Grotesk C", sans-serif;
+  --font-die-grotesk-d: "Die Grotesk D", sans-serif;
+  --color-emerald-850: rgb(6 83 61);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --background: #fcfcfc;
+  --foreground: oklch(0.141 0.006 67.1);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.141 0.006 67.1);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.141 0.006 67.1);
+  --primary: oklch(0.21 0.006 56.1);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.967 0.003 84.7);
+  --secondary-foreground: oklch(0.21 0.006 56.1);
+  --muted: oklch(0.967 0.003 84.7);
+  --muted-foreground: oklch(0.552 0.014 66.4);
+  --accent: oklch(0.967 0.003 84.7);
+  --accent-foreground: oklch(0.21 0.006 56.1);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.92 0.005 84.2);
+  --input: oklch(0.92 0.005 84.2);
+  --ring: oklch(0.705 0.012 67.8);
+  --chart-1: oklch(0.809 0.105 251.813);
+  --chart-2: oklch(0.623 0.214 259.815);
+  --chart-3: oklch(0.546 0.245 262.881);
+  --chart-4: oklch(0.488 0.243 264.376);
+  --chart-5: oklch(0.424 0.199 265.638);
+  --radius: 0.45rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.141 0.006 67.1);
+  --sidebar-primary: oklch(0.21 0.006 56.1);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.967 0.003 84.7);
+  --sidebar-accent-foreground: oklch(0.21 0.006 56.1);
+  --sidebar-border: oklch(0.92 0.005 84.2);
+  --sidebar-ring: oklch(0.705 0.012 67.8);
+  --code-block-background: oklch(0.985 0.002 84.7);
+  --code-block-border: oklch(0.92 0.005 84.2);
+  --code-block-foreground: oklch(0.141 0.006 67.1);
+}
+
+.dark {
+  --background: oklch(0.141 0.006 67.1);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.21 0.006 56.1);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.21 0.006 56.1);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.92 0.005 84.2);
+  --primary-foreground: oklch(0.21 0.006 56.1);
+  --secondary: oklch(0.274 0.006 61.4);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.274 0.006 61.4);
+  --muted-foreground: oklch(0.705 0.012 67.8);
+  --accent: oklch(0.274 0.006 61.4);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.552 0.014 66.4);
+  --chart-1: oklch(0.809 0.105 251.813);
+  --chart-2: oklch(0.623 0.214 259.815);
+  --chart-3: oklch(0.546 0.245 262.881);
+  --chart-4: oklch(0.488 0.243 264.376);
+  --chart-5: oklch(0.424 0.199 265.638);
+  --sidebar: oklch(0.21 0.006 56.1);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.274 0.006 61.4);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.552 0.014 66.4);
+  --code-block-background: oklch(0.141 0.006 67.1);
+  --code-block-border: oklch(1 0 0 / 10%);
+  --code-block-foreground: oklch(0.985 0 0);
+}
+
+@keyframes document-save-status-saved-fade {
+  0%,
+  20% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+.document-save-status-saved {
+  animation: document-save-status-saved-fade 2s ease-out forwards;
+}
