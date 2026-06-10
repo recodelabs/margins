@@ -4,6 +4,7 @@
 #   roughneck [--local] [--no-open] [FOLDER] [FILE.md]
 #   roughneck list                 # show running roughneck servers
 #   roughneck stop [FOLDER|all]    # stop a server (default: the one for FOLDER/cwd)
+#   roughneck redeploy             # force-copy assets + re-apply patches (dev loop)
 #
 # Defaults: serves FOLDER (or cwd) on your local network (0.0.0.0) so other devices
 # can reach it at http://<this-host>.local:<port>/. Use --local to bind loopback only.
@@ -133,6 +134,16 @@ cmd_list(){
   [ "$any" = 0 ] && echo "no roughneck servers tracked"
 }
 
+# Force-copy the bundled assets into the installed Roughdraft and (re)apply every
+# patch. Use during development after editing assets/ — no marker check, always copies.
+cmd_redeploy(){
+  [ -d "$APPDIR/assets" ] || die "Roughdraft app dir not found: $APPDIR"
+  cp -f "$RN_ASSETS/roughneck-enhance.js" "$APPDIR/assets/roughneck-enhance.js"
+  cp -f "$RN_ASSETS/mermaid.min.js" "$APPDIR/assets/mermaid.min.js"
+  ensure_enhance_patch; ensure_spa_fix; ensure_url_fix
+  echo "roughneck: redeployed assets + patches (hard-refresh the browser to pick them up)"
+}
+
 cmd_stop(){
   local target="${1:-$PWD}"
   if [ "$target" = "all" ]; then
@@ -154,6 +165,7 @@ case "${1:-}" in
   stop) shift; cmd_stop "$@"; exit 0 ;;
   patch-mermaid) ensure_enhance_patch; exit 0 ;;
   enhance) ensure_enhance_patch; exit 0 ;;
+  redeploy) cmd_redeploy; exit 0 ;;
   -h|--help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
 esac
 

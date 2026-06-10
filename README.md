@@ -29,8 +29,20 @@ ln -sf "$PWD/roughneck/roughneck" /opt/homebrew/bin/roughneck   # or anywhere on
 roughneck [--local] [--no-open] [FOLDER] [FILE.md]   # serve FOLDER (default: cwd); optionally open FILE
 roughneck list                                       # show running servers
 roughneck stop [FOLDER|all]                          # stop a server
-roughneck enhance                                    # (re)apply the in-browser enhancements
+roughneck enhance                                    # apply the in-browser enhancements (if not already)
+roughneck redeploy                                   # force-copy assets + re-apply patches (dev loop)
 ```
+
+### Development loop
+
+After editing anything under `assets/`:
+
+```bash
+roughneck redeploy   # force-copies the assets and re-applies all patches
+```
+
+then hard-refresh the browser (Cmd/Ctrl+Shift+R). `redeploy` always copies (no marker check),
+so it's the one command to run while iterating.
 
 - Default binds to `0.0.0.0` so devices on your LAN can reach it at `http://<host>.local:<port>/`.
   Use `--local` to bind loopback only.
