@@ -38,9 +38,12 @@ roughneck enhance                                    # (re)apply the in-browser 
 
 ## How it works
 
-`roughneck` is a thin shell wrapper around Roughdraft's own server (`child.js`), plus a set of
-**patches applied to the installed Roughdraft** on every run (idempotent, re-applied after upgrades,
-with `.rn-bak` backups):
+`roughneck` launches an in-process **gatekeeper** (`assets/roughneck-server.mjs`) that imports
+Roughdraft's exported `createApp` and wraps it in a guard which confines serving to the launched
+folder (forces `projectPath`, 403s paths that escape, blocks the remote-document routes) — so the
+security boundary lives in roughneck's own code and Roughdraft updates keep importing cleanly. On top
+of that it applies a set of **patches to the installed Roughdraft** on every run (idempotent,
+re-applied after upgrades, with `.rn-bak` backups):
 
 | Patch | Target | Why |
 |---|---|---|
