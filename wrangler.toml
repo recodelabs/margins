@@ -1,0 +1,6 @@
+# Cloudflare Pages config for roughneck-web.
+# Static SPA is built to app/dist; the auth token-exchange lives in functions/
+# (auto-detected by Pages as a Function at /api/auth/*).
+name = "roughneck-web"
+compatibility_date = "2026-06-10"
+pages_build_output_dir = "app/dist"
