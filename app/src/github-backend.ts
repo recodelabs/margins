@@ -23,25 +23,15 @@ function titleFromContent(content: string, fallback: string): string {
 function pageId(relativePath: string): string {
   return relativePath.replace(/\.md$/i, "");
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-declare const Buffer: any;
-
 function decodeBase64(b64: string): string {
-  const clean = b64.replace(/\n/g, "");
-  if (typeof atob === "function") {
-    const bytes = Uint8Array.from(atob(clean), (c) => c.charCodeAt(0));
-    return new TextDecoder().decode(bytes);
-  }
-  return Buffer.from(clean, "base64").toString("utf8");
+  const bytes = Uint8Array.from(atob(b64.replace(/\n/g, "")), (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
 }
 function encodeBase64(text: string): string {
-  if (typeof btoa === "function") {
-    const bytes = new TextEncoder().encode(text);
-    let bin = "";
-    bytes.forEach((byte) => { bin += String.fromCharCode(byte); });
-    return btoa(bin);
-  }
-  return Buffer.from(text, "utf8").toString("base64");
+  const bytes = new TextEncoder().encode(text);
+  let bin = "";
+  bytes.forEach((byte) => { bin += String.fromCharCode(byte); });
+  return btoa(bin);
 }
 
 export class GitHubBackend implements StorageBackend {
@@ -105,7 +95,19 @@ export class GitHubBackend implements StorageBackend {
       }),
     });
     if (res.status === 409 || res.status === 422) {
-      const current = await this.readFile(relativePath);
+      const errBody = (await res.json().catch(() => ({}))) as { message?: string };
+      // 422 is also used for plain validation errors — only a SHA mismatch is a real conflict.
+      if (res.status === 422 && !errBody.message?.includes("but expected")) {
+        throw new Error(`GitHub save failed (422): ${errBody.message ?? "validation error"}`);
+      }
+      let current: Page;
+      try {
+        current = await this.readFile(relativePath);
+      } catch {
+        throw new Error(
+          `GitHub conflict detected but the current file could not be re-read (${res.status})`,
+        );
+      }
       throw new MarkdownFileConflictError(current);
     }
     if (!res.ok) throw new Error(`GitHub save failed (${res.status})`);
@@ -125,7 +127,13 @@ export class GitHubBackend implements StorageBackend {
       { headers: this.headers() },
     );
     if (!res.ok) throw new Error(`GitHub tree failed (${res.status})`);
-    const json = (await res.json()) as { tree: Array<{ path: string; type: string }> };
+    const json = (await res.json()) as {
+      tree: Array<{ path: string; type: string }>;
+      truncated?: boolean;
+    };
+    if (json.truncated) {
+      throw new Error("GitHub tree listing was truncated (repo too large to list recursively)");
+    }
     return json.tree
       .filter((e) => e.type === "blob" && /\.md$/i.test(e.path))
       .map((e) => e.path);

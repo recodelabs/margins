@@ -10,7 +10,12 @@ function backend() {
     token: "tok", owner: "o", repo: "r", branch: "main", login: "octocat",
   });
 }
-const b64 = (s: string) => Buffer.from(s, "utf8").toString("base64");
+const b64 = (s: string) => {
+  const bytes = new TextEncoder().encode(s);
+  let bin = "";
+  bytes.forEach((byte) => { bin += String.fromCharCode(byte); });
+  return btoa(bin);
+};
 
 describe("GitHubBackend", () => {
   it("info reflects repo and login", () => {
@@ -101,6 +106,17 @@ describe("GitHubBackend", () => {
       { headers: { Authorization: "Bearer tok", Accept: "application/vnd.github+json" } },
     );
     expect(paths).toEqual(["a.md", "docs/b.md"]);
+  });
+
+  it("round-trips multibyte UTF-8 content (accents, CJK, emoji)", async () => {
+    const text = "# Héllo\n\n日本語 🎉\n";
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      sha: "m1", content: b64(text), encoding: "base64",
+    }), { status: 200 }));
+    global.fetch = fetchMock as unknown as typeof fetch;
+    const page = await backend().getMarkdownFile("u.md");
+    expect(page.content).toBe(text);
+    expect(page.title).toBe("Héllo");
   });
 
   it("resolveFileUrl returns a raw URL; saveAsset throws not-supported; openProject is a no-op", async () => {
