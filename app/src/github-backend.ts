@@ -75,6 +75,9 @@ export class GitHubBackend implements StorageBackend {
   }
 
   async getMarkdownFile(relativePath: string): Promise<Page> {
+    if (!/\.md$/i.test(relativePath)) {
+      throw new Error("Only markdown (.md) files can be opened in roughneck");
+    }
     return this.readFile(relativePath);
   }
 
@@ -83,6 +86,9 @@ export class GitHubBackend implements StorageBackend {
     content: string,
     expectedVersion?: string,
   ): Promise<Page | undefined> {
+    if (!/\.md$/i.test(relativePath)) {
+      throw new Error("Only markdown (.md) files can be opened in roughneck");
+    }
     const { owner, repo, branch } = this.cfg;
     const res = await fetch(`${API}/repos/${owner}/${repo}/contents/${relativePath}`, {
       method: "PUT",

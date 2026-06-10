@@ -126,4 +126,33 @@ describe("GitHubBackend", () => {
     await expect(bk.saveAsset(new File(["x"], "x.png"))).rejects.toThrow(/not supported/i);
     await expect(bk.openProject("anything")).resolves.toBeUndefined();
   });
+
+  describe("markdown-only guard", () => {
+    it("getMarkdownFile rejects a non-.md path without calling fetch", async () => {
+      const fetchMock = vi.fn();
+      global.fetch = fetchMock as unknown as typeof fetch;
+      await expect(backend().getMarkdownFile("data.csv")).rejects.toThrow(
+        "Only markdown (.md) files can be opened in roughneck",
+      );
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("saveMarkdownFile rejects a non-.md path without calling fetch", async () => {
+      const fetchMock = vi.fn();
+      global.fetch = fetchMock as unknown as typeof fetch;
+      await expect(backend().saveMarkdownFile("config.json", "{}")).rejects.toThrow(
+        "Only markdown (.md) files can be opened in roughneck",
+      );
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("getMarkdownFile accepts a .MD (uppercase) path", async () => {
+      const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+        sha: "x1", content: b64("# Upper\n"), encoding: "base64",
+      }), { status: 200 }));
+      global.fetch = fetchMock as unknown as typeof fetch;
+      const page = await backend().getMarkdownFile("NOTE.MD");
+      expect(page.content).toBe("# Upper\n");
+    });
+  });
 });
