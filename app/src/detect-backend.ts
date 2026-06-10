@@ -2,6 +2,8 @@ import type { StorageBackend } from "./storage";
 import { ApiBackend } from "./api-backend";
 import { LocalStorageBackend } from "./local-storage-backend";
 import { RemoteBackend } from "./remote-backend";
+import { GitHubBackend } from "./github-backend";
+import { captureTokenFromUrl, fetchLogin } from "./github-auth";
 
 interface StatusPayload {
   backend?: string;
@@ -13,6 +15,18 @@ interface StatusPayload {
 export async function detectBackend(): Promise<StorageBackend> {
   if (import.meta.env.VITE_PREVIEW_WEB === "1") {
     return new LocalStorageBackend();
+  }
+
+  if (import.meta.env.VITE_GITHUB_MODE === "1") {
+    const token = captureTokenFromUrl();
+    const params = new URLSearchParams(window.location.search);
+    const [owner, repo] = (params.get("repo") || "").split("/");
+    const branch = params.get("ref") || "main";
+    if (token && owner && repo) {
+      const login = await fetchLogin(token).catch(() => "user");
+      return new GitHubBackend({ token, owner, repo, branch, login });
+    }
+    // Not enough info yet (no token or repo) — fall through; the picker (Task 7) handles it.
   }
 
   const sessionId = readSessionIdFromUrl();
@@ -65,4 +79,17 @@ function readTokenFromUrl(): string {
   if (typeof window === "undefined") return "";
   const params = new URLSearchParams(window.location.search);
   return params.get("token")?.trim() ?? "";
+}
+
+export function isGitHubMode(): boolean {
+  return import.meta.env.VITE_GITHUB_MODE === "1";
+}
+
+export function gitHubSelectionFromUrl(): { token: string | null; repo: string; ref: string } {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    token: captureTokenFromUrl(),
+    repo: params.get("repo") || "",
+    ref: params.get("ref") || "main",
+  };
 }

@@ -44,7 +44,7 @@ import {
   DialogTrigger,
 } from "./components/ui/dialog";
 import { DocumentWorkspace } from "./DocumentWorkspace";
-import { detectBackend } from "./detect-backend";
+import { detectBackend, isGitHubMode } from "./detect-backend";
 import {
   getCommentAnchorMeasurements,
   groupCommentAnchorMeasurements,
@@ -1541,6 +1541,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    if (isGitHubMode()) return;
     const sourceUrl = new URL("/api/open-requests", window.location.origin);
     if (requestedPathState.rawPath) {
       sourceUrl.searchParams.set("path", requestedPathState.rawPath);
