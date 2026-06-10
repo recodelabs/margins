@@ -1,13 +1,53 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
+import { exchangeCodeForToken } from "../auth/exchange";
 
-export default defineConfig(() => {
+function authDevPlugin(env: Record<string, string>) {
+  return {
+    name: "roughneck-auth-dev",
+    configureServer(server: import("vite").ViteDevServer) {
+      server.middlewares.use(async (req, res, next) => {
+        const url = new URL(req.url || "", "http://localhost");
+        if (url.pathname === "/api/auth/login") {
+          const redirectUri = `${url.origin}/api/auth/callback`;
+          const authorize = new URL("https://github.com/login/oauth/authorize");
+          authorize.searchParams.set("client_id", env.GITHUB_CLIENT_ID || "");
+          authorize.searchParams.set("redirect_uri", redirectUri);
+          authorize.searchParams.set("state", url.searchParams.get("state") || "");
+          res.statusCode = 302;
+          res.setHeader("Location", authorize.toString());
+          res.end();
+          return;
+        }
+        if (url.pathname === "/api/auth/callback") {
+          try {
+            const token = await exchangeCodeForToken(url.searchParams.get("code") || "", {
+              clientId: env.GITHUB_CLIENT_ID || "",
+              clientSecret: env.GITHUB_CLIENT_SECRET || "",
+            });
+            res.statusCode = 302;
+            res.setHeader("Location", `/#token=${encodeURIComponent(token)}`);
+            res.end();
+          } catch (e) {
+            res.statusCode = 500;
+            res.end(String(e instanceof Error ? e.message : e));
+          }
+          return;
+        }
+        next();
+      });
+    },
+  };
+}
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
   const apiPort = parseInt(process.env.API_PORT || "3001", 10);
 
   return {
-    plugins: [tailwindcss(), react()],
+    plugins: [tailwindcss(), react(), authDevPlugin(env)],
     resolve: {
       alias: {
         "@": fileURLToPath(new URL("./src", import.meta.url)),
