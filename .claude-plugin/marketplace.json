@@ -1,0 +1,32 @@
+{
+  "name": "roughneck",
+  "id": "roughneck",
+  "owner": {
+    "name": "mberg"
+  },
+  "metadata": {
+    "description": "roughdraft.md tooling — includes the margins skill for human/agent collaboration on annotated working docs.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "margins",
+      "source": "./",
+      "description": "Collaborate on markdown working docs via roughdraft.md CriticMarkup comments: review passes, rewrite passes, comment resolution, versioning, direct-push git flow.",
+      "version": "0.1.0",
+      "author": {
+        "name": "mberg"
+      },
+      "keywords": [
+        "roughdraft",
+        "criticmarkup",
+        "review",
+        "comments",
+        "markdown",
+        "writing",
+        "working-doc"
+      ],
+      "category": "workflow"
+    }
+  ]
+}

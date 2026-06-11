@@ -1,0 +1,11 @@
+{
+  "name": "margins",
+  "description": "Claude Code skill for collaborating on markdown working docs annotated with roughdraft.md CriticMarkup comments: review passes (reply to comments), rewrite passes (apply edits, resolve comments), versioning, and direct-push git flow.",
+  "version": "0.1.0",
+  "author": {
+    "name": "mberg"
+  },
+  "license": "MIT",
+  "keywords": ["roughdraft", "criticmarkup", "review", "comments", "markdown", "writing", "working-doc"],
+  "skills": ["./skills/margins"]
+}

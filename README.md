@@ -82,3 +82,20 @@ assets/patch-url.mjs            # the SPA URL-normalization patch
 ## License
 
 MIT (same as Roughdraft). See [LICENSE](LICENSE).
+
+## The margins skill (Claude Code)
+
+`skills/margins/` ships a [Claude Code skill](https://agentskills.io) that teaches an agent the
+roughdraft.md collaboration workflow: the human writes and annotates the doc with CriticMarkup
+comments (`{==span==}{>>comment<<}`); the agent runs explicitly-triggered **review passes**
+(reply to comments only, +0.0.1 version bump) and **rewrite passes** (apply edits, resolve
+comments, +0.1 bump), keeps the frontmatter + visible version stamp in sync, and commits/pushes
+directly back to the doc's branch. All agent↔human communication happens in the doc itself.
+
+Install it:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/recodelabs/roughneck/main/skills/margins/install.sh | bash
+```
+
+or as a plugin: `/plugin marketplace add recodelabs/roughneck` then `/plugin install margins@roughneck`.
