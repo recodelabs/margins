@@ -3,7 +3,7 @@ import { ApiBackend } from "./api-backend";
 import { LocalStorageBackend } from "./local-storage-backend";
 import { RemoteBackend } from "./remote-backend";
 import { GitHubBackend } from "./github-backend";
-import { captureTokenFromUrl, fetchLogin } from "./github-auth";
+import { completeLoginFromUrl, fetchLogin } from "./github-auth";
 import { parseGitHubLocation } from "./github-route";
 
 interface StatusPayload {
@@ -19,7 +19,7 @@ export async function detectBackend(): Promise<StorageBackend> {
   }
 
   if (import.meta.env.VITE_GITHUB_MODE === "1") {
-    const token = captureTokenFromUrl();
+    const token = await completeLoginFromUrl();
     const loc = parseGitHubLocation();
     if (token && loc.owner && loc.repo) {
       const login = await fetchLogin(token).catch(() => "user");
@@ -90,12 +90,12 @@ export function isGitHubMode(): boolean {
   return import.meta.env.VITE_GITHUB_MODE === "1";
 }
 
-export function gitHubSelectionFromUrl(): {
+export async function gitHubSelectionFromUrl(): Promise<{
   token: string | null;
   loc: ReturnType<typeof parseGitHubLocation>;
-} {
+}> {
   return {
-    token: captureTokenFromUrl(),
+    token: await completeLoginFromUrl(),
     loc: parseGitHubLocation(),
   };
 }
