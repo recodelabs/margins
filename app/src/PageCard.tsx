@@ -33,6 +33,10 @@ import { MarkdownCodeEditor } from "./MarkdownCodeEditor";
 import { buildLocationForLinkedMarkdownDocument } from "./app-navigation";
 import { toHtml } from "./markdown";
 import type { Page, StorageBackend } from "./storage";
+import {
+  buildSuggestionDeleteTransaction,
+  computeKeyboardDeleteRange,
+} from "./suggesting-mode";
 import { useCommentAnchorLayout } from "./useCommentAnchorLayout";
 
 export type DocumentSaveState = "saved" | "unsaved" | "saving" | "error";
@@ -1114,43 +1118,13 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
           const currentEditor = editorRef.current;
           if (!currentEditor) return false;
 
-          const { selection } = view.state;
-          let from = selection.from;
-          let to = selection.to;
-
-          if (selection.empty) {
-            const $pos = view.state.doc.resolve(selection.from);
-            const blockStart = $pos.start($pos.depth);
-            const blockEnd = $pos.end($pos.depth);
-
-            if (event.key === "Backspace") {
-              if (event.ctrlKey || event.altKey) {
-                const textBefore = view.state.doc.textBetween(
-                  blockStart,
-                  selection.from,
-                );
-                const match = textBefore.match(/\S+\s*$/);
-                from = match
-                  ? selection.from - match[0].length
-                  : Math.max(blockStart, selection.from - 1);
-              } else {
-                from = Math.max(blockStart, selection.from - 1);
-              }
-            } else {
-              if (event.ctrlKey || event.altKey) {
-                const textAfter = view.state.doc.textBetween(
-                  selection.to,
-                  blockEnd,
-                );
-                const match = textAfter.match(/^\s*\S+/);
-                to = match
-                  ? selection.to + match[0].length
-                  : Math.min(blockEnd, selection.to + 1);
-              } else {
-                to = Math.min(blockEnd, selection.to + 1);
-              }
-            }
-          }
+          const deleteKey = event.key === "Backspace" ? "Backspace" : "Delete";
+          const byWord = event.ctrlKey || event.altKey;
+          const { from, to } = computeKeyboardDeleteRange(
+            view.state,
+            deleteKey,
+            byWord,
+          );
 
           if (from === to) {
             event.preventDefault();
@@ -1159,60 +1133,16 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
 
           event.preventDefault();
 
-          const criticMarkType = view.state.schema.marks.criticChange;
-          const isAdditionKind = (m: ProseMirrorMark) =>
-            m.type === criticMarkType &&
-            (m.attrs.kind === "addition" ||
-              m.attrs.kind === "substitution-new");
-
-          // Collect segments, distinguishing suggested-insertion text
-          // from original text so we can delete the former and mark the
-          // latter.
-          type Segment = {
-            from: number;
-            to: number;
-            isAddition: boolean;
-          };
-          const segments: Segment[] = [];
-          view.state.doc.nodesBetween(from, to, (node, pos) => {
-            if (!node.isText) return;
-            const segFrom = Math.max(pos, from);
-            const segTo = Math.min(pos + node.nodeSize, to);
-            if (segFrom >= segTo) return;
-            const isAdd = node.marks.some(isAdditionKind);
-            const prev = segments[segments.length - 1];
-            if (prev && prev.isAddition === isAdd && prev.to === segFrom) {
-              prev.to = segTo;
-            } else {
-              segments.push({ from: segFrom, to: segTo, isAddition: isAdd });
-            }
-          });
-
-          const tr = view.state.tr;
-
-          // Process right-to-left so earlier positions stay valid.
-          for (const seg of [...segments].reverse()) {
-            if (seg.isAddition) {
-              tr.delete(seg.from, seg.to);
-            } else {
-              const deletionMark =
-                getReusableSuggestionDeletionMark(
-                  currentEditor,
-                  seg.from,
-                  seg.to,
-                ) ??
-                view.state.schema.marks.criticChange.create(
-                  createCriticChange("deletion", { authorId }, {
-                    existingChanges: getDocumentCriticChanges(currentEditor),
-                  }),
-                );
-              tr.addMark(seg.from, seg.to, deletionMark);
-            }
-          }
-
-          const basePos = event.key === "Backspace" ? from : to;
-          const mappedPos = tr.mapping.map(basePos, -1);
-          tr.setSelection(TextSelection.create(tr.doc, mappedPos));
+          const tr = buildSuggestionDeleteTransaction(
+            view.state,
+            { from, to },
+            {
+              markType: view.state.schema.marks.criticChange,
+              changeAttrs: { authorId },
+              existingChanges: getDocumentCriticChanges(currentEditor),
+            },
+            { selectionBasePos: deleteKey === "Backspace" ? from : to },
+          );
           tr.scrollIntoView();
 
           view.dispatch(tr);
