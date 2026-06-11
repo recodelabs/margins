@@ -904,10 +904,15 @@ export function DocumentWorkspace({
                     </div>
                   </PopoverContent>
                 </Popover>
-                <DocumentSaveStatusIndicator
-                  saveState={saveState}
-                  diskChangeState={documentDiskChangeState}
-                />
+                {/* In GitHub (manual-commit) mode the doc rests in the "unsaved"
+                    state until the user commits, and this indicator spins on
+                    "unsaved" — so the Commit button conveys status instead. */}
+                {manualCommit ? null : (
+                  <DocumentSaveStatusIndicator
+                    saveState={saveState}
+                    diskChangeState={documentDiskChangeState}
+                  />
+                )}
                 <div className="ml-auto inline-flex h-[1.25rem] shrink-0 items-center">
                   <Select<DocumentInteractionMode>
                     value={documentInteractionMode}
