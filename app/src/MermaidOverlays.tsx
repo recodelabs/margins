@@ -229,7 +229,7 @@ function runMermaidOverlays(signal: AbortSignal): () => void {
       (scrollerEl as HTMLElement).style.position = "relative";
     }
     if (!scrollerWin) {
-      scrollerEl.addEventListener("scroll", reposition);
+      scrollerEl.addEventListener("scroll", scheduleReposition);
       scrollListenerEl = scrollerEl;
     }
   }
@@ -282,20 +282,6 @@ function runMermaidOverlays(signal: AbortSignal): () => void {
     sizeSheet.textContent = rules.join("");
   }
 
-  function placeBox(box: HTMLElement, pre: HTMLElement) {
-    const pr = pre.getBoundingClientRect();
-    if (scrollerWin) {
-      box.style.left = `${pr.left + window.scrollX}px`;
-      box.style.top = `${pr.top + window.scrollY}px`;
-    } else {
-      const ar = scrollerEl.getBoundingClientRect();
-      box.style.left = `${pr.left - ar.left + (scrollerEl as HTMLElement).scrollLeft}px`;
-      box.style.top = `${pr.top - ar.top + (scrollerEl as HTMLElement).scrollTop}px`;
-    }
-    box.style.width = `${pr.width}px`;
-    box.style.height = `${pr.height}px`;
-  }
-
   function reposition() {
     for (let i = boxes.length - 1; i >= 0; i--) {
       if (!boxes[i].pre.isConnected) {
@@ -304,9 +290,38 @@ function runMermaidOverlays(signal: AbortSignal): () => void {
       }
     }
     applySizes();
-    for (const entry of boxes) {
-      placeBox(entry.box, entry.pre);
+
+    // Batch reads then writes to avoid layout thrashing on scroll/resize:
+    // read every <pre> rect (and the scroller rect once) up front, then write
+    // all overlay styles in a second pass.
+    const ar = scrollerWin ? null : scrollerEl.getBoundingClientRect();
+    const placements = boxes.map((entry) => ({
+      box: entry.box,
+      pr: entry.pre.getBoundingClientRect(),
+    }));
+    for (const { box, pr } of placements) {
+      if (scrollerWin) {
+        box.style.left = `${pr.left + window.scrollX}px`;
+        box.style.top = `${pr.top + window.scrollY}px`;
+      } else {
+        const rect = ar as DOMRect;
+        box.style.left = `${pr.left - rect.left + (scrollerEl as HTMLElement).scrollLeft}px`;
+        box.style.top = `${pr.top - rect.top + (scrollerEl as HTMLElement).scrollTop}px`;
+      }
+      box.style.width = `${pr.width}px`;
+      box.style.height = `${pr.height}px`;
     }
+  }
+
+  // rAF-throttle reposition so a burst of scroll/resize events collapses into
+  // a single layout pass per frame.
+  let repositionFrame: number | null = null;
+  function scheduleReposition() {
+    if (repositionFrame != null) return;
+    repositionFrame = requestAnimationFrame(() => {
+      repositionFrame = null;
+      reposition();
+    });
   }
 
   function applyBlock(pre: HTMLElement) {
@@ -357,6 +372,9 @@ function runMermaidOverlays(signal: AbortSignal): () => void {
     const blocks = document.querySelectorAll<HTMLElement>(
       "pre > code.language-mermaid",
     );
+    // Nothing to render and nothing already rendered → skip the layout work so a
+    // diagram-free document doesn't reflow on every keystroke.
+    if (blocks.length === 0 && boxes.length === 0) return;
     if (blocks.length) detectScroller();
     blocks.forEach((c) => applyBlock(c.parentElement as HTMLElement));
     reposition();
@@ -388,12 +406,12 @@ function runMermaidOverlays(signal: AbortSignal): () => void {
   let resObs: ResizeObserver | null = null;
   if (typeof ResizeObserver !== "undefined") {
     try {
-      resObs = new ResizeObserver(reposition);
+      resObs = new ResizeObserver(scheduleReposition);
       resObs.observe(editorRoot);
     } catch {}
   }
 
-  window.addEventListener("resize", reposition);
+  window.addEventListener("resize", scheduleReposition);
 
   // Retry scans — editor lays out async after the doc loads.
   const timers = [0, 300, 800, 1500, 2500, 4000].map((t) =>
@@ -404,8 +422,10 @@ function runMermaidOverlays(signal: AbortSignal): () => void {
     mutObs.disconnect();
     bodyObs.disconnect();
     resObs?.disconnect();
-    window.removeEventListener("resize", reposition);
-    if (scrollListenerEl) scrollListenerEl.removeEventListener("scroll", reposition);
+    window.removeEventListener("resize", scheduleReposition);
+    if (scrollListenerEl)
+      scrollListenerEl.removeEventListener("scroll", scheduleReposition);
+    if (repositionFrame != null) cancelAnimationFrame(repositionFrame);
     if (debTimer) clearTimeout(debTimer);
     timers.forEach((t) => clearTimeout(t));
     for (const entry of boxes) entry.box.remove();
