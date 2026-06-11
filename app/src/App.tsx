@@ -61,8 +61,10 @@ import { cn } from "./lib/utils";
 import type { DocumentSaveState } from "./PageCard";
 import { PreviewBackend } from "./preview-backend";
 import { RoughdraftFormatDemo } from "./RoughdraftFormatDemo";
+import { runWithErrorFeedback } from "./run-with-error-feedback";
 import {
   type CompleteReviewOptions,
+  FileTooLargeError,
   MarkdownFileConflictError,
   type Page,
   type StorageBackend,
@@ -1494,6 +1496,9 @@ export function App() {
   const [documentForceResetKey, setDocumentForceResetKey] = useState<
     string | null
   >(null);
+  const [documentActionError, setDocumentActionError] = useState<string | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
@@ -1639,7 +1644,11 @@ export function App() {
 
         console.error("Failed to open markdown file:", error);
         setActiveDocumentPath(null);
-        setLoadError("Could not open that markdown file.");
+        setLoadError(
+          error instanceof FileTooLargeError
+            ? error.message
+            : "Could not open that markdown file.",
+        );
         setLoading(false);
       }
     };
@@ -1756,52 +1765,71 @@ export function App() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [documentDiskChangeState]);
 
-  const handleReloadDocumentFromDisk = useCallback(async () => {
-    const currentBackend = backendRef.current;
-    const currentPath = activeDocumentPathRef.current;
-    if (!currentBackend || !currentPath) return;
+  const handleReloadDocumentFromDisk = useCallback(
+    () =>
+      runWithErrorFeedback(
+        async () => {
+          const currentBackend = backendRef.current;
+          const currentPath = activeDocumentPathRef.current;
+          if (!currentBackend || !currentPath) return;
 
-    const nextDocument = await currentBackend.getMarkdownFile(currentPath);
-    applyDocumentPage(nextDocument);
-    documentDirtyRef.current = false;
-    setDocumentDiskChangeState("clean");
-    setDocumentForceResetKey(
-      `${currentPath}:${nextDocument.version ?? Date.now()}`,
-    );
-  }, [applyDocumentPage]);
+          setDocumentActionError(null);
+          const nextDocument = await currentBackend.getMarkdownFile(currentPath);
+          applyDocumentPage(nextDocument);
+          documentDirtyRef.current = false;
+          setDocumentDiskChangeState("clean");
+          setDocumentForceResetKey(
+            `${currentPath}:${nextDocument.version ?? Date.now()}`,
+          );
+        },
+        setDocumentActionError,
+        "Could not reload the file from disk.",
+      ),
+    [applyDocumentPage],
+  );
 
   const handleKeepEditingWithoutAutosave = useCallback(() => {
     setDocumentDiskChangeState("paused");
   }, []);
 
-  const handleOverwriteDocumentOnDisk = useCallback(async () => {
-    const currentBackend = backendRef.current;
-    const currentPath = activeDocumentPathRef.current;
-    const currentDocument = documentPageRef.current;
-    if (!currentBackend || !currentPath || !currentDocument) return;
+  const handleOverwriteDocumentOnDisk = useCallback(
+    () =>
+      runWithErrorFeedback(
+        async () => {
+          const currentBackend = backendRef.current;
+          const currentPath = activeDocumentPathRef.current;
+          const currentDocument = documentPageRef.current;
+          if (!currentBackend || !currentPath || !currentDocument) return;
 
-    const content = documentDraftContentRef.current ?? currentDocument.content;
-    const firstLine = content.split("\n")[0] || "";
-    const fallbackTitle =
-      currentDocument.id.split("/").at(-1) || currentDocument.id;
-    const title = firstLine.replace(/^#*\s*/, "") || fallbackTitle;
-    const savedDocument = (await currentBackend.saveMarkdownFile(
-      currentPath,
-      content,
-    )) ?? {
-      ...currentDocument,
-      content,
-      title,
-    };
+          setDocumentActionError(null);
+          const content =
+            documentDraftContentRef.current ?? currentDocument.content;
+          const firstLine = content.split("\n")[0] || "";
+          const fallbackTitle =
+            currentDocument.id.split("/").at(-1) || currentDocument.id;
+          const title = firstLine.replace(/^#*\s*/, "") || fallbackTitle;
+          const savedDocument = (await currentBackend.saveMarkdownFile(
+            currentPath,
+            content,
+          )) ?? {
+            ...currentDocument,
+            content,
+            title,
+          };
 
-    applyDocumentPage(savedDocument);
-    documentDirtyRef.current = false;
-    handleDocumentSaveStateChange("saved");
-    setDocumentDiskChangeState("clean");
-    setDocumentForceResetKey(
-      `${currentPath}:${savedDocument.version ?? Date.now()}:overwrite`,
-    );
-  }, [applyDocumentPage, handleDocumentSaveStateChange]);
+          applyDocumentPage(savedDocument);
+          documentDirtyRef.current = false;
+          handleDocumentSaveStateChange("saved");
+          setDocumentDiskChangeState("clean");
+          setDocumentForceResetKey(
+            `${currentPath}:${savedDocument.version ?? Date.now()}:overwrite`,
+          );
+        },
+        setDocumentActionError,
+        "Could not overwrite the file on disk.",
+      ),
+    [applyDocumentPage, handleDocumentSaveStateChange],
+  );
 
   const handleCompleteReview = useCallback(
     async (options?: CompleteReviewOptions) => {
@@ -1978,6 +2006,8 @@ export function App() {
         onDocumentLocalContentChange={handleDocumentLocalContentChange}
         documentDiskChangeState={documentDiskChangeState}
         documentForceResetKey={documentForceResetKey}
+        documentActionError={documentActionError}
+        onDismissDocumentActionError={() => setDocumentActionError(null)}
         onReloadDocumentFromDisk={handleReloadDocumentFromDisk}
         onKeepEditingWithoutAutosave={handleKeepEditingWithoutAutosave}
         onOverwriteDocumentOnDisk={handleOverwriteDocumentOnDisk}

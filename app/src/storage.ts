@@ -21,6 +21,18 @@ export class MarkdownFileConflictError extends Error {
   }
 }
 
+export class FileTooLargeError extends Error {
+  path: string;
+  size?: number;
+
+  constructor(path: string, size?: number) {
+    super("This file is too large to open in roughneck (over 1 MB).");
+    this.name = "FileTooLargeError";
+    this.path = path;
+    this.size = size;
+  }
+}
+
 export interface StoredAsset {
   markdownPath: string;
   previewUrl: string;

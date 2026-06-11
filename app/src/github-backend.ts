@@ -4,6 +4,7 @@ import {
   type Page,
   type StoredAsset,
   MarkdownFileConflictError,
+  FileTooLargeError,
 } from "./storage";
 
 export interface GitHubBackendConfig {
@@ -64,7 +65,19 @@ export class GitHubBackend implements StorageBackend {
       { headers: this.headers() },
     );
     if (!res.ok) throw new Error(`GitHub read failed (${res.status})`);
-    const json = (await res.json()) as { sha: string; content: string };
+    const json = (await res.json()) as {
+      sha: string;
+      content: string;
+      encoding?: string;
+      size?: number;
+    };
+    // The Contents API only returns inline content for files up to 1 MB. For
+    // larger files it responds with `encoding: "none"` and an empty `content`,
+    // which would otherwise decode to "" and silently open an empty editor —
+    // and a later autosave would overwrite the real file with emptiness.
+    if (json.encoding === "none" || (json.content === "" && (json.size ?? 0) > 0)) {
+      throw new FileTooLargeError(relativePath, json.size);
+    }
     const content = decodeBase64(json.content);
     return {
       id: pageId(relativePath),

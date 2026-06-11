@@ -26,6 +26,7 @@ import {
   TooltipTrigger,
 } from "./components/ui/tooltip";
 import { toHtml } from "./markdown";
+import { runWithErrorFeedback } from "./run-with-error-feedback";
 import type { StorageBackend } from "./storage";
 
 interface EditorContextMenuProps {
@@ -219,6 +220,7 @@ export function EditorContextMenu({
   const [linkPopoverState, setLinkPopoverState] =
     useState<LinkPopoverState | null>(null);
   const [linkDraft, setLinkDraft] = useState("");
+  const [pasteError, setPasteError] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const linkPopoverRef = useRef<HTMLDivElement>(null);
@@ -586,40 +588,56 @@ export function EditorContextMenu({
     });
   }, [linkPopoverState]);
 
-  const handlePasteText = useCallback(async () => {
-    if (!editor) return;
+  const handlePasteText = useCallback(
+    () =>
+      runWithErrorFeedback(
+        async () => {
+          if (!editor) return;
+          setPasteError(null);
+          try {
+            const text = await navigator.clipboard.readText();
+            if (text) {
+              editor.chain().focus().insertContent(text).run();
+            }
+          } finally {
+            close();
+          }
+        },
+        setPasteError,
+        "Could not paste from the clipboard.",
+      ),
+    [close, editor],
+  );
 
-    try {
-      const text = await navigator.clipboard.readText();
-      if (text) {
-        editor.chain().focus().insertContent(text).run();
-      }
-    } finally {
-      close();
-    }
-  }, [close, editor]);
-
-  const handlePasteMarkdown = useCallback(async () => {
-    if (!editor) return;
-
-    try {
-      const text = await navigator.clipboard.readText();
-      if (text) {
-        editor
-          .chain()
-          .focus()
-          .insertContent(
-            toHtml(text, {
-              resolveFileUrl: (path) => backend.resolveFileUrl(path),
-              resolveLinkUrl,
-            }),
-          )
-          .run();
-      }
-    } finally {
-      close();
-    }
-  }, [backend, close, editor, resolveLinkUrl]);
+  const handlePasteMarkdown = useCallback(
+    () =>
+      runWithErrorFeedback(
+        async () => {
+          if (!editor) return;
+          setPasteError(null);
+          try {
+            const text = await navigator.clipboard.readText();
+            if (text) {
+              editor
+                .chain()
+                .focus()
+                .insertContent(
+                  toHtml(text, {
+                    resolveFileUrl: (path) => backend.resolveFileUrl(path),
+                    resolveLinkUrl,
+                  }),
+                )
+                .run();
+            }
+          } finally {
+            close();
+          }
+        },
+        setPasteError,
+        "Could not paste markdown from the clipboard.",
+      ),
+    [backend, close, editor, resolveLinkUrl],
+  );
 
   return (
     <div
@@ -649,6 +667,23 @@ export function EditorContextMenu({
       }}
     >
       {children}
+      {pasteError ? (
+        <div
+          data-testid="paste-error"
+          role="alert"
+          className="fixed bottom-4 left-1/2 z-50 flex w-[min(calc(100vw-1rem),32rem)] -translate-x-1/2 items-start justify-between gap-2.5 rounded-[8px] border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950 px-3 py-2.5 text-xs leading-5 text-red-800 dark:text-red-200 shadow-[0_14px_40px_rgba(120,53,15,0.18)] dark:shadow-[0_14px_40px_rgba(0,0,0,0.4)]"
+        >
+          <span className="min-w-0">{pasteError}</span>
+          <button
+            type="button"
+            data-testid="paste-error-dismiss"
+            className="shrink-0 font-medium underline underline-offset-2 hover:no-underline"
+            onClick={() => setPasteError(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
       {selectionActionPosition && !linkPopoverState ? (
         <div
           data-testid="selection-menu"
