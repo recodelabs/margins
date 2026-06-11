@@ -70,7 +70,15 @@ function LoginScreen() {
           Continue with GitHub
         </Button>
         <p className="mt-10 text-xs font-medium tracking-wide text-stone-400 dark:text-stone-500">
-          Free &amp; open source · your edits commit straight to GitHub
+          Free &amp; open source · your edits commit straight to GitHub ·{" "}
+          <a
+            href="https://github.com/recodelabs/roughneck"
+            target="_blank"
+            rel="noreferrer"
+            className="underline decoration-stone-300 underline-offset-2 hover:text-slate-700 dark:decoration-stone-600 dark:hover:text-slate-300"
+          >
+            GitHub
+          </a>
         </p>
       </div>
     </div>
@@ -201,7 +209,7 @@ export function GitHubPicker() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[#FCFCFC] dark:bg-background px-6 pt-8 pb-12 text-slate-950 dark:text-slate-50">
-      <div className="mx-auto w-full max-w-[100rem]">
+      <div className="mx-auto w-full max-w-3xl">
         <MarginsLogo />
 
         {/* Repo + branch inputs */}
@@ -252,7 +260,7 @@ export function GitHubPicker() {
 
         {/* Repo browser */}
         {repo && repo.includes("/") ? (
-          <div className="mt-6 w-full max-w-2xl">
+          <div className="mt-6 w-full">
             {/* Repo header */}
             <div className="mb-1 flex flex-wrap items-center gap-2">
               <span className="font-semibold text-slate-950 dark:text-slate-50">
