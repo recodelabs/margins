@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ChevronRight, FileText, Folder, Loader2 } from "lucide-react";
-import { login, getStoredToken } from "./github-auth";
+import { login, getStoredToken, clearToken } from "./github-auth";
 import { GitHubBackend } from "./github-backend";
 import { Button } from "./components/ui/button";
 import { cn } from "./lib/utils";
@@ -51,7 +51,7 @@ function LoginScreen() {
           className="w-[clamp(16rem,52vw,28rem)] select-none dark:invert"
           draggable={false}
         />
-        <h1 className="font-die-grotesk-b mt-8 text-[clamp(1.875rem,1.6rem+1.3vw,2.875rem)] leading-[0.95] font-bold tracking-tight text-slate-950 dark:text-slate-50">
+        <h1 className="font-instrument-serif mt-8 text-[clamp(2.5rem,2rem+2vw,3.75rem)] leading-[1.02] tracking-tight text-slate-950 dark:text-slate-50">
           Review your repo's markdown
         </h1>
         <p className="mt-5 max-w-md text-[clamp(1.05rem,1rem+0.3vw,1.2rem)] leading-relaxed text-slate-600 dark:text-slate-400">
@@ -69,7 +69,20 @@ function LoginScreen() {
           <GitHubMark className="size-5" />
           Continue with GitHub
         </Button>
-        <p className="mt-10 text-xs font-medium tracking-wide text-stone-400 dark:text-stone-500">
+        <p className="mt-6 max-w-md text-sm leading-relaxed text-stone-500 dark:text-stone-400">
+          First time?{" "}
+          <a
+            href="https://github.com/apps/margins-md"
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium text-slate-700 underline decoration-stone-300 underline-offset-2 hover:text-slate-900 dark:text-slate-300 dark:decoration-stone-600 dark:hover:text-slate-100"
+          >
+            Install the margins app
+          </a>{" "}
+          on the repos you want to review — pick your account, choose
+          repositories, then come back and sign in.
+        </p>
+        <p className="mt-8 text-xs font-medium tracking-wide text-stone-400 dark:text-stone-500">
           Free &amp; open source · your edits commit straight to GitHub ·{" "}
           <a
             href="https://github.com/recodelabs/roughneck"
@@ -104,6 +117,11 @@ function getDirFromUrl(): string {
 export function GitHubPicker() {
   const token = getStoredToken();
   const initialLoc = parseGitHubLocation();
+
+  const logout = () => {
+    clearToken();
+    window.location.assign("/");
+  };
 
   const [repo, setRepo] = useState(
     initialLoc.owner && initialLoc.repo
@@ -210,7 +228,16 @@ export function GitHubPicker() {
   return (
     <div className="flex min-h-screen flex-col bg-[#FCFCFC] dark:bg-background px-6 pt-8 pb-12 text-slate-950 dark:text-slate-50">
       <div className="mx-auto w-full max-w-4xl">
-        <MarginsLogo />
+        <div className="flex items-center justify-between">
+          <MarginsLogo />
+          <button
+            type="button"
+            onClick={logout}
+            className="text-xs font-medium text-stone-500 underline decoration-stone-300 underline-offset-2 hover:text-slate-900 dark:text-stone-400 dark:decoration-stone-600 dark:hover:text-slate-100"
+          >
+            Sign out
+          </button>
+        </div>
 
         {/* Repo + branch inputs */}
         <div className="mt-8 flex flex-wrap items-end gap-3">

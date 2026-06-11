@@ -1,6 +1,6 @@
 # Cloudflare Pages config for margins (the GitHub-backed markdown reviewer).
 # Static SPA is built to app/dist; the auth token-exchange lives in functions/
 # (auto-detected by Pages as a Function at /api/auth/*).
-name = "marginsai"
+name = "marginsmd"
 compatibility_date = "2026-06-10"
 pages_build_output_dir = "app/dist"
