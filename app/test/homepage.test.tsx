@@ -10,12 +10,9 @@ import {
   it,
   vi,
 } from "vitest";
-import {
-  Homepage,
-  HomepageSubtitle,
-  PreviewPage,
-  RoughdraftFlavoredMarkdownPage,
-} from "../src/App";
+import { Homepage, HomepageSubtitle } from "../src/Homepage";
+import { PreviewPage } from "../src/PreviewPage";
+import { RoughdraftFlavoredMarkdownPage } from "../src/RoughdraftFlavoredMarkdownPage";
 
 const AGENT_SETUP_PROMPT =
   "Install Roughdraft for me using `npm i -g roughdraft`, then read https://roughdraft.md/setup.md and set yourself up to use it.";
