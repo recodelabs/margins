@@ -1,6 +1,6 @@
-# Deploying roughneck-web to Cloudflare Pages
+# Deploying marginsmd to Cloudflare Pages
 
-roughneck-web is a static SPA (`app/`) plus one stateless auth Function
+marginsmd is a static SPA (`app/`) plus one stateless auth Function
 (`functions/api/auth/[[route]].ts`). Cloudflare Pages serves both on one domain — the
 static build from a CDN and the Function at `/api/auth/*`. No server, no database.
 
@@ -13,9 +13,7 @@ static build from a CDN and the Function at `/api/auth/*`. No server, no databas
 ## Repo artifacts (already committed)
 
 - `wrangler.toml` — `pages_build_output_dir = "app/dist"`, a `compatibility_date`, and the
-  project `name`.
-- `app/public/_redirects` — SPA fallback (`/* /index.html 200`). Pages matches the
-  `/api/auth/*` Function *before* this rule, so auth is unaffected.
+  project `name = "marginsmd"`.
 
 ## Option A — Dashboard (Git integration, recommended)
 
@@ -31,7 +29,7 @@ static build from a CDN and the Function at `/api/auth/*`. No server, no databas
    - `GITHUB_CLIENT_ID` = your App's Client ID
    - `GITHUB_CLIENT_SECRET` = your App's Client secret (mark as a **Secret** / encrypted)
    - `VITE_GITHUB_MODE` = `1`  ← build-time flag; Vite inlines it so the app boots in GitHub mode
-4. **Save and Deploy.** Note the resulting URL, e.g. `https://roughneck-web.pages.dev`.
+4. **Save and Deploy.** Note the resulting URL, e.g. `https://marginsmd.pages.dev`.
 5. **Point the GitHub App at it:** in the App settings, add the callback URL
    `https://<your-domain>/api/auth/callback` (keep the localhost one too for local dev). Make
    sure the App is **installed** on the repos you want to edit (Contents: read & write).
@@ -47,7 +45,7 @@ wrangler pages deploy app/dist        # uses wrangler.toml (name + output dir)
 ```
 Set the env vars/secrets once via the dashboard (as in Option A step 3) or:
 ```bash
-wrangler pages secret put GITHUB_CLIENT_SECRET --project-name roughneck-web
+wrangler pages secret put GITHUB_CLIENT_SECRET --project-name marginsmd
 # GITHUB_CLIENT_ID and VITE_GITHUB_MODE can be plain env vars in the dashboard;
 # VITE_GITHUB_MODE must be present at BUILD time, so prefer setting it in the dashboard
 # (Option A) and building there, or export it before `npm run build` for CLI builds:
@@ -60,8 +58,7 @@ Then add the production callback URL to the GitHub App (Option A step 5).
 - `GET /api/auth/login` and `/api/auth/callback` → the Pages Function (reads
   `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET` from the `env` binding; the secret never reaches
   the browser).
-- Everything else → static assets from `app/dist`, with `_redirects` falling back to
-  `index.html`.
+- Everything else → static assets from `app/dist` (Pages serves `index.html` for the SPA).
 - The browser holds the user token in `sessionStorage` and calls the GitHub API directly for
   all repo reads/writes.
 
