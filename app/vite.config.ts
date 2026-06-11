@@ -83,6 +83,37 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: "dist",
       chunkSizeWarningLimit: 1000,
+      rollupOptions: {
+        output: {
+          // Split heavy vendor groups into their own chunks so the editor
+          // stack stays out of the initial (login/homepage) bundle and is
+          // cached independently. Lazy boundaries (React.lazy) decide what
+          // loads up front; this just keeps the chunks cleanly separated.
+          manualChunks(id) {
+            if (!id.includes("node_modules")) return undefined;
+            if (
+              /[\\/]node_modules[\\/](react|react-dom|scheduler|use-sync-external-store)[\\/]/.test(
+                id,
+              )
+            ) {
+              // Keep React and its shared companions (used by both the eager UI
+              // libs and the lazy editor) in one eager chunk so they don't get
+              // pulled into a lazy vendor chunk and loaded up front.
+              return "react-vendor";
+            }
+            if (id.includes("@tiptap") || id.includes("prosemirror")) {
+              return "tiptap";
+            }
+            if (id.includes("@codemirror") || id.includes("@lezer")) {
+              return "codemirror";
+            }
+            if (id.includes("turndown") || id.includes("/marked")) {
+              return "markdown-serialize";
+            }
+            return undefined;
+          },
+        },
+      },
     },
     server: {
       proxy: {

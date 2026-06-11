@@ -1,7 +1,15 @@
 import type { Editor } from "@tiptap/react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import {
   type DocumentSaveController,
   type ManualSaveResult,
@@ -283,6 +291,7 @@ type RenderedPageCard = {
   container: HTMLDivElement;
   onSave: ReturnType<typeof vi.fn>;
   onSaveStateChange: ReturnType<typeof vi.fn>;
+  onLocalContentChange: ReturnType<typeof vi.fn>;
   getEditor: () => Editor;
   getSaveController: () => DocumentSaveController;
   rerender: (overrides?: PageCardTestOptions) => Promise<void>;
@@ -300,6 +309,7 @@ async function renderPageCard(
   const backend = options.backend ?? createBackend();
   const onSave = vi.fn().mockResolvedValue(undefined);
   const onSaveStateChange = vi.fn();
+  const onLocalContentChange = vi.fn();
   let editor: Editor | null = null;
   let saveController: DocumentSaveController | null = null;
 
@@ -316,6 +326,7 @@ async function renderPageCard(
     interactionMode: options.interactionMode ?? "editing",
     onSave,
     onSaveStateChange,
+    onLocalContentChange,
     backend,
     onEditorReady: (nextEditor: Editor | null) => {
       editor = nextEditor;
@@ -334,6 +345,14 @@ async function renderPageCard(
 
       await Promise.resolve();
     });
+
+    // Let lazily-loaded surfaces (e.g. the code editor) resolve their dynamic
+    // import and re-render. Microtask flushes work under fake timers too.
+    for (let i = 0; i < 5; i += 1) {
+      await act(async () => {
+        await Promise.resolve();
+      });
+    }
   };
 
   await render();
@@ -351,6 +370,7 @@ async function renderPageCard(
     container,
     onSave,
     onSaveStateChange,
+    onLocalContentChange,
     getEditor() {
       expect(editor).not.toBeNull();
       return editor as Editor;
@@ -397,6 +417,12 @@ describe("PageCard comment thread dismissal", () => {
 });
 
 describe("PageCard editor integration", () => {
+  // The code view loads CodeMirror via a dynamic import (React.lazy). Warm the
+  // module once so the lazy boundary resolves promptly inside act() flushes.
+  beforeAll(async () => {
+    await import("../src/MarkdownCodeEditor");
+  });
+
   beforeEach(() => {
     vi.useRealTimers();
     (
@@ -542,6 +568,37 @@ describe("PageCard editor integration", () => {
 
     expect(rendered.onSave).toHaveBeenCalledTimes(1);
     expect(rendered.onSaveStateChange.mock.calls.at(-1)?.[0]).toBe("saved");
+  });
+
+  it("flushDraft persists the latest rich-text edits to the draft without saving", async () => {
+    const rendered = await renderPageCard({
+      page: {
+        id: "doc-flush-draft-1",
+        title: "Flush Draft",
+        content: "Start",
+      },
+      selected: true,
+    });
+
+    vi.useFakeTimers();
+
+    await insertTextAtEnd(rendered.getEditor(), " now");
+
+    // Typing is debounced: nothing has been serialized to the draft or saved.
+    expect(rendered.onLocalContentChange).not.toHaveBeenCalled();
+    expect(rendered.onSave).not.toHaveBeenCalled();
+
+    await act(async () => {
+      rendered.getSaveController().flushDraft();
+    });
+
+    // The draft now reflects the latest keystrokes (so overwrite-on-disk /
+    // view-switch read fresh content)...
+    expect(rendered.onLocalContentChange.mock.calls.at(-1)?.[0]).toContain(
+      "Start now",
+    );
+    // ...without triggering a network save.
+    expect(rendered.onSave).not.toHaveBeenCalled();
   });
 
   it("manual save reports save failure without clearing dirty state", async () => {

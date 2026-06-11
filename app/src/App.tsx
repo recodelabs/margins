@@ -12,8 +12,10 @@ import {
   Terminal,
 } from "lucide-react";
 import {
+  lazy,
   type ReactNode,
   type Ref,
+  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -43,7 +45,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "./components/ui/dialog";
-import { DocumentWorkspace, type GitHubDocNav } from "./DocumentWorkspace";
+import type { GitHubDocNav } from "./DocumentWorkspace";
 import { createDocumentSessionStore } from "./document-session";
 import { detectBackend, isGitHubMode } from "./detect-backend";
 import { GitHubPicker } from "./GitHubPicker";
@@ -61,7 +63,6 @@ import {
 import { cn } from "./lib/utils";
 import type { DocumentSaveState } from "./PageCard";
 import { PreviewBackend } from "./preview-backend";
-import { RoughdraftFormatDemo } from "./RoughdraftFormatDemo";
 import { runWithErrorFeedback } from "./run-with-error-feedback";
 import {
   type CompleteReviewOptions,
@@ -72,6 +73,20 @@ import {
 } from "./storage";
 import { UpdateNotice } from "./UpdateNotice";
 import { fetchUpdateStatus, type UpdateStatus } from "./update-status";
+
+// The editor workspace and the format demo pull in the heavy editor stack
+// (TipTap, Turndown, CodeMirror). Load them lazily so the login screen and
+// homepage don't pay for the full bundle up front (see PERF-2).
+const DocumentWorkspace = lazy(() =>
+  import("./DocumentWorkspace").then((module) => ({
+    default: module.DocumentWorkspace,
+  })),
+);
+const RoughdraftFormatDemo = lazy(() =>
+  import("./RoughdraftFormatDemo").then((module) => ({
+    default: module.RoughdraftFormatDemo,
+  })),
+);
 
 export type DocumentDiskChangeState =
   | "clean"
@@ -566,7 +581,9 @@ export function Homepage({
           </div>
         </section>
 
-        <RoughdraftFormatDemo />
+        <Suspense fallback={null}>
+          <RoughdraftFormatDemo />
+        </Suspense>
       </div>
     </div>
   );
@@ -1457,22 +1474,24 @@ export function PreviewPage() {
 
   return (
     <main className="relative flex h-screen min-w-0 flex-col overflow-hidden bg-[#FCFCFC] dark:bg-background text-slate-950 dark:text-slate-50">
-      <DocumentWorkspace
-        documentPage={previewPage}
-        activeDocumentPath={PREVIEW_DOCUMENT_PATH}
-        documentFilenameLabel={PREVIEW_DOCUMENT_PATH}
-        documentEditorViewMode={editorViewMode}
-        onDocumentEditorViewModeChange={setEditorViewMode}
-        onSaveDocument={handleSaveDocument}
-        documentSession={documentSession}
-        documentDiskChangeState="clean"
-        documentForceResetKey={previewForceResetKey}
-        onReloadDocumentFromDisk={handleResetPreview}
-        onKeepEditingWithoutAutosave={() => {}}
-        onOverwriteDocumentOnDisk={() => {}}
-        onCompleteReview={handleCompletePreviewReview}
-        backend={backend}
-      />
+      <Suspense fallback={null}>
+        <DocumentWorkspace
+          documentPage={previewPage}
+          activeDocumentPath={PREVIEW_DOCUMENT_PATH}
+          documentFilenameLabel={PREVIEW_DOCUMENT_PATH}
+          documentEditorViewMode={editorViewMode}
+          onDocumentEditorViewModeChange={setEditorViewMode}
+          onSaveDocument={handleSaveDocument}
+          documentSession={documentSession}
+          documentDiskChangeState="clean"
+          documentForceResetKey={previewForceResetKey}
+          onReloadDocumentFromDisk={handleResetPreview}
+          onKeepEditingWithoutAutosave={() => {}}
+          onOverwriteDocumentOnDisk={() => {}}
+          onCompleteReview={handleCompletePreviewReview}
+          backend={backend}
+        />
+      </Suspense>
     </main>
   );
 }
@@ -1983,26 +2002,28 @@ export function App() {
           </div>
         </div>
       ) : null}
-      <DocumentWorkspace
-        documentPage={documentPage}
-        activeDocumentPath={activeDocumentPath}
-        documentFilenameLabel={documentFilenameLabel}
-        documentEditorViewMode={documentEditorViewMode}
-        onDocumentEditorViewModeChange={handleDocumentEditorViewModeChange}
-        onSaveDocument={handleSaveDocument}
-        documentSession={documentSession}
-        documentDiskChangeState={documentDiskChangeState}
-        documentForceResetKey={documentForceResetKey}
-        documentActionError={documentActionError}
-        onDismissDocumentActionError={() => setDocumentActionError(null)}
-        onReloadDocumentFromDisk={handleReloadDocumentFromDisk}
-        onKeepEditingWithoutAutosave={handleKeepEditingWithoutAutosave}
-        onOverwriteDocumentOnDisk={handleOverwriteDocumentOnDisk}
-        onCompleteReview={handleCompleteReview}
-        backend={backend}
-        manualCommit={backend?.info.kind === "github"}
-        githubNav={githubNav}
-      />
+      <Suspense fallback={null}>
+        <DocumentWorkspace
+          documentPage={documentPage}
+          activeDocumentPath={activeDocumentPath}
+          documentFilenameLabel={documentFilenameLabel}
+          documentEditorViewMode={documentEditorViewMode}
+          onDocumentEditorViewModeChange={handleDocumentEditorViewModeChange}
+          onSaveDocument={handleSaveDocument}
+          documentSession={documentSession}
+          documentDiskChangeState={documentDiskChangeState}
+          documentForceResetKey={documentForceResetKey}
+          documentActionError={documentActionError}
+          onDismissDocumentActionError={() => setDocumentActionError(null)}
+          onReloadDocumentFromDisk={handleReloadDocumentFromDisk}
+          onKeepEditingWithoutAutosave={handleKeepEditingWithoutAutosave}
+          onOverwriteDocumentOnDisk={handleOverwriteDocumentOnDisk}
+          onCompleteReview={handleCompleteReview}
+          backend={backend}
+          manualCommit={backend?.info.kind === "github"}
+          githubNav={githubNav}
+        />
+      </Suspense>
     </main>
   );
 }

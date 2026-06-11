@@ -1,7 +1,15 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import {
   Homepage,
   HomepageSubtitle,
@@ -68,9 +76,24 @@ async function renderHomepage(root: Root) {
     );
     await Promise.resolve();
   });
+
+  // The format demo is loaded lazily (React.lazy); let its dynamic import
+  // resolve and re-render. Microtask flushes work under fake timers too.
+  for (let i = 0; i < 5; i += 1) {
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
 }
 
 describe("Homepage", () => {
+  // The homepage embeds the format demo via a dynamic import (React.lazy).
+  // Warm the module once so the lazy boundary resolves promptly in act().
+  beforeAll(async () => {
+    await import("../src/RoughdraftFormatDemo");
+    await import("../src/DocumentWorkspace");
+  });
+
   let container: HTMLDivElement;
   let root: Root;
   let writeText: ReturnType<typeof vi.fn>;
@@ -781,6 +804,14 @@ describe("Homepage", () => {
       );
       await Promise.resolve();
     });
+
+    // The preview workspace is loaded lazily (React.lazy); let its dynamic
+    // import resolve and re-render before asserting on its content.
+    for (let i = 0; i < 5; i += 1) {
+      await act(async () => {
+        await Promise.resolve();
+      });
+    }
 
     expect(container.textContent).toContain("preview.md");
     expect(container.textContent).toContain("Live Preview");

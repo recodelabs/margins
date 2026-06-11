@@ -10,6 +10,12 @@ import {
 import type TurndownService from "turndown";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import {
+  buildCommentThreads,
+  type CriticComment,
+  type CriticCommentThread,
+  flattenCommentThreads,
+} from "./comment-threads";
+import {
   createEditorExtensions,
   type CriticChangeAttrs,
   type CriticChangeKind,
@@ -25,22 +31,9 @@ import {
   type MarkdownOptions,
 } from "../markdown";
 
-export interface CriticComment {
-  id: string;
-  content: string;
-  createdAt: string;
-  authorType?: "user" | "ai";
-  authorId?: string | null;
-  parentCommentId?: string | null;
-  scope?: "document";
-}
-
-export interface CriticCommentThread {
-  comment: CriticComment;
-  replies: CriticCommentThread[];
-}
-
-export type { CriticChangeAttrs, CriticChangeKind };
+export { buildCommentThreads, flattenCommentThreads };
+export type { CriticChangeAttrs, CriticChangeKind, CriticCommentThread };
+export type { CriticComment };
 
 interface CriticCommentToken {
   type: "criticCommentAnchor";
@@ -500,63 +493,6 @@ function parseChangeMetadata(
   };
 }
 
-function buildCommentThreadsFromOrderedComments(
-  orderedComments: CriticComment[],
-): CriticCommentThread[] {
-  const validCommentIds = new Set(orderedComments.map((comment) => comment.id));
-  const repliesByParentId = new Map<string, CriticComment[]>();
-  const rootComments: CriticComment[] = [];
-
-  for (const comment of orderedComments) {
-    const parentCommentId = comment.parentCommentId;
-
-    if (
-      !parentCommentId ||
-      parentCommentId === comment.id ||
-      !validCommentIds.has(parentCommentId)
-    ) {
-      rootComments.push(comment);
-      continue;
-    }
-
-    const replies = repliesByParentId.get(parentCommentId) ?? [];
-    replies.push(comment);
-    repliesByParentId.set(parentCommentId, replies);
-  }
-
-  const buildNode = (comment: CriticComment): CriticCommentThread => ({
-    comment,
-    replies: (repliesByParentId.get(comment.id) ?? []).map(buildNode),
-  });
-
-  return rootComments.map(buildNode);
-}
-
-export function buildCommentThreads(
-  comments: Iterable<CriticComment>,
-): CriticCommentThread[] {
-  return buildCommentThreadsFromOrderedComments([...comments]);
-}
-
-export function flattenCommentThreads(
-  threads: Iterable<CriticCommentThread>,
-): CriticComment[] {
-  const orderedComments: CriticComment[] = [];
-
-  const visit = (thread: CriticCommentThread) => {
-    orderedComments.push(thread.comment);
-    for (const reply of thread.replies) {
-      visit(reply);
-    }
-  };
-
-  for (const thread of threads) {
-    visit(thread);
-  }
-
-  return orderedComments;
-}
-
 function getOrderedAnchorComments(
   commentIds: string[],
   comments: ReadonlyMap<string, CriticComment>,
@@ -1004,16 +940,13 @@ function renderCriticCodeBlock(
   return `<pre><code${classAttr}>${content}</code></pre>\n`;
 }
 
-function addCriticCommentRule(
-  service: TurndownService,
-  comments: Map<string, CriticComment>,
-  useEndmatter = false,
-) {
+function addCriticCommentRule(service: TurndownService) {
   service.addRule("criticComment", {
     filter: (node) =>
       node.nodeName === "SPAN" &&
       (node as HTMLElement).hasAttribute("data-comment-ids"),
     replacement(content, node) {
+      const { comments, useEndmatter } = activeCriticSerialization;
       const commentIdsText = (node as HTMLElement).getAttribute(
         "data-comment-ids",
       );
@@ -1224,16 +1157,13 @@ function serializeCriticChangeElement(
   }${commentBlocks}`;
 }
 
-function addCriticChangeRule(
-  service: TurndownService,
-  comments: Map<string, CriticComment>,
-  useEndmatter = false,
-) {
+function addCriticChangeRule(service: TurndownService) {
   service.addRule("criticChange", {
     filter: (node) =>
       node.nodeName === "SPAN" &&
       (node as HTMLElement).hasAttribute("data-critic-change-kind"),
     replacement(content, node) {
+      const { comments, useEndmatter } = activeCriticSerialization;
       const element = node as HTMLElement;
       return serializeCriticChangeElement(
         service,
@@ -1486,13 +1416,36 @@ function collectCriticChangesFromDoc(
   return changes;
 }
 
+// The critic Turndown rules close over the comment map / endmatter flag for
+// the document currently being serialized. Serialization is fully synchronous
+// (including nested `service.turndown(...)` calls), so a single shared service
+// can be reused across calls as long as the rules read the active context from
+// here rather than from per-call closures.
+const activeCriticSerialization: {
+  comments: Map<string, CriticComment>;
+  useEndmatter: boolean;
+} = { comments: new Map(), useEndmatter: false };
+
+let cachedCriticTurndownService: TurndownService | null = null;
+
+function getCriticTurndownService(): TurndownService {
+  if (!cachedCriticTurndownService) {
+    const service = createTurndownService();
+    addCriticCommentRule(service);
+    addCriticChangeRule(service);
+    addCriticCodeBlockRule(service);
+    cachedCriticTurndownService = service;
+  }
+  return cachedCriticTurndownService;
+}
+
 export function editorStateToCriticMarkdown(
   doc: JSONContent,
   comments: Map<string, CriticComment>,
   options?: { frontmatter?: string | null; endmatter?: string | null },
 ): string {
   const html = generateHTML(doc, extensions);
-  const service = createTurndownService();
+  const service = getCriticTurndownService();
   const frontmatter =
     options?.frontmatter ??
     (doc as JSONContent & { yamlFrontmatter?: string }).yamlFrontmatter ??
@@ -1503,9 +1456,8 @@ export function editorStateToCriticMarkdown(
     null;
   const changes = collectCriticChangesFromDoc(doc);
   const useEndmatter = Boolean(sourceEndmatter);
-  addCriticCommentRule(service, comments, useEndmatter);
-  addCriticChangeRule(service, comments, useEndmatter);
-  addCriticCodeBlockRule(service);
+  activeCriticSerialization.comments = comments;
+  activeCriticSerialization.useEndmatter = useEndmatter;
   const endmatter = serializeReviewEndmatter(
     sourceEndmatter,
     comments,
