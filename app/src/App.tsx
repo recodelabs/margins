@@ -20,6 +20,7 @@ import { Homepage, HomepageSubtitle } from "./Homepage";
 import { getStoredToken } from "./github-auth";
 import {
   isMarkdownPath,
+  navigate,
   parseGitHubLocation,
 } from "./github-route";
 import type { DocumentSaveState } from "./PageCard";
@@ -75,6 +76,10 @@ export function shouldWarnBeforeUnload({
 export function App() {
   const initialRequestedPathState = getRequestedPathState();
   const [requestedPathState] = useState(initialRequestedPathState);
+  // Current GitHub route, kept reactive so file-open / back-to-picker are
+  // in-app transitions rather than full reloads. Updated on `popstate` (browser
+  // Back/Forward and the synthetic event fired by navigate()).
+  const [githubLocation, setGithubLocation] = useState(parseGitHubLocation);
   const isRoughdraftFlavoredMarkdownRoute =
     window.location.pathname === ROUGHDRAFT_FLAVORED_MARKDOWN_PATH;
   const isPreviewRoute = window.location.pathname === PREVIEW_PATH;
@@ -101,6 +106,9 @@ export function App() {
   const backendRef = useRef<StorageBackend | null>(null);
   const documentPageRef = useRef<Page | null>(null);
   const activeDocumentPathRef = useRef<string | null>(activeDocumentPath);
+  // Which GitHub repo/branch the current backend serves, so same-repo
+  // navigations reuse it (no re-detect) while a repo/branch switch re-detects.
+  const githubRepoSigRef = useRef<string | null>(null);
 
   backendRef.current = backend;
   documentPageRef.current = documentPage;
@@ -125,6 +133,16 @@ export function App() {
     },
     [applyDocumentPage, documentSession],
   );
+
+  // Reflect browser Back/Forward (and the synthetic popstate from navigate())
+  // into reactive route state so the load effect and render react to in-app URL
+  // changes without a reload. This is the single popstate handler App was
+  // missing (ARCH-6).
+  useEffect(() => {
+    const onPopState = () => setGithubLocation(parseGitHubLocation());
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -179,58 +197,107 @@ export function App() {
   useEffect(() => {
     let cancelled = false;
 
-    const initialize = async () => {
+    // GitHub mode is reactive: this runs on first mount AND on every in-app
+    // navigation (githubLocation changes via popstate). Same-repo file switches
+    // reuse the detected backend — only the document path changes — so opening a
+    // file or going back is an in-app transition, not an app re-boot. With the
+    // ETag cache, repeat tree/doc reads come back 304.
+    const initializeGitHub = async () => {
+      const { owner, repo, branch, path } = githubLocation;
+
+      // Folder / repo-root URL (or not enough info yet) → picker view. Clear any
+      // open document so render falls through to <GitHubPicker />.
+      if (!owner || !repo || !isMarkdownPath(path)) {
+        setActiveDocumentPath(null);
+        setDocumentPage(null);
+        setLoadError(null);
+        setLoading(false);
+        return;
+      }
+
+      const repoSignature = `${owner}/${repo}@${branch}`;
+      let detectedBackend = backendRef.current;
+
+      // Re-detect the backend only when there isn't one yet or the repo/branch
+      // changed (e.g. the picker's repo input switched repos before opening).
+      if (!detectedBackend || githubRepoSigRef.current !== repoSignature) {
+        setLoading(true);
+        setLoadError(null);
+        detectedBackend = await detectBackend();
+        if (cancelled) return;
+        setBackend(detectedBackend);
+        githubRepoSigRef.current = repoSignature;
+      }
+
+      // Already showing this exact document (e.g. a redundant popstate) — skip
+      // the refetch entirely.
+      if (
+        activeDocumentPathRef.current === path &&
+        documentPageRef.current
+      ) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setLoadError(null);
+      await loadDocument(detectedBackend, path);
+      if (cancelled) return;
+      setLoading(false);
+    };
+
+    const initializeLocal = async () => {
       setLoading(true);
       setLoadError(null);
       setDocumentPage(null);
 
-      try {
-        const detectedBackend = await detectBackend();
+      const detectedBackend = await detectBackend();
+      if (cancelled) return;
+
+      setBackend(detectedBackend);
+
+      if (detectedBackend.capabilities.documentPath) {
+        const documentPath = detectedBackend.documentPath?.() || "remote.md";
+        await loadDocument(detectedBackend, documentPath);
         if (cancelled) return;
-
-        setBackend(detectedBackend);
-
-        if (detectedBackend.capabilities.documentPath) {
-          const documentPath = detectedBackend.documentPath?.() || "remote.md";
-          await loadDocument(detectedBackend, documentPath);
-          if (cancelled) return;
-          setLoading(false);
-          return;
-        }
-
-        if (!requestedPathState.rawPath) {
-          setActiveDocumentPath(null);
-          setLoading(false);
-          return;
-        }
-
-        if (!isGitHubMode()) {
-          syncRequestedPathInUrl(requestedPathState.rawPath);
-        }
-
-        if (
-          !requestedPathState.projectPath ||
-          !requestedPathState.documentPath
-        ) {
-          setActiveDocumentPath(null);
-          setLoadError("Roughdraft now opens one .md file at a time.");
-          setLoading(false);
-          return;
-        }
-
-        if (detectedBackend.canManageProjects) {
-          await detectedBackend.openProject(requestedPathState.projectPath);
-        }
-
-        if (cancelled) return;
-
-        const docPath = isGitHubMode()
-          ? parseGitHubLocation().path
-          : requestedPathState.documentPath;
-        await loadDocument(detectedBackend, docPath);
-        if (cancelled) return;
-
         setLoading(false);
+        return;
+      }
+
+      if (!requestedPathState.rawPath) {
+        setActiveDocumentPath(null);
+        setLoading(false);
+        return;
+      }
+
+      syncRequestedPathInUrl(requestedPathState.rawPath);
+
+      if (!requestedPathState.projectPath || !requestedPathState.documentPath) {
+        setActiveDocumentPath(null);
+        setLoadError("Roughdraft now opens one .md file at a time.");
+        setLoading(false);
+        return;
+      }
+
+      if (detectedBackend.canManageProjects) {
+        await detectedBackend.openProject(requestedPathState.projectPath);
+      }
+
+      if (cancelled) return;
+
+      await loadDocument(detectedBackend, requestedPathState.documentPath);
+      if (cancelled) return;
+
+      setLoading(false);
+    };
+
+    const initialize = async () => {
+      try {
+        if (isGitHubMode()) {
+          await initializeGitHub();
+        } else {
+          await initializeLocal();
+        }
       } catch (error) {
         if (cancelled) return;
 
@@ -252,6 +319,7 @@ export function App() {
     };
   }, [
     loadDocument,
+    githubLocation,
     requestedPathState.documentPath,
     requestedPathState.projectPath,
     requestedPathState.rawPath,
@@ -497,6 +565,31 @@ export function App() {
     [],
   );
 
+  // SPA navigation away from the open document (breadcrumb back-to-picker /
+  // folder). A full reload used to trigger the native beforeunload warning;
+  // SPA nav bypasses it, so we re-run the same dirty check here and confirm
+  // before leaving, otherwise unsaved edits would be silently lost.
+  const handleNavigateAway = useCallback(
+    (href: string) => {
+      const session = documentSession.getSnapshot();
+      if (
+        shouldWarnBeforeUnload({
+          activeDocumentPath: activeDocumentPathRef.current,
+          isDirty: session.dirty,
+          saveState: session.saveState,
+          diskChangeState: documentDiskChangeState,
+        }) &&
+        !window.confirm(
+          "You have unsaved changes that will be lost. Leave this document?",
+        )
+      ) {
+        return;
+      }
+      navigate(href);
+    },
+    [documentSession, documentDiskChangeState],
+  );
+
   if (loading) {
     return (
       <div
@@ -515,7 +608,7 @@ export function App() {
   }
 
   if (isGitHubMode()) {
-    const loc = parseGitHubLocation();
+    const loc = githubLocation;
     const hasToken = !!getStoredToken();
     if (!hasToken || !loc.owner || !loc.repo || !isMarkdownPath(loc.path)) {
       return <GitHubPicker />;
@@ -542,7 +635,7 @@ export function App() {
   // Build githubNav when in GitHub mode and a markdown file path is in the URL
   const githubNav: GitHubDocNav | null = (() => {
     if (!isGitHubMode()) return null;
-    const loc = parseGitHubLocation();
+    const loc = githubLocation;
     if (!loc.owner || !loc.repo || !isMarkdownPath(loc.path)) return null;
     return { owner: loc.owner, repo: loc.repo, branch: loc.branch, path: loc.path };
   })();
@@ -576,6 +669,7 @@ export function App() {
           backend={backend}
           manualCommit={backend?.capabilities.manualCommit ?? false}
           githubNav={githubNav}
+          onNavigate={handleNavigateAway}
         />
       </Suspense>
     </main>

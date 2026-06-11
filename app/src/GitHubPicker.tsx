@@ -8,6 +8,7 @@ import { getFolderContents, splitPath } from "./github-tree";
 import {
   gitHubHref,
   isMarkdownPath,
+  navigate,
   parseGitHubLocation,
 } from "./github-route";
 
@@ -191,12 +192,11 @@ export function GitHubPicker() {
   // Derive owner/name from the repo input field
   const [repoOwner, repoName] = repo.split("/");
 
-  // Navigate into a subfolder — update state + pushState
+  // Navigate into a subfolder — SPA pushState. The synthetic popstate from
+  // navigate() drives the onPopState handler above, which re-reads currentDir
+  // from the URL, so we keep a single source of truth (the URL).
   const drillInto = (folderPath: string) => {
-    setCurrentDir(folderPath);
-    window.history.pushState(
-      null,
-      "",
+    navigate(
       gitHubHref({ owner: repoOwner ?? "", repo: repoName ?? "", branch: ref, path: folderPath }),
     );
   };
@@ -214,9 +214,10 @@ export function GitHubPicker() {
     drillInto(folderPath);
   };
 
-  // Open a file — navigate to the document workspace
+  // Open a file — SPA-navigate to the document workspace (no full reload).
+  // App's popstate-driven location state swaps the picker for the workspace.
   const openFile = (filePath: string) => {
-    window.location.assign(
+    navigate(
       gitHubHref({ owner: repoOwner ?? "", repo: repoName ?? "", branch: ref, path: filePath }),
     );
   };
