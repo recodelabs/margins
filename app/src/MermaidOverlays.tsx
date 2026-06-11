@@ -63,6 +63,10 @@ function openModal(svg: string) {
   const stage = document.createElement("div");
   stage.style.cssText =
     "position:absolute;left:0;top:0;transform-origin:0 0;background:#fff;border-radius:8px;";
+  // Safe: mermaid is initialized with securityLevel:"strict" (see below), which
+  // runs its own DOMPurify over diagram labels — scripts and inline event
+  // handlers (the stored-XSS / GitHub-token-exfil vector) are stripped before
+  // the SVG ever reaches this innerHTML sink. See MermaidOverlays.test.ts.
   stage.innerHTML = svg;
 
   const sv = stage.querySelector("svg");
@@ -180,7 +184,11 @@ function runMermaidOverlays(signal: AbortSignal): () => void {
           try {
             mermaid.initialize({
               startOnLoad: false,
-              securityLevel: "loose",
+              // strict disables clickable nodes + HTML <script>/event handlers in
+              // labels — the stored-XSS path that could read the repo-write GitHub
+              // token from sessionStorage. Diagrams come from arbitrary third-party
+              // markdown, so they are untrusted. (Was "loose" — REC-380.)
+              securityLevel: "strict",
               theme: dark ? "dark" : "default",
             });
           } catch {}
@@ -324,7 +332,7 @@ function runMermaidOverlays(signal: AbortSignal): () => void {
           const box = document.createElement("div");
           box.style.cssText = `position:absolute;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:12px;background:${theme.bg};border:1px solid ${theme.bd};border-radius:8px;overflow:hidden;cursor:zoom-in;`;
           box.title = "Click to zoom";
-          box.innerHTML = svg;
+          box.innerHTML = svg; // strict-mode mermaid output is inert — see openModal note + tests
           const sv = box.querySelector("svg");
           if (sv) {
             sv.style.maxWidth = "100%";

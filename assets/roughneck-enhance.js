@@ -106,7 +106,12 @@
     try { var m = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'); mermaid = m.default || m; via = 'cdn'; }
     catch (e) { try { await loadScript('/assets/mermaid.min.js'); if (window.mermaid) { mermaid = window.mermaid; via = 'local'; } } catch (e2) {} }
     if (!mermaid) { status('no renderer', true); return; }
-    try { mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', theme: dark ? 'dark' : 'default' }); } catch (e) {}
+    // securityLevel:'strict' makes mermaid run its own DOMPurify over diagram labels,
+    // stripping <script>/inline event handlers (e.g. a node label like <img onerror>
+    // reading the GitHub token from sessionStorage) — the stored-XSS vector. Mermaid
+    // then emits inert SVG, so the innerHTML sink below is safe. Matches the SPA
+    // (MermaidOverlays.tsx), which is also strict-only. (Was 'loose' — REC-380.)
+    try { mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: dark ? 'dark' : 'default' }); } catch (e) {}
 
     var scroller = (function () {
       var el = document.querySelector('pre > code.language-mermaid'); el = el && el.parentElement;
