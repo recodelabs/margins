@@ -261,6 +261,8 @@ interface DocumentWorkspaceProps {
   onDocumentLocalContentChange: (markdown: string) => void;
   documentDiskChangeState: DiskChangeState;
   documentForceResetKey: string | null;
+  documentActionError?: string | null;
+  onDismissDocumentActionError?: () => void;
   onReloadDocumentFromDisk: () => void | Promise<void>;
   onKeepEditingWithoutAutosave: () => void;
   onOverwriteDocumentOnDisk: () => void | Promise<void>;
@@ -284,6 +286,8 @@ export function DocumentWorkspace({
   onDocumentLocalContentChange,
   documentDiskChangeState,
   documentForceResetKey,
+  documentActionError = null,
+  onDismissDocumentActionError,
   onReloadDocumentFromDisk,
   onKeepEditingWithoutAutosave,
   onOverwriteDocumentOnDisk,
@@ -772,8 +776,9 @@ export function DocumentWorkspace({
           data-testid="file-conflict-notice"
           role="status"
           aria-label="File conflict"
-          className="fixed top-3 left-1/2 z-50 flex w-[min(calc(100vw-1rem),52rem)] -translate-x-1/2 flex-col gap-3 rounded-[8px] border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 px-3 py-3 text-amber-950 dark:text-amber-100 shadow-[0_14px_40px_rgba(120,53,15,0.18)] dark:shadow-[0_14px_40px_rgba(0,0,0,0.4)] sm:flex-row sm:items-center sm:justify-between sm:px-4"
+          className="fixed top-3 left-1/2 z-50 flex w-[min(calc(100vw-1rem),52rem)] -translate-x-1/2 flex-col gap-3 rounded-[8px] border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 px-3 py-3 text-amber-950 dark:text-amber-100 shadow-[0_14px_40px_rgba(120,53,15,0.18)] dark:shadow-[0_14px_40px_rgba(0,0,0,0.4)] sm:px-4"
         >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-start gap-2.5">
             <AlertTriangle
               className="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-400"
@@ -825,6 +830,45 @@ export function DocumentWorkspace({
               Overwrite disk file
             </Button>
           </div>
+          </div>
+          {documentActionError ? (
+            <div
+              data-testid="document-action-error"
+              role="alert"
+              className="flex items-start justify-between gap-2.5 rounded-[7px] border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/60 px-2.5 py-2 text-xs leading-5 text-red-800 dark:text-red-200"
+            >
+              <span className="min-w-0">{documentActionError}</span>
+              {onDismissDocumentActionError ? (
+                <button
+                  type="button"
+                  data-testid="document-action-error-dismiss"
+                  className="shrink-0 font-medium underline underline-offset-2 hover:no-underline"
+                  onClick={onDismissDocumentActionError}
+                >
+                  Dismiss
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {!conflictNotice && documentActionError ? (
+        <div
+          data-testid="document-action-error"
+          role="alert"
+          className="fixed top-3 left-1/2 z-50 flex w-[min(calc(100vw-1rem),52rem)] -translate-x-1/2 items-start justify-between gap-2.5 rounded-[8px] border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950 px-3 py-3 text-xs leading-5 text-red-800 dark:text-red-200 shadow-[0_14px_40px_rgba(120,53,15,0.18)] dark:shadow-[0_14px_40px_rgba(0,0,0,0.4)] sm:px-4"
+        >
+          <span className="min-w-0">{documentActionError}</span>
+          {onDismissDocumentActionError ? (
+            <button
+              type="button"
+              data-testid="document-action-error-dismiss"
+              className="shrink-0 font-medium underline underline-offset-2 hover:no-underline"
+              onClick={onDismissDocumentActionError}
+            >
+              Dismiss
+            </button>
+          ) : null}
         </div>
       ) : null}
       <div className="mx-auto min-h-full max-w-[1280px]">

@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { GitHubBackend } from "./github-backend";
-import { MarkdownFileConflictError } from "./storage";
+import { FileTooLargeError, MarkdownFileConflictError } from "./storage";
 
 const originalFetch = global.fetch;
 afterEach(() => { global.fetch = originalFetch; });
@@ -125,6 +125,49 @@ describe("GitHubBackend", () => {
       .toBe("https://raw.githubusercontent.com/o/r/main/img/x.png");
     await expect(bk.saveAsset(new File(["x"], "x.png"))).rejects.toThrow(/not supported/i);
     await expect(bk.openProject("anything")).resolves.toBeUndefined();
+  });
+
+  describe("large-file guard", () => {
+    it("throws FileTooLargeError when the API returns encoding:none (file over 1 MB)", async () => {
+      // GitHub's Contents API omits inline content for files >1 MB, responding
+      // with an empty `content` and `encoding: "none"`.
+      const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+        sha: "big1", content: "", encoding: "none", size: 2_000_000,
+      }), { status: 200 }));
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      await expect(backend().getMarkdownFile("docs/huge.md")).rejects.toBeInstanceOf(
+        FileTooLargeError,
+      );
+      await expect(backend().getMarkdownFile("docs/huge.md")).rejects.toThrow(
+        /too large/i,
+      );
+    });
+
+    it("throws FileTooLargeError when content is empty but the file size is non-zero", async () => {
+      const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+        sha: "big2", content: "", encoding: "base64", size: 1_500_000,
+      }), { status: 200 }));
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const error = await backend()
+        .getMarkdownFile("docs/huge.md")
+        .catch((e) => e);
+      expect(error).toBeInstanceOf(FileTooLargeError);
+      expect((error as FileTooLargeError).path).toBe("docs/huge.md");
+      expect((error as FileTooLargeError).size).toBe(1_500_000);
+    });
+
+    it("still opens a genuinely empty (0-byte) markdown file", async () => {
+      const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+        sha: "empty1", content: "", encoding: "base64", size: 0,
+      }), { status: 200 }));
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const page = await backend().getMarkdownFile("docs/empty.md");
+      expect(page.content).toBe("");
+      expect(page.version).toBe("empty1");
+    });
   });
 
   describe("markdown-only guard", () => {
