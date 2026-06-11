@@ -25,10 +25,10 @@ function GitHubMark({ className }: { className?: string }) {
 // ---------------------------------------------------------------------------
 // Shared logo treatment
 // ---------------------------------------------------------------------------
-function RoughneckLogo() {
+function MarginsLogo() {
   return (
     <p className="font-die-grotesk-a text-[clamp(1.125rem,0.9rem+0.35vw,1.375rem)] font-bold text-stone-500">
-      roughneck
+      margins
     </p>
   );
 }
@@ -41,8 +41,8 @@ function LoginScreen() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-[#FCFCFC] dark:bg-background px-6 py-12 text-center text-slate-950 dark:text-slate-50">
       <div className="flex w-full max-w-xl flex-col items-center">
         <img
-          src="/roughneck.svg"
-          alt="roughneck"
+          src="/margins.svg"
+          alt="margins"
           className="w-[clamp(16rem,52vw,28rem)] select-none dark:invert"
           draggable={false}
         />
@@ -180,7 +180,7 @@ export function GitHubPicker() {
   return (
     <div className="flex min-h-screen flex-col bg-[#FCFCFC] dark:bg-background px-6 pt-8 pb-12 text-slate-950 dark:text-slate-50">
       <div className="mx-auto w-full max-w-[100rem]">
-        <RoughneckLogo />
+        <MarginsLogo />
 
         {/* Repo + branch inputs */}
         <div className="mt-8 flex flex-wrap items-end gap-3">

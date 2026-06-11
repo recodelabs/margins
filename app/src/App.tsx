@@ -1665,7 +1665,9 @@ export function App() {
       ? "Roughdraft Preview"
       : isRoughdraftFlavoredMarkdownRoute
         ? "Roughdraft Flavored Markdown"
-        : (workspaceTitlePath ?? "Roughdraft");
+        : workspaceTitlePath
+          ? `${workspaceTitlePath} · margins`
+          : "margins";
   }, [
     activeDocumentPath,
     backend,

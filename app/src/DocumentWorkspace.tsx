@@ -304,6 +304,11 @@ export function DocumentWorkspace({
   const [overallComment, setOverallComment] = useState("");
   const sawNoWatcherAfterNotifiedRef = useRef(false);
   const saveControllerRef = useRef<DocumentSaveController | null>(null);
+  const commitShortcutHint =
+    typeof navigator !== "undefined" &&
+    /Mac|iPhone|iPad/.test(navigator.userAgent)
+      ? "⌘S"
+      : "Ctrl+S";
 
   const handleSaveStateChange = useCallback(
     (state: DocumentSaveState) => {
@@ -904,7 +909,7 @@ export function DocumentWorkspace({
                       onClick={() =>
                         void saveControllerRef.current?.flushSave()
                       }
-                      className="h-[1.5rem] gap-1 rounded-md border border-slate-300 bg-white px-2 text-[0.72rem] font-medium leading-none text-slate-600 shadow-none hover:bg-slate-100 hover:text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                      className="h-[1.6rem] gap-1.5 rounded-md border-0 bg-slate-900 px-2 text-[0.72rem] font-semibold leading-none text-white shadow-none hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
                     >
                       {saveState === "saving" ? (
                         <>
@@ -912,7 +917,12 @@ export function DocumentWorkspace({
                           Committing…
                         </>
                       ) : (
-                        "Commit"
+                        <>
+                          Commit
+                          <kbd className="rounded bg-white/20 px-1 py-px font-sans text-[0.62rem] font-medium tracking-tight text-white/85 dark:bg-slate-900/15 dark:text-slate-900/80">
+                            {commitShortcutHint}
+                          </kbd>
+                        </>
                       )}
                     </Button>
                   ) : null}
