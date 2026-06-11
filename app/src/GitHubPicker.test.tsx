@@ -71,3 +71,59 @@ describe("GitHubPicker tree-fetch debounce", () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain("recursive=1");
   });
 });
+
+describe("GitHubPicker file open", () => {
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("opens a file via SPA pushState + popstate, not a full reload", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            tree: [{ path: "README.md", type: "blob" }],
+          }),
+          { status: 200 },
+        ),
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await act(async () => {
+      root.render(<GitHubPicker />);
+    });
+
+    const input = container.querySelector<HTMLInputElement>("#gh-repo-input");
+    if (!input) throw new Error("repo input not found");
+    act(() => {
+      typeInto(input, "own/repo");
+    });
+
+    // Let the debounced tree fetch resolve so the file row renders.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+
+    const fileButton = Array.from(
+      container.querySelectorAll<HTMLButtonElement>("button"),
+    ).find((b) => b.textContent?.includes("README.md"));
+    if (!fileButton) throw new Error("README.md row not found");
+
+    // pushState (not a full-reload location.assign) is the SPA signal here.
+    const pushSpy = vi.spyOn(window.history, "pushState");
+    const onPopState = vi.fn();
+    window.addEventListener("popstate", onPopState);
+
+    act(() => {
+      fileButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(pushSpy).toHaveBeenCalledTimes(1);
+    expect(window.location.pathname).toBe("/own/repo/README.md");
+    expect(onPopState).toHaveBeenCalledTimes(1);
+
+    window.removeEventListener("popstate", onPopState);
+    pushSpy.mockRestore();
+  });
+});

@@ -13,7 +13,13 @@ import {
   RefreshCcw,
   Upload,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type MouseEvent as ReactMouseEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type { DocumentEditorViewMode } from "./app-navigation";
 import {
   type DocumentSessionStore,
@@ -273,6 +279,11 @@ interface DocumentWorkspaceProps {
   backend: StorageBackend | null;
   manualCommit?: boolean;
   githubNav?: GitHubDocNav | null;
+  /**
+   * SPA-navigate to `href` (breadcrumb back-to-picker / folder). App owns the
+   * unsaved-changes guard, so this may be a no-op if the user cancels.
+   */
+  onNavigate?: (href: string) => void;
 }
 
 export function DocumentWorkspace({
@@ -294,6 +305,7 @@ export function DocumentWorkspace({
   backend,
   manualCommit = false,
   githubNav = null,
+  onNavigate,
 }: DocumentWorkspaceProps) {
   const [documentInteractionMode, setDocumentInteractionMode] =
     useState<DocumentInteractionMode>("editing");
@@ -561,6 +573,27 @@ export function DocumentWorkspace({
       })()
     : null;
 
+  // Intercept plain left-clicks on breadcrumb links for SPA navigation, but
+  // leave modified clicks (new tab / new window / download) to the browser so
+  // the `href` still works for open-in-new-tab and middle-click.
+  const handleBreadcrumbClick = (
+    event: ReactMouseEvent<HTMLAnchorElement>,
+    href: string,
+  ) => {
+    if (
+      !onNavigate ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+    event.preventDefault();
+    onNavigate(href);
+  };
+
   return (
     <div
       className={cn(
@@ -586,6 +619,7 @@ export function DocumentWorkspace({
                 {seg.kind === "repo" ? (
                   <a
                     href={seg.href}
+                    onClick={(event) => handleBreadcrumbClick(event, seg.href)}
                     className="font-die-grotesk-a inline-flex items-center gap-1 rounded px-1 py-0.5 font-bold text-stone-500 dark:text-stone-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-slate-700 dark:hover:text-slate-300"
                   >
                     <ArrowLeft className="size-3 shrink-0" aria-hidden="true" />
@@ -594,6 +628,7 @@ export function DocumentWorkspace({
                 ) : seg.kind === "folder" ? (
                   <a
                     href={seg.href}
+                    onClick={(event) => handleBreadcrumbClick(event, seg.href)}
                     className="rounded px-1 py-0.5 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-slate-700 dark:hover:text-slate-300"
                   >
                     {seg.label}

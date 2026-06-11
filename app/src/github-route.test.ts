@@ -1,5 +1,10 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { gitHubHref, isMarkdownPath, parseGitHubLocation } from "./github-route";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  gitHubHref,
+  isMarkdownPath,
+  navigate,
+  parseGitHubLocation,
+} from "./github-route";
 
 describe("parseGitHubLocation", () => {
   afterEach(() => {
@@ -125,5 +130,41 @@ describe("isMarkdownPath", () => {
 
   it("returns false for an empty string", () => {
     expect(isMarkdownPath("")).toBe(false);
+  });
+});
+
+describe("navigate", () => {
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("pushes the href onto history (no full reload) and fires popstate", () => {
+    const onPopState = vi.fn();
+    window.addEventListener("popstate", onPopState);
+    const pushSpy = vi.spyOn(window.history, "pushState");
+
+    navigate("/mberg/cortex/notes/2026-01-03.md");
+
+    expect(pushSpy).toHaveBeenCalledTimes(1);
+    expect(window.location.pathname).toBe("/mberg/cortex/notes/2026-01-03.md");
+    expect(onPopState).toHaveBeenCalledTimes(1);
+
+    window.removeEventListener("popstate", onPopState);
+    pushSpy.mockRestore();
+  });
+
+  it("is a no-op when navigating to the current location", () => {
+    window.history.replaceState(null, "", "/mberg/cortex");
+    const onPopState = vi.fn();
+    window.addEventListener("popstate", onPopState);
+    const pushSpy = vi.spyOn(window.history, "pushState");
+
+    navigate("/mberg/cortex");
+
+    expect(pushSpy).not.toHaveBeenCalled();
+    expect(onPopState).not.toHaveBeenCalled();
+
+    window.removeEventListener("popstate", onPopState);
+    pushSpy.mockRestore();
   });
 });
