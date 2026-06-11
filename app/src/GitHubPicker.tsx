@@ -32,7 +32,7 @@ function GitHubMark({ className }: { className?: string }) {
 // ---------------------------------------------------------------------------
 function MarginsLogo() {
   return (
-    <p className="font-die-grotesk-a text-[clamp(1.125rem,0.9rem+0.35vw,1.375rem)] font-bold text-stone-500">
+    <p className="font-instrument-serif text-[clamp(1.75rem,1.4rem+0.9vw,2.5rem)] leading-none tracking-tight text-slate-900 dark:text-slate-100">
       margins
     </p>
   );
