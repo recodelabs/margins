@@ -5,6 +5,11 @@ import { GitHubBackend } from "./github-backend";
 import { Button } from "./components/ui/button";
 import { cn } from "./lib/utils";
 import { getFolderContents, splitPath } from "./github-tree";
+import {
+  gitHubHref,
+  isMarkdownPath,
+  parseGitHubLocation,
+} from "./github-route";
 
 // ---------------------------------------------------------------------------
 // GitHub mark SVG (inline, no external dependency)
@@ -76,23 +81,34 @@ function LoginScreen() {
 // Repo browser (token present)
 // ---------------------------------------------------------------------------
 
-/** Parse the ?dir= param from the URL at call time. */
+/** Read the current folder from the path-based URL. */
 function getDirFromUrl(): string {
-  return new URLSearchParams(window.location.search).get("dir") ?? "";
+  const loc = parseGitHubLocation();
+  // If the path looks like a markdown file (shouldn't happen in picker mode,
+  // but guard anyway), treat the parent as the current folder.
+  if (isMarkdownPath(loc.path)) {
+    const lastSlash = loc.path.lastIndexOf("/");
+    return lastSlash >= 0 ? loc.path.slice(0, lastSlash) : "";
+  }
+  return loc.path;
 }
 
 export function GitHubPicker() {
-  const params = new URLSearchParams(window.location.search);
   const token = getStoredToken();
+  const initialLoc = parseGitHubLocation();
 
-  const [repo, setRepo] = useState(params.get("repo") || "");
-  const [ref, setRef] = useState(params.get("ref") || "main");
+  const [repo, setRepo] = useState(
+    initialLoc.owner && initialLoc.repo
+      ? `${initialLoc.owner}/${initialLoc.repo}`
+      : "",
+  );
+  const [ref, setRef] = useState(initialLoc.branch || "main");
   const [currentDir, setCurrentDir] = useState(() => getDirFromUrl());
   const [allPaths, setAllPaths] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Listen for browser Back/Forward so ?dir= stays in sync
+  // Listen for browser Back/Forward so path-based dir stays in sync
   useEffect(() => {
     const onPopState = () => {
       setCurrentDir(getDirFromUrl());
@@ -138,12 +154,17 @@ export function GitHubPicker() {
     };
   }, [token, repo, ref]);
 
+  // Derive owner/name from the repo input field
+  const [repoOwner, repoName] = repo.split("/");
+
   // Navigate into a subfolder — update state + pushState
   const drillInto = (folderPath: string) => {
     setCurrentDir(folderPath);
-    const next = new URLSearchParams(window.location.search);
-    next.set("dir", folderPath);
-    window.history.pushState(null, "", `?${next.toString()}`);
+    window.history.pushState(
+      null,
+      "",
+      gitHubHref({ owner: repoOwner ?? "", repo: repoName ?? "", branch: ref, path: folderPath }),
+    );
   };
 
   // Navigate up one level
@@ -161,8 +182,9 @@ export function GitHubPicker() {
 
   // Open a file — navigate to the document workspace
   const openFile = (filePath: string) => {
-    const nextUrl = `/?repo=${encodeURIComponent(repo)}&ref=${encodeURIComponent(ref)}&path=${encodeURIComponent(filePath)}`;
-    window.location.assign(nextUrl);
+    window.location.assign(
+      gitHubHref({ owner: repoOwner ?? "", repo: repoName ?? "", branch: ref, path: filePath }),
+    );
   };
 
   if (!token) {
@@ -174,8 +196,8 @@ export function GitHubPicker() {
 
   // Compute folder contents for the current view
   const entries = allPaths ? getFolderContents(allPaths, currentDir) : [];
-  const [owner] = repo.split("/");
-  const repoName = repo.split("/")[1] ?? repo;
+  const owner = repoOwner ?? "";
+  const displayRepoName = repoName ?? repo;
 
   return (
     <div className="flex min-h-screen flex-col bg-[#FCFCFC] dark:bg-background px-6 pt-8 pb-12 text-slate-950 dark:text-slate-50">
@@ -236,7 +258,7 @@ export function GitHubPicker() {
               <span className="font-semibold text-slate-950 dark:text-slate-50">
                 {owner}
                 <span className="text-stone-400 dark:text-stone-500">/</span>
-                {repoName}
+                {displayRepoName}
               </span>
               <span className="inline-flex items-center rounded-full border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[0.72rem] font-medium text-stone-500 dark:text-stone-400">
                 {ref}
@@ -251,7 +273,7 @@ export function GitHubPicker() {
                   className="cursor-pointer rounded px-1 py-0.5 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-slate-950 dark:hover:text-slate-50"
                   onClick={() => drillTo("")}
                 >
-                  {repoName}
+                  {displayRepoName}
                 </button>
                 {breadcrumbSegments.map((seg, i) => (
                   <span key={seg.path} className="flex items-center gap-1">

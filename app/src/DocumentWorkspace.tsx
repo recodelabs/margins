@@ -45,6 +45,7 @@ import {
   PageCard,
 } from "./PageCard";
 import type { CompleteReviewOptions, Page, StorageBackend } from "./storage";
+import { gitHubHref } from "./github-route";
 
 type DiskChangeState = "clean" | "changed" | "conflict" | "paused";
 type ReviewHandoffState =
@@ -532,7 +533,6 @@ export function DocumentWorkspace({
         const pathParts = path.split("/");
         const filename = pathParts[pathParts.length - 1] ?? path;
         const folderSegments = pathParts.slice(0, -1); // all but last
-        const rootHref = `/?repo=${encodeURIComponent(repoPart)}&ref=${encodeURIComponent(branch)}`;
 
         type BreadcrumbSegment =
           | { kind: "repo"; label: string; href: string }
@@ -540,12 +540,21 @@ export function DocumentWorkspace({
           | { kind: "file"; label: string };
 
         const segments: BreadcrumbSegment[] = [
-          { kind: "repo", label: repoPart, href: rootHref },
+          {
+            kind: "repo",
+            label: repoPart,
+            href: gitHubHref({ owner, repo, branch }),
+          },
           ...folderSegments.map(
             (seg, i): BreadcrumbSegment => ({
               kind: "folder",
               label: seg,
-              href: `/?repo=${encodeURIComponent(repoPart)}&ref=${encodeURIComponent(branch)}&dir=${encodeURIComponent(folderSegments.slice(0, i + 1).join("/"))}`,
+              href: gitHubHref({
+                owner,
+                repo,
+                branch,
+                path: folderSegments.slice(0, i + 1).join("/"),
+              }),
             }),
           ),
           { kind: "file", label: filename },

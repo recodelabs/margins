@@ -48,6 +48,10 @@ import { detectBackend, isGitHubMode } from "./detect-backend";
 import { GitHubPicker } from "./GitHubPicker";
 import { getStoredToken } from "./github-auth";
 import {
+  isMarkdownPath,
+  parseGitHubLocation,
+} from "./github-route";
+import {
   getCommentAnchorMeasurements,
   groupCommentAnchorMeasurements,
   normalizeCommentMeasurement,
@@ -1624,7 +1628,7 @@ export function App() {
         if (cancelled) return;
 
         const docPath = isGitHubMode()
-          ? requestedPathState.rawPath ?? requestedPathState.documentPath
+          ? parseGitHubLocation().path
           : requestedPathState.documentPath;
         await loadDocument(detectedBackend, docPath);
         if (cancelled) return;
@@ -1922,11 +1926,9 @@ export function App() {
   }
 
   if (isGitHubMode()) {
-    const params = new URLSearchParams(window.location.search);
+    const loc = parseGitHubLocation();
     const hasToken = !!getStoredToken();
-    const hasRepo = !!params.get("repo");
-    const hasDoc = !!params.get("path");
-    if (!hasToken || !hasRepo || !hasDoc) {
+    if (!hasToken || !loc.owner || !loc.repo || !isMarkdownPath(loc.path)) {
       return <GitHubPicker />;
     }
   }
@@ -1947,17 +1949,12 @@ export function App() {
   const documentFilenameLabel =
     getPathLeaf(documentAbsolutePath ?? activeDocumentPath) ?? "Untitled.md";
 
-  // Build githubNav when in GitHub mode and a path is present in the URL
+  // Build githubNav when in GitHub mode and a markdown file path is in the URL
   const githubNav: GitHubDocNav | null = (() => {
     if (!isGitHubMode()) return null;
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlPath = urlParams.get("path");
-    const urlRepo = urlParams.get("repo");
-    const urlRef = urlParams.get("ref") || "main";
-    if (!urlPath || !urlRepo) return null;
-    const [owner, repo] = urlRepo.split("/");
-    if (!owner || !repo) return null;
-    return { owner, repo, branch: urlRef, path: urlPath };
+    const loc = parseGitHubLocation();
+    if (!loc.owner || !loc.repo || !isMarkdownPath(loc.path)) return null;
+    return { owner: loc.owner, repo: loc.repo, branch: loc.branch, path: loc.path };
   })();
 
   return (
