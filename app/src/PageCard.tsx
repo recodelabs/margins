@@ -1,5 +1,4 @@
 import type { JSONContent } from "@tiptap/core";
-import type { Mark as ProseMirrorMark } from "@tiptap/pm/model";
 import { TextSelection } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
@@ -351,26 +350,6 @@ function getDocumentCriticChanges(
   });
 
   return [...changes.values()];
-}
-
-function getReusableSuggestionInputMark(
-  editor: Editor,
-  position: number,
-): ProseMirrorMark | null {
-  const markType = editor.state.schema.marks.criticChange;
-  if (!markType) return null;
-
-  const isReusableSuggestionMark = (mark: ProseMirrorMark) =>
-    mark.type === markType &&
-    (mark.attrs.kind === "addition" || mark.attrs.kind === "substitution-new");
-  const $position = editor.state.doc.resolve(position);
-  const previousMark = $position.nodeBefore?.marks.find(
-    isReusableSuggestionMark,
-  );
-
-  if (previousMark) return previousMark;
-
-  return $position.nodeAfter?.marks.find(isReusableSuggestionMark) ?? null;
 }
 
 function getDocumentCriticChangeRailItems(
@@ -764,109 +743,16 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
           event.preventDefault();
 
           const { selection } = view.state;
-          const from = selection.from;
-          const to = selection.to;
-          const tr = view.state.tr;
-
-          if (from !== to) {
-            const criticMarkType = view.state.schema.marks.criticChange;
-            const isAdditionKind = (m: ProseMirrorMark) =>
-              m.type === criticMarkType &&
-              (m.attrs.kind === "addition" ||
-                m.attrs.kind === "substitution-new");
-
-            type Segment = {
-              from: number;
-              to: number;
-              isAddition: boolean;
-            };
-            const segments: Segment[] = [];
-            view.state.doc.nodesBetween(from, to, (node, pos) => {
-              if (!node.isText) return;
-              const segFrom = Math.max(pos, from);
-              const segTo = Math.min(pos + node.nodeSize, to);
-              if (segFrom >= segTo) return;
-              const isAdd = node.marks.some(isAdditionKind);
-              const prev = segments[segments.length - 1];
-              if (prev && prev.isAddition === isAdd && prev.to === segFrom) {
-                prev.to = segTo;
-              } else {
-                segments.push({
-                  from: segFrom,
-                  to: segTo,
-                  isAddition: isAdd,
-                });
-              }
-            });
-
-            const hasOriginalText = segments.some((s) => !s.isAddition);
-
-            if (hasOriginalText) {
-              const oldChange = createCriticChange(
-                "substitution-old",
-                { authorId },
-                {
-                  existingChanges: getDocumentCriticChanges(currentEditor),
-                },
-              );
-              const newMark = view.state.schema.marks.criticChange.create({
-                ...oldChange,
-                kind: "substitution-new",
-              });
-
-              for (const seg of [...segments].reverse()) {
-                if (seg.isAddition) {
-                  tr.delete(seg.from, seg.to);
-                } else {
-                  tr.addMark(
-                    seg.from,
-                    seg.to,
-                    view.state.schema.marks.criticChange.create(oldChange),
-                  );
-                }
-              }
-
-              const insertPos = tr.mapping.map(to, -1);
-              tr.insert(insertPos, view.state.schema.text(text, [newMark]));
-              tr.setSelection(
-                TextSelection.create(tr.doc, insertPos + text.length),
-              );
-            } else {
-              for (const seg of [...segments].reverse()) {
-                tr.delete(seg.from, seg.to);
-              }
-              const insertPos = tr.mapping.map(from, -1);
-              const existingMark = getReusableSuggestionInputMark(
-                currentEditor,
-                insertPos,
-              );
-              const mark =
-                existingMark ??
-                view.state.schema.marks.criticChange.create(
-                  createCriticChange("addition", { authorId }, {
-                    existingChanges: getDocumentCriticChanges(currentEditor),
-                  }),
-                );
-              tr.insert(insertPos, view.state.schema.text(text, [mark]));
-              tr.setSelection(
-                TextSelection.create(tr.doc, insertPos + text.length),
-              );
-            }
-          } else {
-            const existingMark = getReusableSuggestionInputMark(
-              currentEditor,
-              from,
-            );
-            const mark =
-              existingMark ??
-              view.state.schema.marks.criticChange.create(
-                createCriticChange("addition", { authorId }, {
-                  existingChanges: getDocumentCriticChanges(currentEditor),
-                }),
-              );
-            tr.insert(from, view.state.schema.text(text, [mark]));
-            tr.setSelection(TextSelection.create(tr.doc, from + text.length));
-          }
+          const tr = buildSuggestionInputTransaction(
+            view.state,
+            { from: selection.from, to: selection.to },
+            text,
+            {
+              markType: view.state.schema.marks.criticChange,
+              changeAttrs: { authorId },
+              existingChanges: getDocumentCriticChanges(currentEditor),
+            },
+          );
 
           view.dispatch(tr.scrollIntoView());
           return true;
