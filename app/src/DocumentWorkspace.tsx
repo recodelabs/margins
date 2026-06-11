@@ -7,6 +7,7 @@ import {
   ChevronRight,
   CodeXml,
   Eye,
+  EyeOff,
   Loader2,
   MessageSquarePlus,
   PencilLine,
@@ -21,6 +22,10 @@ import {
   useState,
 } from "react";
 import type { DocumentEditorViewMode } from "./app-navigation";
+import {
+  readStoredCommentsHidden,
+  writeStoredCommentsHidden,
+} from "./comment-visibility";
 import { RemoteSessionBanner } from "./components/RemoteSessionBanner";
 import { Button } from "./components/ui/button";
 import {
@@ -310,6 +315,20 @@ export function DocumentWorkspace({
   const [documentInteractionMode, setDocumentInteractionMode] =
     useState<DocumentInteractionMode>("editing");
   const saveState = useDocumentSession(documentSession, (s) => s.saveState);
+  const [commentsHidden, setCommentsHidden] = useState<boolean>(
+    readStoredCommentsHidden,
+  );
+  const commentsHiddenHydratedRef = useRef(false);
+
+  useEffect(() => {
+    // Skip the initial render: only persist once the reader actually toggles,
+    // so simply mounting the workspace doesn't write to localStorage.
+    if (!commentsHiddenHydratedRef.current) {
+      commentsHiddenHydratedRef.current = true;
+      return;
+    }
+    writeStoredCommentsHidden(commentsHidden);
+  }, [commentsHidden]);
   const [reviewHandoffState, setReviewHandoffState] =
     useState<ReviewHandoffState>("idle");
   const [reviewWatcherCount, setReviewWatcherCount] = useState(0);
@@ -489,6 +508,9 @@ export function DocumentWorkspace({
     documentEditorViewMode === "rich-text"
       ? "Switch to code view"
       : "Switch to rich text view";
+  const commentsToggleLabel = commentsHidden
+    ? "Show comments"
+    : "Hide comments";
   const activeDocumentInteractionMode = documentInteractionModeOptions.find(
     (option) => option.value === documentInteractionMode,
   );
@@ -1021,7 +1043,28 @@ export function DocumentWorkspace({
                     diskChangeState={documentDiskChangeState}
                   />
                 )}
-                <div className="ml-auto inline-flex h-[1.5rem] shrink-0 items-center">
+                <div className="ml-auto inline-flex h-[1.5rem] shrink-0 items-center gap-1">
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <button
+                          type="button"
+                          data-testid="document-comments-toggle"
+                          aria-pressed={commentsHidden}
+                          className="inline-flex h-[1.5rem] items-center justify-center rounded-full px-1 text-stone-400 outline-none transition hover:bg-[#EEE9E1] hover:text-stone-600 focus-visible:ring-2 focus-visible:ring-stone-300/70 dark:text-stone-500 dark:hover:bg-slate-800 dark:hover:text-stone-300 dark:focus-visible:ring-slate-600/70"
+                        >
+                          {commentsHidden ? (
+                            <EyeOff className="size-[0.78rem]" />
+                          ) : (
+                            <MessageSquarePlus className="size-[0.78rem]" />
+                          )}
+                        </button>
+                      }
+                      aria-label={commentsToggleLabel}
+                      onClick={() => setCommentsHidden((hidden) => !hidden)}
+                    />
+                    <TooltipContent>{commentsToggleLabel}</TooltipContent>
+                  </Tooltip>
                   <Select<DocumentInteractionMode>
                     value={documentInteractionMode}
                     onValueChange={(value) => {
@@ -1072,6 +1115,7 @@ export function DocumentWorkspace({
                 onSaveStateChange={documentSession.setSaveState}
                 editorViewMode={documentEditorViewMode}
                 interactionMode={documentInteractionMode}
+                commentsHidden={commentsHidden}
                 backend={backend}
                 onCommentRailPresenceChange={setDocumentHasComments}
                 onDirtyStateChange={documentSession.setDirty}

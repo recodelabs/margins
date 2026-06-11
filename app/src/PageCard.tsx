@@ -14,6 +14,7 @@ import {
 } from "react";
 import { buildLocationForLinkedMarkdownDocument } from "./app-navigation";
 import { CommentEditorList } from "./CommentEditorList";
+import { shouldShowReviewRail } from "./comment-visibility";
 import {
   type CriticChangeAttrs,
   type CriticComment,
@@ -89,6 +90,7 @@ interface PageCardProps {
   onSaveStateChange?: (state: DocumentSaveState) => void;
   editorViewMode?: EditorViewMode;
   interactionMode?: DocumentInteractionMode;
+  commentsHidden?: boolean;
   backend: StorageBackend;
   onEditorReady?: (editor: Editor | null) => void;
   onCommentRailPresenceChange?: (hasCommentRailSpace: boolean) => void;
@@ -110,6 +112,7 @@ interface PageCardEditorSurfaceProps {
   onSaveStateChange: (state: DocumentSaveState) => void;
   editorViewMode: EditorViewMode;
   interactionMode: DocumentInteractionMode;
+  commentsHidden: boolean;
   backend: StorageBackend;
   onEditorReady?: (editor: Editor | null) => void;
   onCommentRailPresenceChange?: (hasCommentRailSpace: boolean) => void;
@@ -130,6 +133,7 @@ interface RichTextEditorSurfaceProps {
   sourceMarkdown: string;
   onMarkdownChange: (markdown: string) => void;
   interactionMode: DocumentInteractionMode;
+  commentsHidden: boolean;
   backend: StorageBackend;
   onEditorReady?: (editor: Editor | null) => void;
   onCommentRailPresenceChange?: (hasCommentRailSpace: boolean) => void;
@@ -591,6 +595,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
   sourceMarkdown,
   onMarkdownChange,
   interactionMode,
+  commentsHidden,
   backend,
   onEditorReady,
   onCommentRailPresenceChange,
@@ -664,9 +669,14 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
 
   useEffect(() => {
     onCommentRailPresenceChange?.(
-      comments.size > 0 || criticChanges.length > 0,
+      shouldShowReviewRail(comments.size, criticChanges.length, commentsHidden),
     );
-  }, [comments.size, criticChanges.length, onCommentRailPresenceChange]);
+  }, [
+    commentsHidden,
+    comments.size,
+    criticChanges.length,
+    onCommentRailPresenceChange,
+  ]);
 
   // Serializing the whole document (JSON → HTML → Turndown) is expensive, so
   // we never run it on every keystroke. The typing path only signals that the
@@ -1622,7 +1632,11 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     );
   }, []);
 
-  const hasReviewRail = comments.size > 0 || criticChanges.length > 0;
+  const hasReviewRail = shouldShowReviewRail(
+    comments.size,
+    criticChanges.length,
+    commentsHidden,
+  );
   const activeComments = activeCommentIds
     .map((commentId) => comments.get(commentId))
     .filter((comment): comment is CriticComment => Boolean(comment));
@@ -1637,6 +1651,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     layout !== "embedded-demo" &&
       !hasReviewRail &&
       "min-[1100px]:grid-cols-[minmax(0,56rem)] min-[1100px]:justify-center",
+    commentsHidden && "comments-hidden",
   );
   const documentMainClass = cn(
     "document-page-main w-full min-w-0",
@@ -1661,7 +1676,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     >
       <div data-testid="document-page-shell" className={documentShellClass}>
         <div className={documentMainClass}>
-          {activeComments.length > 0 ? (
+          {!commentsHidden && activeComments.length > 0 ? (
             <CommentEditorList
               comments={activeComments}
               className={fallbackClass}
@@ -1730,51 +1745,53 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
             </div>
           </div>
         </div>
-        <DocumentReviewRail
-          className={reviewRailClass}
-          layout={layout === "embedded-demo" ? "flow" : "anchored"}
-          testId="document-review-rail"
-          commentGroups={commentGroups}
-          comments={comments}
-          suggestions={criticChanges}
-          selectedCommentId={selectedCommentId}
-          hoveredCommentId={hoveredCommentId}
-          selectedChangeId={selectedChangeId}
-          hoveredChangeId={hoveredChangeId}
-          contentHeight={contentHeight}
-          onDeleteComment={deleteComment}
-          onUpdateComment={(commentId, nextContent) => {
-            updateComment(commentId, (current) => ({
-              ...current,
-              content: nextContent,
-            }));
-          }}
-          onReplyComment={replyToComment}
-          onSelectComment={selectComment}
-          onFocusComment={focusComment}
-          onHoverComment={setHoveredCommentId}
-          onAcceptSuggestion={acceptSuggestion}
-          onRejectSuggestion={rejectSuggestion}
-          onReplySuggestion={replyToSuggestion}
-          onSelectSuggestion={selectSuggestion}
-          onFocusSuggestion={focusSuggestion}
-          onHoverSuggestion={setHoveredChangeId}
-          pendingFocusCommentId={pendingFocusCommentId}
-          onAutoFocusComment={(commentId) => {
-            setPendingFocusCommentId((current) =>
-              current === commentId ? null : current,
-            );
-          }}
-          draftSuggestion={draftSuggestion}
-          onDraftSuggestionTextChange={(text) => {
-            setDraftSuggestion((current) =>
-              current ? { ...current, text } : current,
-            );
-          }}
-          onApplyDraftSuggestion={applyDraftSuggestion}
-          onCancelDraftSuggestion={() => setDraftSuggestion(null)}
-          editor={editor}
-        />
+        {hasReviewRail ? (
+          <DocumentReviewRail
+            className={reviewRailClass}
+            layout={layout === "embedded-demo" ? "flow" : "anchored"}
+            testId="document-review-rail"
+            commentGroups={commentGroups}
+            comments={comments}
+            suggestions={criticChanges}
+            selectedCommentId={selectedCommentId}
+            hoveredCommentId={hoveredCommentId}
+            selectedChangeId={selectedChangeId}
+            hoveredChangeId={hoveredChangeId}
+            contentHeight={contentHeight}
+            onDeleteComment={deleteComment}
+            onUpdateComment={(commentId, nextContent) => {
+              updateComment(commentId, (current) => ({
+                ...current,
+                content: nextContent,
+              }));
+            }}
+            onReplyComment={replyToComment}
+            onSelectComment={selectComment}
+            onFocusComment={focusComment}
+            onHoverComment={setHoveredCommentId}
+            onAcceptSuggestion={acceptSuggestion}
+            onRejectSuggestion={rejectSuggestion}
+            onReplySuggestion={replyToSuggestion}
+            onSelectSuggestion={selectSuggestion}
+            onFocusSuggestion={focusSuggestion}
+            onHoverSuggestion={setHoveredChangeId}
+            pendingFocusCommentId={pendingFocusCommentId}
+            onAutoFocusComment={(commentId) => {
+              setPendingFocusCommentId((current) =>
+                current === commentId ? null : current,
+              );
+            }}
+            draftSuggestion={draftSuggestion}
+            onDraftSuggestionTextChange={(text) => {
+              setDraftSuggestion((current) =>
+                current ? { ...current, text } : current,
+              );
+            }}
+            onApplyDraftSuggestion={applyDraftSuggestion}
+            onCancelDraftSuggestion={() => setDraftSuggestion(null)}
+            editor={editor}
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -1852,6 +1869,7 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
   onSaveStateChange,
   editorViewMode,
   interactionMode,
+  commentsHidden,
   backend,
   onEditorReady,
   onCommentRailPresenceChange,
@@ -2191,6 +2209,7 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
       sourceMarkdown={effectiveRichTextSourceMarkdown}
       onMarkdownChange={handleMarkdownChange}
       interactionMode={interactionMode}
+      commentsHidden={commentsHidden}
       onCommentRailPresenceChange={onCommentRailPresenceChange}
       backend={backend}
       onEditorReady={onEditorReady}
@@ -2210,6 +2229,7 @@ export function PageCard({
   onSaveStateChange,
   editorViewMode = "rich-text",
   interactionMode = "editing",
+  commentsHidden = false,
   backend,
   onEditorReady,
   onCommentRailPresenceChange,
@@ -2232,6 +2252,7 @@ export function PageCard({
         onSaveStateChange={onSaveStateChange ?? NOOP_SAVE_STATE_CHANGE}
         editorViewMode={editorViewMode}
         interactionMode={interactionMode}
+        commentsHidden={commentsHidden}
         backend={backend}
         onEditorReady={onEditorReady}
         onCommentRailPresenceChange={onCommentRailPresenceChange}
