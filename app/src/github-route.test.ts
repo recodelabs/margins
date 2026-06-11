@@ -70,7 +70,7 @@ describe("parseGitHubLocation", () => {
 });
 
 describe("gitHubHref", () => {
-  it("builds href for a file with owner, repo, path, and branch", () => {
+  it("omits ?branch= for the default main branch (clean, shareable URL)", () => {
     expect(
       gitHubHref({
         owner: "mberg",
@@ -78,20 +78,20 @@ describe("gitHubHref", () => {
         path: "notes/a.md",
         branch: "main",
       }),
-    ).toBe("/mberg/cortex/notes/a.md?branch=main");
+    ).toBe("/mberg/cortex/notes/a.md");
   });
 
-  it("builds href for repo root (no path, no branch)", () => {
-    expect(gitHubHref({ owner: "o", repo: "r" })).toBe("/o/r?branch=main");
+  it("builds href for repo root on main (no query)", () => {
+    expect(gitHubHref({ owner: "o", repo: "r" })).toBe("/o/r");
   });
 
-  it("defaults branch to main when branch is empty", () => {
+  it("treats an empty branch as main (no query)", () => {
     expect(
       gitHubHref({ owner: "o", repo: "r", branch: "", path: "x.md" }),
-    ).toBe("/o/r/x.md?branch=main");
+    ).toBe("/o/r/x.md");
   });
 
-  it("uses the provided branch when non-empty", () => {
+  it("includes ?branch= only for a non-default branch", () => {
     expect(
       gitHubHref({ owner: "o", repo: "r", path: "x.md", branch: "dev" }),
     ).toBe("/o/r/x.md?branch=dev");
@@ -100,12 +100,12 @@ describe("gitHubHref", () => {
   it("encodes special characters in owner/repo/path segments", () => {
     expect(
       gitHubHref({ owner: "my org", repo: "my repo", path: "a b.md" }),
-    ).toBe("/my%20org/my%20repo/a%20b.md?branch=main");
+    ).toBe("/my%20org/my%20repo/a%20b.md");
   });
 
   it("omits path segments when path is empty or undefined", () => {
     expect(gitHubHref({ owner: "mberg", repo: "cortex", branch: "main" })).toBe(
-      "/mberg/cortex?branch=main",
+      "/mberg/cortex",
     );
   });
 });

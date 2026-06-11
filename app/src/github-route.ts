@@ -39,7 +39,10 @@ export function gitHubHref(target: {
   if (target.path) segs.push(...target.path.split("/"));
   const encoded = segs.filter(Boolean).map(encodeURIComponent).join("/");
   const branch = target.branch && target.branch.length ? target.branch : "main";
-  return `/${encoded}?branch=${encodeURIComponent(branch)}`;
+  // Omit ?branch= for the default branch so URLs stay clean and the query is
+  // optional — parseGitHubLocation() defaults a missing branch back to "main".
+  const qs = branch === "main" ? "" : `?branch=${encodeURIComponent(branch)}`;
+  return `/${encoded}${qs}`;
 }
 
 export function isMarkdownPath(path: string): boolean {
