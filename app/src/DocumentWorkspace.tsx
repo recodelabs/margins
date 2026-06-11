@@ -15,6 +15,10 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DocumentEditorViewMode } from "./app-navigation";
+import {
+  type DocumentSessionStore,
+  useDocumentSession,
+} from "./document-session";
 import { RemoteSessionBanner } from "./components/RemoteSessionBanner";
 import { Button } from "./components/ui/button";
 import {
@@ -41,7 +45,6 @@ import { toHtml } from "./markdown";
 import { MermaidOverlays } from "./MermaidOverlays";
 import {
   type DocumentInteractionMode,
-  type DocumentSaveController,
   type DocumentSaveState,
   PageCard,
 } from "./PageCard";
@@ -256,9 +259,7 @@ interface DocumentWorkspaceProps {
   documentEditorViewMode: DocumentEditorViewMode;
   onDocumentEditorViewModeChange: (mode: DocumentEditorViewMode) => void;
   onSaveDocument: (id: string, content: string) => Promise<void>;
-  onDocumentSaveStateChange: (state: DocumentSaveState) => void;
-  onDocumentDirtyStateChange: (isDirty: boolean) => void;
-  onDocumentLocalContentChange: (markdown: string) => void;
+  documentSession: DocumentSessionStore;
   documentDiskChangeState: DiskChangeState;
   documentForceResetKey: string | null;
   documentActionError?: string | null;
@@ -281,9 +282,7 @@ export function DocumentWorkspace({
   documentEditorViewMode,
   onDocumentEditorViewModeChange,
   onSaveDocument,
-  onDocumentSaveStateChange,
-  onDocumentDirtyStateChange,
-  onDocumentLocalContentChange,
+  documentSession,
   documentDiskChangeState,
   documentForceResetKey,
   documentActionError = null,
@@ -298,7 +297,7 @@ export function DocumentWorkspace({
 }: DocumentWorkspaceProps) {
   const [documentInteractionMode, setDocumentInteractionMode] =
     useState<DocumentInteractionMode>("editing");
-  const [saveState, setSaveState] = useState<DocumentSaveState>("saved");
+  const saveState = useDocumentSession(documentSession, (s) => s.saveState);
   const [reviewHandoffState, setReviewHandoffState] =
     useState<ReviewHandoffState>("idle");
   const [reviewWatcherCount, setReviewWatcherCount] = useState(0);
@@ -309,20 +308,11 @@ export function DocumentWorkspace({
     useState<FileCopyAction | null>(null);
   const [overallComment, setOverallComment] = useState("");
   const sawNoWatcherAfterNotifiedRef = useRef(false);
-  const saveControllerRef = useRef<DocumentSaveController | null>(null);
   const commitShortcutHint =
     typeof navigator !== "undefined" &&
     /Mac|iPhone|iPad/.test(navigator.userAgent)
       ? "⌘S"
       : "Ctrl+S";
-
-  const handleSaveStateChange = useCallback(
-    (state: DocumentSaveState) => {
-      setSaveState(state);
-      onDocumentSaveStateChange(state);
-    },
-    [onDocumentSaveStateChange],
-  );
 
   const [documentHasComments, setDocumentHasComments] = useState(
     () =>
@@ -409,14 +399,14 @@ export function DocumentWorkspace({
 
       if (documentDiskChangeState !== "clean") return;
 
-      void saveControllerRef.current?.flushSave();
+      void documentSession.getSnapshot().saveController?.flushSave();
     };
 
     window.addEventListener("keydown", handleKeyDown, { capture: true });
     return () => {
       window.removeEventListener("keydown", handleKeyDown, { capture: true });
     };
-  }, [documentDiskChangeState, documentPage]);
+  }, [documentDiskChangeState, documentPage, documentSession]);
 
   const handleCompleteReview = useCallback(
     async (options?: CompleteReviewOptions) => {
@@ -426,7 +416,9 @@ export function DocumentWorkspace({
       try {
         // The button stays enabled while autosave is still pending, so make
         // sure any debounced edits are persisted before handing off.
-        const flushResult = await saveControllerRef.current?.flushSave();
+        const flushResult = await documentSession
+          .getSnapshot()
+          .saveController?.flushSave();
         if (flushResult && flushResult.status === "error") {
           throw flushResult.error;
         }
@@ -448,7 +440,7 @@ export function DocumentWorkspace({
         setReviewHandoffPopoverOpen(true);
       }
     },
-    [activeDocumentPath, onCompleteReview, reviewHandoffState],
+    [activeDocumentPath, documentSession, onCompleteReview, reviewHandoffState],
   );
 
   const handleCopyFileMenuAction = useCallback(
@@ -624,7 +616,9 @@ export function DocumentWorkspace({
           data-testid="github-commit-button"
           size="lg"
           disabled={saveState === "saving"}
-          onClick={() => void saveControllerRef.current?.flushSave()}
+          onClick={() =>
+            void documentSession.getSnapshot().saveController?.flushSave()
+          }
           className="fixed bottom-6 left-1/2 z-[80] h-12 -translate-x-1/2 gap-2 rounded-full border-0 bg-emerald-600 px-6 text-base font-semibold text-white shadow-[0_14px_36px_rgba(5,150,105,0.45)] hover:bg-emerald-700 focus-visible:ring-emerald-300/60"
         >
           {saveState === "saving" ? (
@@ -824,7 +818,13 @@ export function DocumentWorkspace({
               variant="ghost"
               size="sm"
               className="h-8 rounded-[7px] bg-amber-900 dark:bg-amber-600 px-2 text-xs text-white hover:bg-amber-800 dark:hover:bg-amber-500"
-              onClick={() => void onOverwriteDocumentOnDisk()}
+              onClick={() => {
+                // Persist any deferred serialization into the draft before
+                // overwrite reads it from the session store, so we push the
+                // latest edits to disk.
+                documentSession.getSnapshot().saveController?.flushDraft();
+                void onOverwriteDocumentOnDisk();
+              }}
             >
               <Upload className="size-3.5" />
               Overwrite disk file
@@ -912,13 +912,19 @@ export function DocumentWorkspace({
                       </button>
                     }
                     aria-label={editorViewModeToggleLabel}
-                    onClick={() =>
+                    onClick={() => {
+                      // Leaving the rich-text editor: serialize the latest
+                      // edits into the draft so the code view opens with them
+                      // (rich-text serialization is otherwise deferred to save).
+                      if (documentEditorViewMode === "rich-text") {
+                        documentSession.getSnapshot().saveController?.flushDraft();
+                      }
                       onDocumentEditorViewModeChange(
                         documentEditorViewMode === "rich-text"
                           ? "code"
                           : "rich-text",
-                      )
-                    }
+                      );
+                    }}
                   />
                   <TooltipContent>{editorViewModeToggleLabel}</TooltipContent>
                 </Tooltip>
@@ -1026,16 +1032,14 @@ export function DocumentWorkspace({
                 activeDocumentPath={activeDocumentPath}
                 selected
                 onSave={onSaveDocument}
-                onSaveStateChange={handleSaveStateChange}
+                onSaveStateChange={documentSession.setSaveState}
                 editorViewMode={documentEditorViewMode}
                 interactionMode={documentInteractionMode}
                 backend={backend}
                 onCommentRailPresenceChange={setDocumentHasComments}
-                onDirtyStateChange={onDocumentDirtyStateChange}
-                onLocalContentChange={onDocumentLocalContentChange}
-                onSaveControllerChange={(controller) => {
-                  saveControllerRef.current = controller;
-                }}
+                onDirtyStateChange={documentSession.setDirty}
+                onLocalContentChange={documentSession.setDraftContent}
+                onSaveControllerChange={documentSession.setController}
                 saveBlocked={documentDiskChangeState !== "clean"}
                 forceResetKey={documentForceResetKey}
                 manualCommit={manualCommit}

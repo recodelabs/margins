@@ -2,7 +2,7 @@ import {
   buildCommentThreads,
   type CriticComment,
   flattenCommentThreads,
-} from "./critic-markup";
+} from "./critic-markup/comment-threads";
 
 interface CommentAnchorMeasurement {
   commentIds: string[];

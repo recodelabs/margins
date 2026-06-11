@@ -8,6 +8,8 @@ import {
   MarkdownFileConflictError,
   FileTooLargeError,
 } from "./storage";
+import { githubGet, githubFetch } from "./github-fetch";
+import { invalidateCachedUrl } from "./github-cache";
 
 export interface GitHubBackendConfig {
   token: string;
@@ -61,38 +63,40 @@ export class GitHubBackend implements StorageBackend {
     };
   }
 
-  private async readFile(relativePath: string): Promise<Page> {
+  private contentsUrl(relativePath: string): string {
     const { owner, repo, branch } = this.cfg;
-    const res = await fetch(
-      `${API}/repos/${owner}/${repo}/contents/${relativePath}?ref=${branch}`,
-      { headers: this.headers() },
-    );
-    if (!res.ok) throw new Error(`GitHub read failed (${res.status})`);
-    const json = (await res.json()) as {
-      sha: string;
-      content: string;
-      encoding?: string;
-      size?: number;
-    };
-    // The Contents API only returns inline content for files up to 1 MB. For
-    // larger files it responds with `encoding: "none"` and an empty `content`,
-    // which would otherwise decode to "" and silently open an empty editor —
-    // and a later autosave would overwrite the real file with emptiness.
-    if (json.encoding === "none" || (json.content === "" && (json.size ?? 0) > 0)) {
-      throw new FileTooLargeError(relativePath, json.size);
-    }
-    const content = decodeBase64(json.content);
-    return {
-      id: pageId(relativePath),
-      title: titleFromContent(content, relativePath.split("/").at(-1) || relativePath),
-      content,
-      version: json.sha,
-    };
+    return `${API}/repos/${owner}/${repo}/contents/${relativePath}?ref=${branch}`;
+  }
+
+  private async readFile(relativePath: string): Promise<Page> {
+    return githubGet(this.contentsUrl(relativePath), this.headers(), async (res) => {
+      if (!res.ok) throw new Error(`GitHub read failed (${res.status})`);
+      const json = (await res.json()) as {
+        sha: string;
+        content: string;
+        encoding?: string;
+        size?: number;
+      };
+      // The Contents API only returns inline content for files up to 1 MB. For
+      // larger files it responds with `encoding: "none"` and an empty `content`,
+      // which would otherwise decode to "" and silently open an empty editor —
+      // and a later autosave would overwrite the real file with emptiness.
+      if (json.encoding === "none" || (json.content === "" && (json.size ?? 0) > 0)) {
+        throw new FileTooLargeError(relativePath, json.size);
+      }
+      const content = decodeBase64(json.content);
+      return {
+        id: pageId(relativePath),
+        title: titleFromContent(content, relativePath.split("/").at(-1) || relativePath),
+        content,
+        version: json.sha,
+      };
+    });
   }
 
   async getMarkdownFile(relativePath: string): Promise<Page> {
     if (!/\.md$/i.test(relativePath)) {
-      throw new Error("Only markdown (.md) files can be opened in roughneck");
+      throw new Error("Only markdown (.md) files can be opened in margins");
     }
     return this.readFile(relativePath);
   }
@@ -103,10 +107,10 @@ export class GitHubBackend implements StorageBackend {
     expectedVersion?: string,
   ): Promise<Page> {
     if (!/\.md$/i.test(relativePath)) {
-      throw new Error("Only markdown (.md) files can be opened in roughneck");
+      throw new Error("Only markdown (.md) files can be opened in margins");
     }
     const { owner, repo, branch } = this.cfg;
-    const res = await fetch(`${API}/repos/${owner}/${repo}/contents/${relativePath}`, {
+    const res = await githubFetch(`${API}/repos/${owner}/${repo}/contents/${relativePath}`, {
       method: "PUT",
       headers: this.headers({ "Content-Type": "application/json" }),
       body: JSON.stringify({
@@ -134,6 +138,9 @@ export class GitHubBackend implements StorageBackend {
     }
     if (!res.ok) throw new Error(`GitHub save failed (${res.status})`);
     const json = (await res.json()) as { content: { sha: string } };
+    // The file changed on the server — drop any cached read so the next open
+    // re-fetches (and re-conditionalises) instead of serving stale content.
+    invalidateCachedUrl(this.contentsUrl(relativePath));
     return {
       id: pageId(relativePath),
       title: titleFromContent(content, relativePath.split("/").at(-1) || relativePath),
@@ -144,21 +151,20 @@ export class GitHubBackend implements StorageBackend {
 
   async listMarkdownPaths(): Promise<string[]> {
     const { owner, repo, branch } = this.cfg;
-    const res = await fetch(
-      `${API}/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`,
-      { headers: this.headers() },
-    );
-    if (!res.ok) throw new Error(`GitHub tree failed (${res.status})`);
-    const json = (await res.json()) as {
-      tree: Array<{ path: string; type: string }>;
-      truncated?: boolean;
-    };
-    if (json.truncated) {
-      throw new Error("GitHub tree listing was truncated (repo too large to list recursively)");
-    }
-    return json.tree
-      .filter((e) => e.type === "blob" && /\.md$/i.test(e.path))
-      .map((e) => e.path);
+    const url = `${API}/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
+    return githubGet(url, this.headers(), async (res) => {
+      if (!res.ok) throw new Error(`GitHub tree failed (${res.status})`);
+      const json = (await res.json()) as {
+        tree: Array<{ path: string; type: string }>;
+        truncated?: boolean;
+      };
+      if (json.truncated) {
+        throw new Error("GitHub tree listing was truncated (repo too large to list recursively)");
+      }
+      return json.tree
+        .filter((e) => e.type === "blob" && /\.md$/i.test(e.path))
+        .map((e) => e.path);
+    });
   }
 
   saveAsset(_file: File): Promise<StoredAsset> {

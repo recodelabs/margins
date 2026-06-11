@@ -1,9 +1,9 @@
-# roughneck
+# margins
 
 A repo browser and enhancement layer for [Roughdraft](https://www.roughdraft.md/) — the local-first
 markdown review app for coding agents.
 
-`roughneck` lets you serve any folder's markdown over your LAN and review it in Roughdraft, with a
+`margins` lets you serve any folder's markdown over your LAN and review it in Roughdraft, with a
 set of quality-of-life enhancements layered on top:
 
 - **Repo file browser** at the server root (`/`) — browse folders & markdown files, click to open.
@@ -14,45 +14,57 @@ set of quality-of-life enhancements layered on top:
 - **Reliability fixes** for Roughdraft's SPA routing (deep-link reloads, URL flip-flop).
 - One server **per folder**, network-exposed (`0.0.0.0`) so other devices on your LAN can review.
 
+> **Note on the name:** the GitHub repository is still `recodelabs/roughneck`; the project (CLI,
+> assets, and hosted app) has been renamed to **margins**. The clone URLs below intentionally keep
+> the current repo path until the repository itself is renamed.
+
 ## Install
 
 Requires `node`, `jq`, `curl`, and a global Roughdraft install (`npm i -g roughdraft`).
 
 ```bash
 git clone https://github.com/recodelabs/roughneck.git
-ln -sf "$PWD/roughneck/roughneck" /opt/homebrew/bin/roughneck   # or anywhere on your PATH
+ln -sf "$PWD/roughneck/margins" /opt/homebrew/bin/margins   # or anywhere on your PATH
 ```
+
+> Upgrading from the old `roughneck` CLI? This is a clean break — there is no `roughneck` alias.
+> Re-point your symlink at the renamed binary and drop the old one:
+> `ln -sf "$PWD/roughneck/margins" /opt/homebrew/bin/margins && rm -f /opt/homebrew/bin/roughneck`.
 
 ## Usage
 
 ```bash
-roughneck [--local] [--no-open] [FOLDER] [FILE.md]   # serve FOLDER (default: cwd); optionally open FILE
-roughneck list                                       # show running servers
-roughneck stop [FOLDER|all]                          # stop a server
-roughneck enhance                                    # (re)apply the in-browser enhancements
+margins [--local] [--no-open] [FOLDER] [FILE.md]   # serve FOLDER (default: cwd); optionally open FILE
+margins list                                       # show running servers
+margins stop [FOLDER|all]                          # stop a server
+margins enhance                                    # (re)apply the in-browser enhancements
 ```
 
 - Default binds to `0.0.0.0` so devices on your LAN can reach it at `http://<host>.local:<port>/`.
   Use `--local` to bind loopback only.
 - The root URL (`http://<host>.local:<port>/`) is the **repo browser**.
-- A subtle **⬡ roughneck** chip (top-left, on doc pages) returns you to the browser.
+- A subtle **⬡ margins** chip (top-left, on doc pages) returns you to the browser.
 
 ## How it works
 
-`roughneck` is a thin shell wrapper around Roughdraft's own server (`child.js`), plus a set of
+`margins` is a thin shell wrapper around Roughdraft's own server (`child.js`), plus a set of
 **patches applied to the installed Roughdraft** on every run (idempotent, re-applied after upgrades,
-with `.rn-bak` backups):
+with `.margins-bak` backups):
 
 | Patch | Target | Why |
 |---|---|---|
-| Enhancement script | `app/dist/index.html` (injects `assets/roughneck-enhance.js`) | All the in-browser features below |
+| Enhancement script | `app/dist/index.html` (injects `assets/margins-enhance.js`) | All the in-browser features below |
 | SPA fallback fix | `server/dist/index.js` | `res.sendFile(absolutePath)` 404s under Express 5 → deep-link reloads broke |
 | URL normalization | `app/dist/assets/index-*.js` (`patch-url.mjs`) | The app flip-flopped `/x` ↔ `/?path=/x` on reload and sometimes dropped to the landing page |
+
+The enhancement patch is a clean break from the old `roughneck` injection: when it finds a stale
+`roughneck-enhance` script tag in a previously-patched install, it strips it before injecting
+`margins-enhance.js`, so the renamed CLI re-patches cleanly instead of double-injecting.
 
 ### The ProseMirror constraint (important for contributors)
 
 Roughdraft renders documents in a **ProseMirror** editor that **actively reverts any change to its
-own DOM** — inline styles, injected nodes, everything. So `roughneck-enhance.js` follows two rules:
+own DOM** — inline styles, injected nodes, everything. So `margins-enhance.js` follows two rules:
 
 1. **Never mutate the editor DOM.** Diagrams and wikilinks are drawn as **overlays appended to the
    page's scroll container** (so they scroll natively) and positioned over the source text.
@@ -60,21 +72,30 @@ own DOM** — inline styles, injected nodes, everything. So `roughneck-enhance.j
    see stylesheet rules, so it won't fight them. Per-element sizing is done with `nth-child` rules
    keyed to each block's position.
 
-Everything is plain ES5-ish browser JS in `assets/roughneck-enhance.js`, organized in sections
+Everything is plain ES5-ish browser JS in `assets/margins-enhance.js`, organized in sections
 (1: width, 2: theme, 3: mermaid, 4: wikilinks, 5: browser).
 
 ## Files
 
 ```
-roughneck                       # the CLI
-assets/roughneck-enhance.js     # in-browser enhancements (the bulk of the logic)
+margins                         # the CLI
+assets/margins-enhance.js       # in-browser enhancements (the bulk of the logic)
 assets/mermaid.min.js           # bundled mermaid (fallback renderer; primary is mermaid via CDN)
 assets/patch-url.mjs            # the SPA URL-normalization patch
 ```
 
+## The hosted app
+
+`app/` is the **hosted margins app** — a browser-only, GitHub-backed fork of the Roughdraft
+CriticMarkup editor. It opens a markdown file straight from a GitHub repo, lets you comment and
+suggest edits in [Roughdraft-flavored Markdown](https://www.roughdraft.md/), and commits your
+review back to the branch. It runs entirely client-side (no server of its own) and is deployed as a
+static SPA plus one stateless OAuth Function — see [`app/README.md`](app/README.md) for development
+and [`docs/deploy-cloudflare.md`](docs/deploy-cloudflare.md) for deployment.
+
 ## Notes / known limits
 
-- Big documents (hundreds of KB) are slow to load — that's ProseMirror parsing, not roughneck.
+- Big documents (hundreds of KB) are slow to load — that's ProseMirror parsing, not margins.
 - Mermaid loads from a CDN by default (falls back to the bundled copy); diagrams need network the
   first time unless the bundle is used.
 - macOS-oriented (uses `scutil`, `/opt/homebrew`); easily adapted for Linux.
@@ -98,4 +119,4 @@ Install it:
 curl -fsSL https://raw.githubusercontent.com/recodelabs/roughneck/main/skills/margins/install.sh | bash
 ```
 
-or as a plugin: `/plugin marketplace add recodelabs/roughneck` then `/plugin install margins@roughneck`.
+or as a plugin: `/plugin marketplace add recodelabs/roughneck` then `/plugin install margins@margins`.

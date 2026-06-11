@@ -7,8 +7,34 @@ import type {
   StoredAsset,
 } from "./storage";
 
-const PAGES_KEY = "roughdraft:pages";
-const ASSETS_KEY = "roughdraft:assets";
+const PAGES_KEY = "margins:pages";
+const ASSETS_KEY = "margins:assets";
+
+// Pre-rename keys. Docs saved before the roughdraft→margins rename live here.
+const LEGACY_PAGES_KEY = "roughdraft:pages";
+const LEGACY_ASSETS_KEY = "roughdraft:assets";
+
+// One-time migration so the rename doesn't orphan existing local docs: on first
+// use, copy any legacy `roughdraft:*` value into its `margins:*` key when the new
+// key is empty. Non-destructive (legacy keys are left as-is) and runs at most
+// once per page load.
+let migratedLegacyKeys = false;
+function migrateLegacyKeys(): void {
+  if (migratedLegacyKeys) return;
+  migratedLegacyKeys = true;
+  try {
+    for (const [legacy, current] of [
+      [LEGACY_PAGES_KEY, PAGES_KEY],
+      [LEGACY_ASSETS_KEY, ASSETS_KEY],
+    ] as const) {
+      if (localStorage.getItem(current) !== null) continue;
+      const legacyValue = localStorage.getItem(legacy);
+      if (legacyValue !== null) localStorage.setItem(current, legacyValue);
+    }
+  } catch {
+    // storage unavailable / quota — nothing to migrate
+  }
+}
 
 interface LocalAssetRecord {
   path: string;
@@ -133,6 +159,10 @@ export class LocalStorageBackend implements StorageBackend {
     remoteSession: false,
   };
   canManageProjects = false;
+
+  constructor() {
+    migrateLegacyKeys();
+  }
 
   private async getPage(id: string): Promise<Page> {
     const pages = readPages();

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# roughneck — browse a folder's markdown and open files in Roughdraft over your LAN.
+# margins — browse a folder's markdown and open files in Roughdraft over your LAN.
 #
-#   roughneck [--local] [--no-open] [FOLDER] [FILE.md]
-#   roughneck list                 # show running roughneck servers
-#   roughneck stop [FOLDER|all]    # stop a server (default: the one for FOLDER/cwd)
+#   margins [--local] [--no-open] [FOLDER] [FILE.md]
+#   margins list                 # show running margins servers
+#   margins stop [FOLDER|all]    # stop a server (default: the one for FOLDER/cwd)
 #
 # Defaults: serves FOLDER (or cwd) on your local network (0.0.0.0) so other devices
 # can reach it at http://<this-host>.local:<port>/. Use --local to bind loopback only.
@@ -11,12 +11,12 @@
 set -uo pipefail
 
 STATE_DIR="$HOME/.roughdraft"
-STATE="$STATE_DIR/roughneck.json"
-PORT_BASE="${ROUGHNECK_PORT_BASE:-7375}"
+STATE="$STATE_DIR/margins.json"
+PORT_BASE="${MARGINS_PORT_BASE:-7375}"
 mkdir -p "$STATE_DIR"
 [ -f "$STATE" ] || printf '{}\n' > "$STATE"
 
-die(){ printf 'roughneck: %s\n' "$*" >&2; exit 1; }
+die(){ printf 'margins: %s\n' "$*" >&2; exit 1; }
 have(){ command -v "$1" >/dev/null 2>&1; }
 
 have jq   || die "jq is required (brew install jq)"
@@ -28,10 +28,10 @@ CHILD="$RD_ROOT/packages/server/dist/child.js"
 APPDIR="$RD_ROOT/packages/app/dist"
 [ -f "$CHILD" ] || die "Roughdraft not found. Install it: npm i -g roughdraft"
 
-# Resolve roughneck's own dir (following the symlink) to find bundled assets.
-RN_SRC="$0"; while [ -L "$RN_SRC" ]; do RN_SRC="$(readlink "$RN_SRC")"; done
-RN_DIR="$(cd "$(dirname "$RN_SRC")" && pwd)"
-RN_ASSETS="$RN_DIR/assets"
+# Resolve margins' own dir (following the symlink) to find bundled assets.
+SELF_SRC="$0"; while [ -L "$SELF_SRC" ]; do SELF_SRC="$(readlink "$SELF_SRC")"; done
+SELF_DIR="$(cd "$(dirname "$SELF_SRC")" && pwd)"
+MARGINS_ASSETS="$SELF_DIR/assets"
 
 abspath(){ python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$1"; }
 
@@ -43,7 +43,7 @@ ensure_spa_fix(){
   [ -f "$f" ] || return 0
   grep -q 'res.sendFile("index.html", { root: staticDirPath })' "$f" 2>/dev/null && return 0
   perl -0pi -e 's{app\.get\("/\{\*splat\}", \(_req, res\) => \{\s*res\.sendFile\(path\.join\(staticDirPath, "index\.html"\)\);\s*\}\);}{app.get(/.*/, (_req, res) => { res.sendFile("index.html", { root: staticDirPath }); });}s' "$f" \
-    && echo "roughneck: fixed Roughdraft SPA deep-link fallback"
+    && echo "margins: fixed Roughdraft SPA deep-link fallback"
 }
 
 # Normalize Roughdraft's client-side URL handling so the address bar doesn't
@@ -51,25 +51,30 @@ ensure_spa_fix(){
 # landing page). Idempotent; re-applies after a roughdraft update.
 ensure_url_fix(){
   [ -d "$APPDIR/assets" ] || return 0
-  [ -f "$RN_ASSETS/patch-url.mjs" ] || return 0
-  node "$RN_ASSETS/patch-url.mjs" "$APPDIR/assets"/index-*.js 2>/dev/null || true
+  [ -f "$MARGINS_ASSETS/patch-url.mjs" ] || return 0
+  node "$MARGINS_ASSETS/patch-url.mjs" "$APPDIR/assets"/index-*.js 2>/dev/null || true
 }
 
-# Inject roughneck's enhancements (wider column, light-mode toggle, mermaid) into
+# Inject margins' enhancements (wider column, light-mode toggle, mermaid) into
 # Roughdraft's index.html as a single DEFERRED (non-blocking) script. Mermaid is
 # loaded async by that script, so it never blocks page load.
 # Idempotent; re-applies automatically after a roughdraft update wipes it.
 ensure_enhance_patch(){
   local idx="$APPDIR/index.html"
   [ -f "$idx" ] || return 0
-  grep -q "roughneck-enhance.js" "$idx" 2>/dev/null && return 0
-  if [ ! -f "$RN_ASSETS/mermaid.min.js" ] || [ ! -f "$RN_ASSETS/roughneck-enhance.js" ]; then
-    echo "roughneck: enhancement assets missing in $RN_ASSETS — skipping" >&2; return 0
+  grep -q "margins-enhance.js" "$idx" 2>/dev/null && return 0
+  if [ ! -f "$MARGINS_ASSETS/mermaid.min.js" ] || [ ! -f "$MARGINS_ASSETS/margins-enhance.js" ]; then
+    echo "margins: enhancement assets missing in $MARGINS_ASSETS — skipping" >&2; return 0
   fi
-  cp -f "$RN_ASSETS/mermaid.min.js" "$APPDIR/assets/mermaid.min.js"
-  cp -f "$RN_ASSETS/roughneck-enhance.js" "$APPDIR/assets/roughneck-enhance.js"
-  perl -0pi -e 's{\s*</body>}{\n    <!-- roughneck-enhance -->\n    <script defer src="/assets/roughneck-enhance.js"></script>\n  </body>}' "$idx" \
-    && echo "roughneck: applied enhancements (wider column, light mode, mermaid)"
+  # Clean break from the pre-rename roughneck-enhance injection: strip any prior
+  # roughneck-enhance marker/script and its stale asset so we re-patch cleanly
+  # instead of double-injecting both scripts side by side.
+  perl -0pi -e 's{\n? *<!-- roughneck-enhance -->\n? *<script defer src="/assets/roughneck-enhance\.js"></script>}{}g' "$idx"
+  rm -f "$APPDIR/assets/roughneck-enhance.js"
+  cp -f "$MARGINS_ASSETS/mermaid.min.js" "$APPDIR/assets/mermaid.min.js"
+  cp -f "$MARGINS_ASSETS/margins-enhance.js" "$APPDIR/assets/margins-enhance.js"
+  perl -0pi -e 's{\s*</body>}{\n    <!-- margins-enhance -->\n    <script defer src="/assets/margins-enhance.js"></script>\n  </body>}' "$idx" \
+    && echo "margins: applied enhancements (wider column, light mode, mermaid)"
 }
 
 public_host(){ # $1 = bind host -> public hostname to put in URLs
@@ -107,11 +112,11 @@ start_server(){
   token="$(openssl rand -hex 16)"
   ROUGHDRAFT_BIND_HOST="$bind" ROUGHDRAFT_TOKEN="$token" \
     nohup node "$CHILD" --port "$port" --project-dir "$folder" \
-    > "$STATE_DIR/roughneck-$port.log" 2>&1 &
+    > "$STATE_DIR/margins-$port.log" 2>&1 &
   pid=$!
   disown 2>/dev/null || true
   if ! curl -s --retry 20 --retry-delay 1 --retry-connrefused -o /dev/null "http://127.0.0.1:$port/"; then
-    die "server failed to start (see $STATE_DIR/roughneck-$port.log)"
+    die "server failed to start (see $STATE_DIR/margins-$port.log)"
   fi
   tmp="$(mktemp)"
   jq --arg f "$folder" --argjson port "$port" --argjson pid "$pid" --arg token "$token" \
@@ -130,7 +135,7 @@ cmd_list(){
     kill -0 "$pid" 2>/dev/null && alive="up"
     printf '%-5s port %-6s pid %-7s %s\n' "$alive" "$port" "$pid" "$folder"
   done < <(jq -r 'keys[]' "$STATE")
-  [ "$any" = 0 ] && echo "no roughneck servers tracked"
+  [ "$any" = 0 ] && echo "no margins servers tracked"
 }
 
 cmd_stop(){
@@ -202,8 +207,8 @@ fi
 HOST="$(public_host "$BIND")"
 BASE="http://$HOST:$PORT"
 
-echo "roughneck → $FOLDER"
-echo "server: $BASE  (pid tracked in $STATE, log $STATE_DIR/roughneck-$PORT.log)"
+echo "margins → $FOLDER"
+echo "server: $BASE  (pid tracked in $STATE, log $STATE_DIR/margins-$PORT.log)"
 [ "$STARTED" = 1 ] && echo "(started new server)" || echo "(reusing running server)"
 echo
 
