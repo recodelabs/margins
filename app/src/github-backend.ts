@@ -1,5 +1,7 @@
+import { titleFromContent } from "./markdown";
 import {
   type StorageBackend,
+  type BackendCapabilities,
   type BackendInfo,
   type Page,
   type StoredAsset,
@@ -17,10 +19,6 @@ export interface GitHubBackendConfig {
 
 const API = "https://api.github.com";
 
-function titleFromContent(content: string, fallback: string): string {
-  const firstLine = content.split("\n")[0] || "";
-  return firstLine.replace(/^#*\s*/, "").trim() || fallback;
-}
 function pageId(relativePath: string): string {
   return relativePath.replace(/\.md$/i, "");
 }
@@ -37,6 +35,11 @@ function encodeBase64(text: string): string {
 
 export class GitHubBackend implements StorageBackend {
   info: BackendInfo;
+  capabilities: BackendCapabilities = {
+    documentPath: false,
+    manualCommit: true,
+    remoteSession: false,
+  };
   canManageProjects = false;
   private cfg: GitHubBackendConfig;
 
@@ -98,7 +101,7 @@ export class GitHubBackend implements StorageBackend {
     relativePath: string,
     content: string,
     expectedVersion?: string,
-  ): Promise<Page | undefined> {
+  ): Promise<Page> {
     if (!/\.md$/i.test(relativePath)) {
       throw new Error("Only markdown (.md) files can be opened in roughneck");
     }

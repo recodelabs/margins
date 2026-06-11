@@ -1,9 +1,11 @@
-import type { BackendInfo, Page, StorageBackend, StoredAsset } from "./storage";
-
-function titleFromContent(content: string, fallback: string) {
-  const firstLine = content.split("\n")[0] || "";
-  return firstLine.replace(/^#*\s*/, "").trim() || fallback;
-}
+import { titleFromContent } from "./markdown";
+import type {
+  BackendCapabilities,
+  BackendInfo,
+  Page,
+  StorageBackend,
+  StoredAsset,
+} from "./storage";
 
 function sanitizeFilename(filename: string): string {
   const trimmed = filename.trim() || "attachment";
@@ -30,6 +32,11 @@ export class PreviewBackend implements StorageBackend {
     kind: "local-storage",
     label: "Live preview",
     detail: "In memory only",
+  };
+  capabilities: BackendCapabilities = {
+    documentPath: false,
+    manualCommit: false,
+    remoteSession: false,
   };
   canManageProjects = false;
 

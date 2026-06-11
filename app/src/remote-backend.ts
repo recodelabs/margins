@@ -1,11 +1,16 @@
+import { titleFromContent } from "./markdown";
 import {
   MarkdownFileConflictError,
+  type BackendCapabilities,
   type BackendInfo,
   type MarkdownFileChangeEvent,
   type Page,
+  type RemoteSessionStatus,
   type StorageBackend,
   type StoredAsset,
 } from "./storage";
+
+export type { RemoteSessionStatus };
 
 interface RemoteDocumentPayload {
   id: string;
@@ -14,10 +19,13 @@ interface RemoteDocumentPayload {
   version: string;
 }
 
-export type RemoteSessionStatus = "connected" | "disconnected";
-
 export class RemoteBackend implements StorageBackend {
   info: BackendInfo;
+  capabilities: BackendCapabilities = {
+    documentPath: true,
+    manualCommit: false,
+    remoteSession: true,
+  };
   canManageProjects = false;
   sessionStatus: RemoteSessionStatus = "disconnected";
 
@@ -237,10 +245,4 @@ export class RemoteBackend implements StorageBackend {
   async openProject(_path: string): Promise<void> {
     // Remote sessions are bound to a single document; openProject is a no-op.
   }
-}
-
-function titleFromContent(content: string, fallback: string): string {
-  const firstLine = content.split("\n")[0] ?? "";
-  const trimmed = firstLine.replace(/^#*\s*/, "").trim();
-  return trimmed || fallback;
 }

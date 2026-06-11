@@ -1,4 +1,5 @@
 import {
+  type BackendCapabilities,
   type BackendInfo,
   type CompleteReviewOptions,
   type CompleteReviewResult,
@@ -12,6 +13,11 @@ import {
 
 export class ApiBackend implements StorageBackend {
   info: BackendInfo;
+  capabilities: BackendCapabilities = {
+    documentPath: false,
+    manualCommit: false,
+    remoteSession: false,
+  };
   canManageProjects = true;
 
   constructor(info: BackendInfo) {

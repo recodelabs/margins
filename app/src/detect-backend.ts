@@ -89,13 +89,3 @@ function readTokenFromUrl(): string {
 export function isGitHubMode(): boolean {
   return import.meta.env.VITE_GITHUB_MODE === "1";
 }
-
-export function gitHubSelectionFromUrl(): {
-  token: string | null;
-  loc: ReturnType<typeof parseGitHubLocation>;
-} {
-  return {
-    token: captureTokenFromUrl(),
-    loc: parseGitHubLocation(),
-  };
-}

@@ -62,15 +62,37 @@ export interface BackendInfo {
   authorLabel?: string;
 }
 
+export type RemoteSessionStatus = "connected" | "disconnected";
+
+/**
+ * Behavioural capabilities a backend opts into, so callers can branch on what a
+ * backend *can do* instead of switching on `info.kind` / `instanceof`.
+ */
+export interface BackendCapabilities {
+  /** Exposes a meaningful `documentPath()` for the currently-open document. */
+  documentPath: boolean;
+  /** Saving requires an explicit user commit (e.g. GitHub) rather than autosave. */
+  manualCommit: boolean;
+  /** Tracks a live remote session and notifies via `onSessionStatusChange`. */
+  remoteSession: boolean;
+}
+
 export interface StorageBackend {
   info: BackendInfo;
+  capabilities: BackendCapabilities;
   canManageProjects: boolean;
   getMarkdownFile(relativePath: string): Promise<Page>;
   saveMarkdownFile(
     relativePath: string,
     content: string,
     expectedVersion?: string,
-  ): Promise<Page | undefined>;
+  ): Promise<Page>;
+  /** Path/filename of the open document; present when `capabilities.documentPath`. */
+  documentPath?(): string;
+  /** Subscribe to session status; present when `capabilities.remoteSession`. */
+  onSessionStatusChange?(
+    listener: (status: RemoteSessionStatus) => void,
+  ): () => void;
   watchMarkdownFile?(
     relativePath: string,
     onChange: (event: MarkdownFileChangeEvent) => void,
