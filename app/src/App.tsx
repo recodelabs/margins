@@ -326,24 +326,34 @@ export function App() {
   ]);
 
   useEffect(() => {
-    const workspaceTitlePath = activeDocumentPath
-      ? formatWorkspacePathForDisplay(
-          backend?.info.projectPath
-            ? joinPath(backend.info.projectPath, activeDocumentPath)
-            : requestedPathState.rawPath,
-        )
-      : null;
+    const githubFilePath =
+      githubLocation.owner &&
+      githubLocation.repo &&
+      isMarkdownPath(githubLocation.path)
+        ? `${githubLocation.owner}/${githubLocation.repo}/${githubLocation.path.replace(/^\/+/, "")}`
+        : null;
+
+    const workspaceTitlePath =
+      githubFilePath ??
+      (activeDocumentPath
+        ? formatWorkspacePathForDisplay(
+            backend?.info.projectPath
+              ? joinPath(backend.info.projectPath, activeDocumentPath)
+              : requestedPathState.rawPath,
+          )
+        : null);
 
     document.title = isPreviewRoute
       ? "Roughdraft Preview"
       : isRoughdraftFlavoredMarkdownRoute
         ? "Roughdraft Flavored Markdown"
         : workspaceTitlePath
-          ? `${workspaceTitlePath} · margins`
-          : "margins";
+          ? `margins.md - ${workspaceTitlePath}`
+          : "margins.md";
   }, [
     activeDocumentPath,
     backend,
+    githubLocation,
     isRoughdraftFlavoredMarkdownRoute,
     isPreviewRoute,
     requestedPathState.rawPath,

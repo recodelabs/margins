@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const indexHtmlPath = resolve("index.html");
 const previewImageUrl = "https://roughdraft.md/sneak-peek.png";
-const pageTitle = "margins";
+const pageTitle = "margins.md";
 const pageDescription =
   "A local-first Markdown review app for commenting, suggesting edits, and collaborating with your coding agent.";
 

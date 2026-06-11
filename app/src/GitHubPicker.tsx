@@ -62,11 +62,11 @@ function LoginScreen() {
           Collaborate with your AI in markdown
         </h1>
         <p className="mt-5 max-w-md text-[clamp(1.05rem,1rem+0.3vw,1.2rem)] leading-relaxed text-slate-600 dark:text-slate-400">
-          Browse, open, and annotate any{" "}
+          View, edit and annotate any{" "}
           <span className="rounded-sm bg-[#fff5c7] px-1 font-medium text-slate-950 dark:bg-amber-500/35 dark:text-slate-50">
             .md file
           </span>{" "}
-          in a GitHub repository — right in your browser.
+          in GitHub to collaborate with your AI.
         </p>
         <Button
           className="mt-9 h-14 cursor-pointer gap-2.5 rounded-xl px-7 text-lg shadow-[0_12px_32px_rgba(0,0,0,0.16)] transition-transform hover:-translate-y-0.5"
