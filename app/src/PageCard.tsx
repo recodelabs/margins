@@ -39,6 +39,7 @@ import {
 import { cn } from "./lib/utils";
 import { buildLocationForLinkedMarkdownDocument } from "./app-navigation";
 import { toHtml } from "./markdown";
+import { runWithErrorFeedback } from "./run-with-error-feedback";
 import type { Page, StorageBackend } from "./storage";
 import {
   buildSuggestionDeleteTransaction,
@@ -700,11 +701,14 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     [onMarkdownChange, serializeCurrentMarkdown],
   );
 
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   const insertFiles = useCallback(
     async (files: File[]) => {
       const currentEditor = editorRef.current;
       if (!currentEditor || files.length === 0) return;
 
+      setUploadError(null);
       const assets = await Promise.all(
         files.map((file) => backend.saveAsset(file)),
       );
@@ -770,14 +774,22 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
           const files = Array.from(event.dataTransfer?.files ?? []);
           if (files.length === 0) return false;
           event.preventDefault();
-          void insertFiles(files);
+          void runWithErrorFeedback(
+            () => insertFiles(files),
+            setUploadError,
+            "Could not add the dropped file(s).",
+          );
           return true;
         },
         handlePaste: (view, event) => {
           const files = Array.from(event.clipboardData?.files ?? []);
           if (files.length > 0) {
             event.preventDefault();
-            void insertFiles(files);
+            void runWithErrorFeedback(
+              () => insertFiles(files),
+              setUploadError,
+              "Could not add the pasted file(s).",
+            );
             return true;
           }
 
@@ -1683,6 +1695,15 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
                 }
               >
                 <div data-testid="rich-text-editor">
+                  {uploadError && (
+                    <div
+                      role="alert"
+                      data-testid="upload-error"
+                      className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200"
+                    >
+                      {uploadError}
+                    </div>
+                  )}
                   <EditorContent editor={editor} />
                 </div>
               </EditorContextMenu>
@@ -1834,7 +1855,6 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
   const [richTextSourceMarkdown, setRichTextSourceMarkdown] = useState(
     page.content,
   );
-  const [richTextSourceVersion, setRichTextSourceVersion] = useState(0);
 
   const reportDirtyState = useCallback(
     (isDirty: boolean) => {
@@ -1851,7 +1871,6 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
       lastAcceptedMarkdownRef.current = nextMarkdown;
       setMarkdown(nextMarkdown);
       setRichTextSourceMarkdown(nextMarkdown);
-      setRichTextSourceVersion((current) => current + 1);
       onLocalContentChange?.(nextMarkdown);
       reportDirtyState(false);
       onSaveStateChange("saved");
@@ -2102,7 +2121,6 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
     }
 
     setRichTextSourceMarkdown(markdown);
-    setRichTextSourceVersion((current) => current + 1);
   }, [editorViewMode, markdown]);
 
   useEffect(() => {
@@ -2144,7 +2162,7 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
 
   return (
     <RichTextEditorSurface
-      key={`${page.id}:${richTextSourceVersion}:${effectiveRichTextSourceMarkdown}`}
+      key={page.id}
       page={page}
       activeDocumentPath={activeDocumentPath}
       selected={selected}

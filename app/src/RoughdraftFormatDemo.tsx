@@ -38,6 +38,11 @@ const demoBackend: StorageBackend = {
     label: "Homepage demo",
     detail: "In-memory Roughdraft format preview",
   },
+  capabilities: {
+    documentPath: false,
+    manualCommit: false,
+    remoteSession: false,
+  },
   canManageProjects: false,
   async getMarkdownFile() {
     return {

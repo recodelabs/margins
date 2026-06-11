@@ -92,8 +92,10 @@ export function useCommentAnchorLayout(editor: Editor | null, enabled = true) {
       resizeObserver.observe(editorElement.parentElement);
     }
 
+    // Only the document changing (or the container resizing) can move anchors;
+    // selection changes don't, so we deliberately skip "selectionUpdate" to
+    // avoid remeasuring on every cursor move.
     editor.on("update", handleEditorUpdate);
-    editor.on("selectionUpdate", handleEditorUpdate);
     window.addEventListener("resize", handleEditorUpdate);
 
     if (document.fonts) {
@@ -103,7 +105,6 @@ export function useCommentAnchorLayout(editor: Editor | null, enabled = true) {
     return () => {
       resizeObserver.disconnect();
       editor.off("update", handleEditorUpdate);
-      editor.off("selectionUpdate", handleEditorUpdate);
       window.removeEventListener("resize", handleEditorUpdate);
     };
   }, [editor, enabled, measureLayout]);

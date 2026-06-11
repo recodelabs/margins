@@ -1,4 +1,11 @@
-import type { BackendInfo, Page, StorageBackend, StoredAsset } from "./storage";
+import { titleFromContent } from "./markdown";
+import type {
+  BackendCapabilities,
+  BackendInfo,
+  Page,
+  StorageBackend,
+  StoredAsset,
+} from "./storage";
 
 const PAGES_KEY = "margins:pages";
 const ASSETS_KEY = "margins:assets";
@@ -35,6 +42,30 @@ interface LocalAssetRecord {
   mimeType: string;
 }
 
+function isQuotaExceeded(error: unknown): boolean {
+  return (
+    error instanceof DOMException &&
+    // Standard name, plus Firefox's legacy name / numeric codes.
+    (error.name === "QuotaExceededError" ||
+      error.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+      error.code === 22 ||
+      error.code === 1014)
+  );
+}
+
+function persist(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch (error) {
+    if (isQuotaExceeded(error)) {
+      throw new Error(
+        "Browser storage is full. Delete some images or documents and try again.",
+      );
+    }
+    throw error;
+  }
+}
+
 function readPages(): Record<string, Page> {
   try {
     const raw = localStorage.getItem(PAGES_KEY);
@@ -46,21 +77,36 @@ function readPages(): Record<string, Page> {
 }
 
 function writePages(pages: Record<string, Page>): void {
-  localStorage.setItem(PAGES_KEY, JSON.stringify(pages));
+  persist(PAGES_KEY, JSON.stringify(pages));
 }
 
+// Parse the asset blob once and reuse it, so resolveFileUrl() doesn't
+// re-JSON.parse the entire (potentially large) blob for every image.
+let assetCache: Record<string, LocalAssetRecord> | null = null;
+
 function readAssets(): Record<string, LocalAssetRecord> {
+  if (assetCache) return assetCache;
   try {
     const raw = localStorage.getItem(ASSETS_KEY);
-    if (raw) return JSON.parse(raw);
+    assetCache = raw ? JSON.parse(raw) : {};
   } catch {
-    // ignore
+    assetCache = {};
   }
-  return {};
+  return assetCache as Record<string, LocalAssetRecord>;
 }
 
 function writeAssets(assets: Record<string, LocalAssetRecord>): void {
-  localStorage.setItem(ASSETS_KEY, JSON.stringify(assets));
+  persist(ASSETS_KEY, JSON.stringify(assets));
+  assetCache = assets;
+}
+
+// Invalidate the cache when another tab mutates the asset blob.
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key === ASSETS_KEY || event.key === null) {
+      assetCache = null;
+    }
+  });
 }
 
 function sanitizeFilename(filename: string): string {
@@ -107,6 +153,11 @@ export class LocalStorageBackend implements StorageBackend {
     label: "Browser storage",
     detail: "Saved in this browser only",
   };
+  capabilities: BackendCapabilities = {
+    documentPath: false,
+    manualCommit: false,
+    remoteSession: false,
+  };
   canManageProjects = false;
 
   constructor() {
@@ -125,22 +176,21 @@ export class LocalStorageBackend implements StorageBackend {
     return this.getPage(id);
   }
 
-  private async savePage(id: string, content: string): Promise<void> {
+  private async savePage(id: string, content: string): Promise<Page> {
     const pages = readPages();
     if (!pages[id]) throw new Error(`Page not found: ${id}`);
     pages[id].content = content;
-    const firstLine = content.split("\n")[0] || "";
-    pages[id].title = firstLine.replace(/^#*\s*/, "") || id;
+    pages[id].title = titleFromContent(content, id);
     writePages(pages);
+    return pages[id];
   }
 
   async saveMarkdownFile(
     relativePath: string,
     content: string,
-  ): Promise<undefined> {
+  ): Promise<Page> {
     const id = relativePath.replace(/\.md$/i, "");
-    await this.savePage(id, content);
-    return undefined;
+    return this.savePage(id, content);
   }
 
   async completeReview(

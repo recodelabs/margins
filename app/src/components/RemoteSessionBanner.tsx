@@ -1,7 +1,6 @@
 import { CloudOff, Cloud } from "lucide-react";
 import { useEffect, useState } from "react";
-import { RemoteBackend, type RemoteSessionStatus } from "../remote-backend";
-import type { StorageBackend } from "../storage";
+import type { RemoteSessionStatus, StorageBackend } from "../storage";
 
 interface RemoteSessionBannerProps {
   backend: StorageBackend | null;
@@ -11,13 +10,13 @@ export function RemoteSessionBanner({ backend }: RemoteSessionBannerProps) {
   const [status, setStatus] = useState<RemoteSessionStatus>("disconnected");
 
   useEffect(() => {
-    if (!(backend instanceof RemoteBackend)) {
+    if (!backend?.capabilities.remoteSession) {
       return;
     }
-    return backend.onSessionStatusChange(setStatus);
+    return backend.onSessionStatusChange?.(setStatus);
   }, [backend]);
 
-  if (!(backend instanceof RemoteBackend)) {
+  if (!backend?.capabilities.remoteSession) {
     return null;
   }
 

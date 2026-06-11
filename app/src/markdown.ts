@@ -5,6 +5,16 @@ import { parse as parseYaml } from "yaml";
 
 export const rawMarkdownBlockAttribute = "data-markdown-raw-block";
 
+/**
+ * Derive a document title from its markdown content: the first line with any
+ * leading heading markers (`#`) stripped, falling back to `fallback` when the
+ * first line is empty or only markers.
+ */
+export function titleFromContent(content: string, fallback: string): string {
+  const firstLine = content.split("\n")[0] ?? "";
+  return firstLine.replace(/^#*\s*/, "").trim() || fallback;
+}
+
 export interface MarkdownOptions {
   resolveFileUrl?: (path: string) => string | null;
   resolveLinkUrl?: (path: string) => string | null;

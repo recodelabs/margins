@@ -190,8 +190,8 @@ export function App() {
 
         setBackend(detectedBackend);
 
-        if (detectedBackend.info.kind === "remote") {
-          const documentPath = detectedBackend.info.detail || "remote.md";
+        if (detectedBackend.capabilities.documentPath) {
+          const documentPath = detectedBackend.documentPath?.() || "remote.md";
           await loadDocument(detectedBackend, documentPath);
           if (cancelled) return;
           setLoading(false);
@@ -289,9 +289,12 @@ export function App() {
           ? documentPageRef.current.version
           : undefined;
 
-      let savedDocument: Page | undefined;
+      const backend = backendRef.current;
+      if (!backend) return;
+
+      let savedDocument: Page;
       try {
-        savedDocument = await backendRef.current?.saveMarkdownFile(
+        savedDocument = await backend.saveMarkdownFile(
           activeDocumentPath,
           content,
           expectedVersion,
@@ -303,17 +306,7 @@ export function App() {
         throw error;
       }
 
-      const firstLine = content.split("\n")[0] || "";
-      const fallbackTitle = id.split("/").at(-1) || id;
-      const title = firstLine.replace(/^#*\s*/, "") || fallbackTitle;
-      const nextDocument = savedDocument ?? {
-        id,
-        content,
-        title,
-        version: expectedVersion,
-      };
-
-      applyDocumentPage(nextDocument);
+      applyDocumentPage(savedDocument);
       documentSession.setDirty(false);
       setDocumentDiskChangeState("clean");
     },
@@ -382,18 +375,10 @@ export function App() {
           const content =
             documentSession.getSnapshot().draftContent ??
             currentDocument.content;
-          const firstLine = content.split("\n")[0] || "";
-          const fallbackTitle =
-            currentDocument.id.split("/").at(-1) || currentDocument.id;
-          const title = firstLine.replace(/^#*\s*/, "") || fallbackTitle;
-          const savedDocument = (await currentBackend.saveMarkdownFile(
+          const savedDocument = await currentBackend.saveMarkdownFile(
             currentPath,
             content,
-          )) ?? {
-            ...currentDocument,
-            content,
-            title,
-          };
+          );
 
           applyDocumentPage(savedDocument);
           documentSession.setDirty(false);
@@ -421,20 +406,12 @@ export function App() {
       const content =
         documentSession.getSnapshot().draftContent ?? currentDocument.content;
       const expectedVersion = currentDocument.version;
-      const firstLine = content.split("\n")[0] || "";
-      const fallbackTitle =
-        currentDocument.id.split("/").at(-1) || currentDocument.id;
-      const title = firstLine.replace(/^#*\s*/, "") || fallbackTitle;
 
-      const savedDocument = (await currentBackend.saveMarkdownFile(
+      const savedDocument = await currentBackend.saveMarkdownFile(
         currentPath,
         content,
         expectedVersion,
-      )) ?? {
-        ...currentDocument,
-        content,
-        title,
-      };
+      );
 
       applyDocumentPage(savedDocument);
       documentSession.setDirty(false);
@@ -597,7 +574,7 @@ export function App() {
           onOverwriteDocumentOnDisk={handleOverwriteDocumentOnDisk}
           onCompleteReview={handleCompleteReview}
           backend={backend}
-          manualCommit={backend?.info.kind === "github"}
+          manualCommit={backend?.capabilities.manualCommit ?? false}
           githubNav={githubNav}
         />
       </Suspense>
