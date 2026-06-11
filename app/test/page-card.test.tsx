@@ -1,7 +1,15 @@
 import type { Editor } from "@tiptap/react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import {
   type DocumentSaveController,
   type ManualSaveResult,
@@ -334,6 +342,14 @@ async function renderPageCard(
 
       await Promise.resolve();
     });
+
+    // Let lazily-loaded surfaces (e.g. the code editor) resolve their dynamic
+    // import and re-render. Microtask flushes work under fake timers too.
+    for (let i = 0; i < 5; i += 1) {
+      await act(async () => {
+        await Promise.resolve();
+      });
+    }
   };
 
   await render();
@@ -397,6 +413,12 @@ describe("PageCard comment thread dismissal", () => {
 });
 
 describe("PageCard editor integration", () => {
+  // The code view loads CodeMirror via a dynamic import (React.lazy). Warm the
+  // module once so the lazy boundary resolves promptly inside act() flushes.
+  beforeAll(async () => {
+    await import("../src/MarkdownCodeEditor");
+  });
+
   beforeEach(() => {
     vi.useRealTimers();
     (

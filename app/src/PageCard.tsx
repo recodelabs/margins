@@ -2,7 +2,16 @@ import type { JSONContent } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  memo,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { CommentEditorList } from "./CommentEditorList";
 import {
@@ -28,7 +37,6 @@ import {
   SUGGESTED_PARAGRAPH_SENTINEL,
 } from "./editor-extensions";
 import { cn } from "./lib/utils";
-import { MarkdownCodeEditor } from "./MarkdownCodeEditor";
 import { buildLocationForLinkedMarkdownDocument } from "./app-navigation";
 import { toHtml } from "./markdown";
 import type { Page, StorageBackend } from "./storage";
@@ -38,6 +46,14 @@ import {
   computeKeyboardDeleteRange,
 } from "./suggesting-mode";
 import { useCommentAnchorLayout } from "./useCommentAnchorLayout";
+
+// CodeMirror is only needed for the opt-in code view, so load it lazily to
+// keep it out of the initial bundle (see PERF-2).
+const MarkdownCodeEditor = lazy(() =>
+  import("./MarkdownCodeEditor").then((module) => ({
+    default: module.MarkdownCodeEditor,
+  })),
+);
 
 export type DocumentSaveState = "saved" | "unsaved" | "saving" | "error";
 
@@ -107,6 +123,11 @@ interface RichTextEditorSurfaceProps {
   backend: StorageBackend;
   onEditorReady?: (editor: Editor | null) => void;
   onCommentRailPresenceChange?: (hasCommentRailSpace: boolean) => void;
+  // Fired on every edit transaction — cheap signal that the document changed.
+  onContentTouched?: () => void;
+  // Registers a serializer the parent calls on demand (at save time) to get
+  // the current document as critic markdown. Passing null clears it.
+  onSerializeReady?: (serialize: (() => string | null) | null) => void;
 }
 
 interface CodeEditorSurfaceProps {
@@ -563,9 +584,13 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
   backend,
   onEditorReady,
   onCommentRailPresenceChange,
+  onContentTouched,
+  onSerializeReady,
 }: RichTextEditorSurfaceProps) {
   const editorRef = useRef<Editor | null>(null);
   const criticChangeFrameRef = useRef<number | null>(null);
+  const onContentTouchedRef = useRef<(() => void) | undefined>(onContentTouched);
+  onContentTouchedRef.current = onContentTouched;
   const interactionModeRef = useRef<DocumentInteractionMode>(interactionMode);
   const commentsRef = useRef<Map<string, CriticComment>>(new Map());
   const suppressNextMarkdownUpdateRef = useRef(false);
@@ -631,24 +656,38 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     );
   }, [comments.size, criticChanges.length, onCommentRailPresenceChange]);
 
-  const emitMarkdownChange = useCallback(
-    (doc?: JSONContent, nextComments?: Map<string, CriticComment>) => {
+  // Serializing the whole document (JSON → HTML → Turndown) is expensive, so
+  // we never run it on every keystroke. The typing path only signals that the
+  // content changed (see `onContentTouched`); the parent serializes once, on
+  // demand, when it actually needs the markdown to save.
+  const serializeCurrentMarkdown = useCallback(
+    (
+      doc?: JSONContent,
+      nextComments?: Map<string, CriticComment>,
+    ): string | null => {
       const currentEditor = editorRef.current;
       const currentDoc = doc ?? currentEditor?.getJSON();
-      if (!currentDoc) return;
+      if (!currentDoc) return null;
 
-      onMarkdownChange(
-        editorStateToCriticMarkdown(
-          currentDoc,
-          nextComments ?? commentsRef.current,
-          {
-            frontmatter: frontmatterRef.current,
-            endmatter: endmatterRef.current,
-          },
-        ),
+      return editorStateToCriticMarkdown(
+        currentDoc,
+        nextComments ?? commentsRef.current,
+        {
+          frontmatter: frontmatterRef.current,
+          endmatter: endmatterRef.current,
+        },
       );
     },
-    [onMarkdownChange],
+    [],
+  );
+
+  const emitMarkdownChange = useCallback(
+    (doc?: JSONContent, nextComments?: Map<string, CriticComment>) => {
+      const markdown = serializeCurrentMarkdown(doc, nextComments);
+      if (markdown == null) return;
+      onMarkdownChange(markdown);
+    },
+    [onMarkdownChange, serializeCurrentMarkdown],
   );
 
   const insertFiles = useCallback(
@@ -882,13 +921,15 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
           return true;
         },
       },
-      onUpdate: ({ editor: currentEditor }) => {
+      onUpdate: () => {
         if (suppressNextMarkdownUpdateRef.current) {
           suppressNextMarkdownUpdateRef.current = false;
           return;
         }
 
-        emitMarkdownChange(currentEditor.getJSON());
+        // Cheap signal only — the parent schedules the save and serializes
+        // once, lazily, when the save actually fires.
+        onContentTouchedRef.current?.();
         refreshCriticChanges();
       },
     },
@@ -928,6 +969,17 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
       onEditorReady?.(null);
     };
   }, [editor, onEditorReady]);
+
+  // Expose the serializer so the parent can pull the current document as
+  // markdown on demand — when a save fires or is flushed (manual commit,
+  // Cmd+S, complete-review) — instead of on every keystroke.
+  useEffect(() => {
+    onSerializeReady?.(() => serializeCurrentMarkdown());
+
+    return () => {
+      onSerializeReady?.(null);
+    };
+  }, [onSerializeReady, serializeCurrentMarkdown]);
 
   useEffect(() => {
     setSelectedCommentId((current) =>
@@ -1715,13 +1767,15 @@ const CodeEditorSurface = memo(function CodeEditorSurface({
               className="min-h-[calc(70vh+4rem)] rounded-[0.75rem] border border-[#E9E9E8] dark:border-slate-700 bg-white dark:bg-card py-10 pr-6 pl-5 shadow-[0_18px_44px_rgba(57,47,38,0.08)] dark:shadow-[0_18px_44px_rgba(0,0,0,0.35)] sm:py-14 sm:pr-10 sm:pl-8"
               data-testid="document-content-card"
             >
-              <MarkdownCodeEditor
-                testId="markdown-code-editor"
-                value={markdown}
-                onChange={onMarkdownChange}
-                readOnly={interactionMode === "viewing"}
-                autoFocus
-              />
+              <Suspense fallback={null}>
+                <MarkdownCodeEditor
+                  testId="markdown-code-editor"
+                  value={markdown}
+                  onChange={onMarkdownChange}
+                  readOnly={interactionMode === "viewing"}
+                  autoFocus
+                />
+              </Suspense>
             </div>
           </div>
         </div>
@@ -1760,6 +1814,7 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlightSaveRef = useRef<Promise<ManualSaveResult> | null>(null);
   const pendingMarkdownRef = useRef(page.content);
+  const serializeFromEditorRef = useRef<(() => string | null) | null>(null);
   const recentMarkdownRef = useRef<Set<string>>(new Set());
   const previousEditorViewModeRef = useRef<EditorViewMode>(editorViewMode);
   const lastAcceptedMarkdownRef = useRef(page.content);
@@ -1868,7 +1923,59 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
     [manualCommit, onSaveStateChange, performSave, saveBlocked],
   );
 
+  // Serialize the live editor document on demand (the rich-text path never
+  // serializes per keystroke) and record it as the pending content to save.
+  const commitSerializedFromEditor = useCallback((): string | null => {
+    const serialize = serializeFromEditorRef.current;
+    if (!serialize) return null;
+    const nextMarkdown = serialize();
+    if (nextMarkdown == null) return null;
+    pendingMarkdownRef.current = nextMarkdown;
+    setMarkdown(nextMarkdown);
+    onLocalContentChange?.(nextMarkdown);
+    reportDirtyState(nextMarkdown !== lastAcceptedMarkdownRef.current);
+    return nextMarkdown;
+  }, [onLocalContentChange, reportDirtyState]);
+
+  // Rich-text typing path: flip save state immediately (cheap) and schedule
+  // the autosave, which serializes once when it fires instead of per keystroke.
+  const scheduleSaveFromEditor = useCallback(() => {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
+
+    reportDirtyState(true);
+
+    if (manualCommit || saveBlocked) {
+      onSaveStateChange("unsaved");
+      return;
+    }
+
+    onSaveStateChange("saving");
+    saveTimer.current = setTimeout(() => {
+      saveTimer.current = null;
+      const nextMarkdown = commitSerializedFromEditor();
+      if (nextMarkdown == null) return;
+      inFlightSaveRef.current = performSave(nextMarkdown).finally(() => {
+        inFlightSaveRef.current = null;
+      });
+      void inFlightSaveRef.current;
+    }, 500);
+  }, [
+    commitSerializedFromEditor,
+    manualCommit,
+    onSaveStateChange,
+    performSave,
+    reportDirtyState,
+    saveBlocked,
+  ]);
+
   const flushSave = useCallback(async (): Promise<ManualSaveResult> => {
+    // Serialize the live editor content first so we save the latest edits,
+    // not a stale snapshot.
+    commitSerializedFromEditor();
+
     if (saveTimer.current) {
       clearTimeout(saveTimer.current);
       saveTimer.current = null;
@@ -1893,7 +2000,7 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
     }
 
     return await performSave(pendingMarkdownRef.current);
-  }, [onSaveStateChange, performSave]);
+  }, [commitSerializedFromEditor, onSaveStateChange, performSave]);
 
   useEffect(() => {
     onSaveControllerChange?.({ flushSave });
@@ -1909,6 +2016,17 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
       scheduleSave(nextMarkdown);
     },
     [onLocalContentChange, reportDirtyState, scheduleSave],
+  );
+
+  const handleContentTouched = useCallback(() => {
+    scheduleSaveFromEditor();
+  }, [scheduleSaveFromEditor]);
+
+  const handleSerializeReady = useCallback(
+    (serialize: (() => string | null) | null) => {
+      serializeFromEditorRef.current = serialize;
+    },
+    [],
   );
 
   useEffect(() => {
@@ -1930,6 +2048,13 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
     }
 
     if (localDirtyRef.current && markdown !== page.content) {
+      return;
+    }
+
+    // The editor holds content we just saved locally; the matching disk echo
+    // (a `page.content` update) hasn't arrived yet. Don't revert to the stale
+    // prop while we wait for it.
+    if (recentMarkdownRef.current.has(markdown) && markdown !== page.content) {
       return;
     }
 
@@ -2017,6 +2142,8 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
       onCommentRailPresenceChange={onCommentRailPresenceChange}
       backend={backend}
       onEditorReady={onEditorReady}
+      onContentTouched={handleContentTouched}
+      onSerializeReady={handleSerializeReady}
     />
   );
 });
