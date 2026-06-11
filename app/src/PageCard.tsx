@@ -67,6 +67,7 @@ interface PageCardProps {
   onSaveControllerChange?: (controller: DocumentSaveController | null) => void;
   saveBlocked?: boolean;
   forceResetKey?: string | null;
+  manualCommit?: boolean;
 }
 
 interface PageCardEditorSurfaceProps {
@@ -87,6 +88,7 @@ interface PageCardEditorSurfaceProps {
   onSaveControllerChange?: (controller: DocumentSaveController | null) => void;
   saveBlocked?: boolean;
   forceResetKey?: string | null;
+  manualCommit?: boolean;
 }
 
 interface RichTextEditorSurfaceProps {
@@ -2090,6 +2092,7 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
   onSaveControllerChange,
   saveBlocked = false,
   forceResetKey = null,
+  manualCommit = false,
 }: PageCardEditorSurfaceProps) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlightSaveRef = useRef<Promise<ManualSaveResult> | null>(null);
@@ -2181,7 +2184,7 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
         saveTimer.current = null;
       }
 
-      if (saveBlocked) {
+      if (manualCommit || saveBlocked) {
         onSaveStateChange(
           nextMarkdown === lastAcceptedMarkdownRef.current
             ? "saved"
@@ -2199,7 +2202,7 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
         void inFlightSaveRef.current;
       }, 500);
     },
-    [onSaveStateChange, performSave, saveBlocked],
+    [manualCommit, onSaveStateChange, performSave, saveBlocked],
   );
 
   const flushSave = useCallback(async (): Promise<ManualSaveResult> => {
@@ -2373,6 +2376,7 @@ export function PageCard({
   onSaveControllerChange,
   saveBlocked,
   forceResetKey,
+  manualCommit,
 }: PageCardProps) {
   const [saveState, setSaveState] = useState<DocumentSaveState>("saved");
 
@@ -2400,6 +2404,7 @@ export function PageCard({
         onSaveControllerChange={onSaveControllerChange}
         saveBlocked={saveBlocked}
         forceResetKey={forceResetKey}
+        manualCommit={manualCommit}
       />
     </div>
   );

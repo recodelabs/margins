@@ -1,8 +1,10 @@
 import {
   AlertTriangle,
+  ArrowLeft,
   Check,
   CheckCheck,
   ChevronDown,
+  ChevronRight,
   CodeXml,
   Eye,
   Loader2,
@@ -238,6 +240,13 @@ export function isReviewHandoffDisabled({
   );
 }
 
+export interface GitHubDocNav {
+  owner: string;
+  repo: string;
+  branch: string;
+  path: string;
+}
+
 interface DocumentWorkspaceProps {
   documentPage: Page | null;
   activeDocumentPath: string | null;
@@ -257,6 +266,8 @@ interface DocumentWorkspaceProps {
     options?: CompleteReviewOptions,
   ) => Promise<{ delivered: boolean }>;
   backend: StorageBackend | null;
+  manualCommit?: boolean;
+  githubNav?: GitHubDocNav | null;
 }
 
 export function DocumentWorkspace({
@@ -276,6 +287,8 @@ export function DocumentWorkspace({
   onOverwriteDocumentOnDisk,
   onCompleteReview,
   backend,
+  manualCommit = false,
+  githubNav = null,
 }: DocumentWorkspaceProps) {
   const [documentInteractionMode, setDocumentInteractionMode] =
     useState<DocumentInteractionMode>("editing");
@@ -506,6 +519,37 @@ export function DocumentWorkspace({
   });
   const trimmedOverallComment = overallComment.trim();
 
+  // Build GitHub breadcrumb data when githubNav is present
+  const githubBreadcrumb = githubNav
+    ? (() => {
+        const { owner, repo, branch, path } = githubNav;
+        const repoPart = `${owner}/${repo}`;
+        const pathParts = path.split("/");
+        const filename = pathParts[pathParts.length - 1] ?? path;
+        const folderSegments = pathParts.slice(0, -1); // all but last
+        const rootHref = `/?repo=${encodeURIComponent(repoPart)}&ref=${encodeURIComponent(branch)}`;
+
+        type BreadcrumbSegment =
+          | { kind: "repo"; label: string; href: string }
+          | { kind: "folder"; label: string; href: string }
+          | { kind: "file"; label: string };
+
+        const segments: BreadcrumbSegment[] = [
+          { kind: "repo", label: repoPart, href: rootHref },
+          ...folderSegments.map(
+            (seg, i): BreadcrumbSegment => ({
+              kind: "folder",
+              label: seg,
+              href: `/?repo=${encodeURIComponent(repoPart)}&ref=${encodeURIComponent(branch)}&dir=${encodeURIComponent(folderSegments.slice(0, i + 1).join("/"))}`,
+            }),
+          ),
+          { kind: "file", label: filename },
+        ];
+
+        return segments;
+      })()
+    : null;
+
   return (
     <div
       className={cn(
@@ -513,6 +557,46 @@ export function DocumentWorkspace({
         conflictNotice ? "pt-40 sm:pt-28" : "pt-10",
       )}
     >
+      {/* GitHub breadcrumb bar — above everything, only in GitHub mode */}
+      {githubBreadcrumb ? (
+        <div className="mb-3 -mx-8 sm:-mx-12 px-8 sm:px-12 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+          <nav
+            aria-label="Document breadcrumb"
+            className="flex min-w-0 flex-wrap items-center gap-0.5 text-xs text-stone-400 dark:text-stone-500"
+          >
+            {githubBreadcrumb.map((seg, i) => (
+              <span key={i} className="flex min-w-0 items-center gap-0.5">
+                {i > 0 ? (
+                  <ChevronRight
+                    className="size-3 shrink-0 text-stone-300 dark:text-stone-600"
+                    aria-hidden="true"
+                  />
+                ) : null}
+                {seg.kind === "repo" ? (
+                  <a
+                    href={seg.href}
+                    className="font-die-grotesk-a inline-flex items-center gap-1 rounded px-1 py-0.5 font-bold text-stone-500 dark:text-stone-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-slate-700 dark:hover:text-slate-300"
+                  >
+                    <ArrowLeft className="size-3 shrink-0" aria-hidden="true" />
+                    {seg.label}
+                  </a>
+                ) : seg.kind === "folder" ? (
+                  <a
+                    href={seg.href}
+                    className="rounded px-1 py-0.5 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-slate-700 dark:hover:text-slate-300"
+                  >
+                    {seg.label}
+                  </a>
+                ) : (
+                  <span className="truncate px-1 py-0.5 font-medium text-slate-600 dark:text-slate-300">
+                    {seg.label}
+                  </span>
+                )}
+              </span>
+            ))}
+          </nav>
+        </div>
+      ) : null}
       <RemoteSessionBanner backend={backend} />
       <div
         className={cn(
@@ -523,6 +607,25 @@ export function DocumentWorkspace({
         data-document-status-stack="true"
       >
         <div className="flex max-w-full items-center justify-end gap-1.5">
+          {manualCommit && saveState !== "saved" ? (
+            <Button
+              type="button"
+              data-testid="github-commit-button"
+              size="lg"
+              disabled={saveState === "saving"}
+              className="h-9 rounded-[7px] border-0 bg-black px-3 text-sm font-bold text-white shadow-[0_10px_28px_rgba(0,0,0,0.18)] hover:bg-black/85 focus-visible:ring-black/25 dark:bg-black dark:text-white dark:hover:bg-black/85 dark:focus-visible:ring-white/30"
+              onClick={() => void saveControllerRef.current?.flushSave()}
+            >
+              {saveState === "saving" ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Committing…
+                </>
+              ) : (
+                "Commit"
+              )}
+            </Button>
+          ) : null}
           {showReviewHandoffButton ? (
             <Popover
               open={reviewHandoffPopoverOpen}
@@ -801,10 +904,15 @@ export function DocumentWorkspace({
                     </div>
                   </PopoverContent>
                 </Popover>
-                <DocumentSaveStatusIndicator
-                  saveState={saveState}
-                  diskChangeState={documentDiskChangeState}
-                />
+                {/* In GitHub (manual-commit) mode the doc rests in the "unsaved"
+                    state until the user commits, and this indicator spins on
+                    "unsaved" — so the Commit button conveys status instead. */}
+                {manualCommit ? null : (
+                  <DocumentSaveStatusIndicator
+                    saveState={saveState}
+                    diskChangeState={documentDiskChangeState}
+                  />
+                )}
                 <div className="ml-auto inline-flex h-[1.25rem] shrink-0 items-center">
                   <Select<DocumentInteractionMode>
                     value={documentInteractionMode}
@@ -864,6 +972,7 @@ export function DocumentWorkspace({
               }}
               saveBlocked={documentDiskChangeState !== "clean"}
               forceResetKey={documentForceResetKey}
+              manualCommit={manualCommit}
             />
           ) : null
         ) : (

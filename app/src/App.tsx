@@ -43,7 +43,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "./components/ui/dialog";
-import { DocumentWorkspace } from "./DocumentWorkspace";
+import { DocumentWorkspace, type GitHubDocNav } from "./DocumentWorkspace";
 import { detectBackend, isGitHubMode } from "./detect-backend";
 import { GitHubPicker } from "./GitHubPicker";
 import { getStoredToken } from "./github-auth";
@@ -1945,6 +1945,19 @@ export function App() {
   const documentFilenameLabel =
     getPathLeaf(documentAbsolutePath ?? activeDocumentPath) ?? "Untitled.md";
 
+  // Build githubNav when in GitHub mode and a path is present in the URL
+  const githubNav: GitHubDocNav | null = (() => {
+    if (!isGitHubMode()) return null;
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlPath = urlParams.get("path");
+    const urlRepo = urlParams.get("repo");
+    const urlRef = urlParams.get("ref") || "main";
+    if (!urlPath || !urlRepo) return null;
+    const [owner, repo] = urlRepo.split("/");
+    if (!owner || !repo) return null;
+    return { owner, repo, branch: urlRef, path: urlPath };
+  })();
+
   return (
     <main className="relative flex h-screen min-w-0 flex-col overflow-hidden bg-[#FCFCFC] dark:bg-background text-slate-950 dark:text-slate-50">
       {updateStatus ? (
@@ -1971,6 +1984,8 @@ export function App() {
         onOverwriteDocumentOnDisk={handleOverwriteDocumentOnDisk}
         onCompleteReview={handleCompleteReview}
         backend={backend}
+        manualCommit={backend?.info.kind === "github"}
+        githubNav={githubNav}
       />
     </main>
   );
