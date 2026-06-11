@@ -32,7 +32,7 @@ function GitHubMark({ className }: { className?: string }) {
 // ---------------------------------------------------------------------------
 function MarginsLogo() {
   return (
-    <p className="font-nanum-pen-script text-[clamp(2.75rem,2.2rem+1.4vw,3.5rem)] leading-none text-[#1e3a6b] dark:text-[#a8c4ef]">
+    <p className="font-nanum-pen-script text-[clamp(2.75rem,2.2rem+1.4vw,3.5rem)] leading-none text-[#1d4ed8] dark:text-[#8aa9ff]">
       margins
     </p>
   );
@@ -51,7 +51,7 @@ function LoginScreen() {
           className="w-[clamp(16rem,52vw,28rem)] select-none dark:invert"
           draggable={false}
         />
-        <h1 className="font-nanum-pen-script mt-6 text-[clamp(3.25rem,2.6rem+3vw,5rem)] leading-[0.95] text-[#1e3a6b] dark:text-[#a8c4ef]">
+        <h1 className="font-nanum-pen-script mt-6 text-[clamp(3.25rem,2.6rem+3vw,5rem)] leading-[0.95] text-[#1d4ed8] dark:text-[#8aa9ff]">
           Collaborate with your AI in markdown
         </h1>
         <p className="mt-5 max-w-md text-[clamp(1.05rem,1rem+0.3vw,1.2rem)] leading-relaxed text-slate-600 dark:text-slate-400">
