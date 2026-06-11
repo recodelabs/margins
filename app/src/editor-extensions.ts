@@ -543,6 +543,16 @@ const CommentHighlight = Extension.create({
                 ? meta.hoveredCommentId
                 : pluginState.hoveredCommentId;
 
+            // No-op meta (selection state unchanged, doc unchanged): nothing to
+            // recompute, so avoid the whole-document walk.
+            if (
+              !tr.docChanged &&
+              selectedCommentId === pluginState.selectedCommentId &&
+              hoveredCommentId === pluginState.hoveredCommentId
+            ) {
+              return pluginState;
+            }
+
             return {
               selectedCommentId,
               hoveredCommentId,
@@ -659,14 +669,32 @@ const CriticChangeHighlight = Extension.create({
                 ? meta.hoveredChangeId
                 : pluginState.hoveredChangeId;
 
+            // No-op meta (selection state unchanged, doc unchanged): nothing to
+            // recompute, so avoid the whole-document walk.
+            if (
+              !tr.docChanged &&
+              selectedChangeId === pluginState.selectedChangeId &&
+              hoveredChangeId === pluginState.hoveredChangeId
+            ) {
+              return pluginState;
+            }
+
+            // These decorations only ever cover the selected/hovered change, so
+            // when neither is set the set is empty — skip the document walk
+            // entirely (the common case while just editing).
+            const decorations =
+              selectedChangeId === null && hoveredChangeId === null
+                ? DecorationSet.empty
+                : createCriticChangeHighlightDecorations(
+                    tr.doc,
+                    selectedChangeId,
+                    hoveredChangeId,
+                  );
+
             return {
               selectedChangeId,
               hoveredChangeId,
-              decorations: createCriticChangeHighlightDecorations(
-                tr.doc,
-                selectedChangeId,
-                hoveredChangeId,
-              ),
+              decorations,
             };
           },
         },
