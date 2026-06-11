@@ -607,25 +607,6 @@ export function DocumentWorkspace({
         data-document-status-stack="true"
       >
         <div className="flex max-w-full items-center justify-end gap-1.5">
-          {manualCommit && saveState !== "saved" ? (
-            <Button
-              type="button"
-              data-testid="github-commit-button"
-              size="lg"
-              disabled={saveState === "saving"}
-              className="h-9 rounded-[7px] border-0 bg-black px-3 text-sm font-bold text-white shadow-[0_10px_28px_rgba(0,0,0,0.18)] hover:bg-black/85 focus-visible:ring-black/25 dark:bg-black dark:text-white dark:hover:bg-black/85 dark:focus-visible:ring-white/30"
-              onClick={() => void saveControllerRef.current?.flushSave()}
-            >
-              {saveState === "saving" ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Committing…
-                </>
-              ) : (
-                "Commit"
-              )}
-            </Button>
-          ) : null}
           {showReviewHandoffButton ? (
             <Popover
               open={reviewHandoffPopoverOpen}
@@ -913,7 +894,28 @@ export function DocumentWorkspace({
                     diskChangeState={documentDiskChangeState}
                   />
                 )}
-                <div className="ml-auto inline-flex h-[1.25rem] shrink-0 items-center">
+                <div className="ml-auto inline-flex h-[1.5rem] shrink-0 items-center gap-2">
+                  {manualCommit && saveState !== "saved" ? (
+                    <Button
+                      type="button"
+                      data-testid="github-commit-button"
+                      size="sm"
+                      disabled={saveState === "saving"}
+                      onClick={() =>
+                        void saveControllerRef.current?.flushSave()
+                      }
+                      className="h-[1.5rem] gap-1 rounded-md border border-slate-300 bg-white px-2 text-[0.72rem] font-medium leading-none text-slate-600 shadow-none hover:bg-slate-100 hover:text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                    >
+                      {saveState === "saving" ? (
+                        <>
+                          <Loader2 className="size-3 animate-spin" />
+                          Committing…
+                        </>
+                      ) : (
+                        "Commit"
+                      )}
+                    </Button>
+                  ) : null}
                   <Select<DocumentInteractionMode>
                     value={documentInteractionMode}
                     onValueChange={(value) => {
