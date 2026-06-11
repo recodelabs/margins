@@ -1,15 +1,15 @@
+import { invalidateCachedUrl } from "./github-cache";
+import { githubFetch, githubGet } from "./github-fetch";
 import { titleFromContent } from "./markdown";
 import {
-  type StorageBackend,
   type BackendCapabilities,
   type BackendInfo,
-  type Page,
-  type StoredAsset,
-  MarkdownFileConflictError,
   FileTooLargeError,
+  MarkdownFileConflictError,
+  type Page,
+  type StorageBackend,
+  type StoredAsset,
 } from "./storage";
-import { githubGet, githubFetch } from "./github-fetch";
-import { invalidateCachedUrl } from "./github-cache";
 
 export interface GitHubBackendConfig {
   token: string;
@@ -25,13 +25,17 @@ function pageId(relativePath: string): string {
   return relativePath.replace(/\.md$/i, "");
 }
 function decodeBase64(b64: string): string {
-  const bytes = Uint8Array.from(atob(b64.replace(/\n/g, "")), (c) => c.charCodeAt(0));
+  const bytes = Uint8Array.from(atob(b64.replace(/\n/g, "")), (c) =>
+    c.charCodeAt(0),
+  );
   return new TextDecoder().decode(bytes);
 }
 function encodeBase64(text: string): string {
   const bytes = new TextEncoder().encode(text);
   let bin = "";
-  bytes.forEach((byte) => { bin += String.fromCharCode(byte); });
+  bytes.forEach((byte) => {
+    bin += String.fromCharCode(byte);
+  });
   return btoa(bin);
 }
 
@@ -69,29 +73,39 @@ export class GitHubBackend implements StorageBackend {
   }
 
   private async readFile(relativePath: string): Promise<Page> {
-    return githubGet(this.contentsUrl(relativePath), this.headers(), async (res) => {
-      if (!res.ok) throw new Error(`GitHub read failed (${res.status})`);
-      const json = (await res.json()) as {
-        sha: string;
-        content: string;
-        encoding?: string;
-        size?: number;
-      };
-      // The Contents API only returns inline content for files up to 1 MB. For
-      // larger files it responds with `encoding: "none"` and an empty `content`,
-      // which would otherwise decode to "" and silently open an empty editor —
-      // and a later autosave would overwrite the real file with emptiness.
-      if (json.encoding === "none" || (json.content === "" && (json.size ?? 0) > 0)) {
-        throw new FileTooLargeError(relativePath, json.size);
-      }
-      const content = decodeBase64(json.content);
-      return {
-        id: pageId(relativePath),
-        title: titleFromContent(content, relativePath.split("/").at(-1) || relativePath),
-        content,
-        version: json.sha,
-      };
-    });
+    return githubGet(
+      this.contentsUrl(relativePath),
+      this.headers(),
+      async (res) => {
+        if (!res.ok) throw new Error(`GitHub read failed (${res.status})`);
+        const json = (await res.json()) as {
+          sha: string;
+          content: string;
+          encoding?: string;
+          size?: number;
+        };
+        // The Contents API only returns inline content for files up to 1 MB. For
+        // larger files it responds with `encoding: "none"` and an empty `content`,
+        // which would otherwise decode to "" and silently open an empty editor —
+        // and a later autosave would overwrite the real file with emptiness.
+        if (
+          json.encoding === "none" ||
+          (json.content === "" && (json.size ?? 0) > 0)
+        ) {
+          throw new FileTooLargeError(relativePath, json.size);
+        }
+        const content = decodeBase64(json.content);
+        return {
+          id: pageId(relativePath),
+          title: titleFromContent(
+            content,
+            relativePath.split("/").at(-1) || relativePath,
+          ),
+          content,
+          version: json.sha,
+        };
+      },
+    );
   }
 
   async getMarkdownFile(relativePath: string): Promise<Page> {
@@ -110,21 +124,28 @@ export class GitHubBackend implements StorageBackend {
       throw new Error("Only markdown (.md) files can be opened in margins");
     }
     const { owner, repo, branch } = this.cfg;
-    const res = await githubFetch(`${API}/repos/${owner}/${repo}/contents/${relativePath}`, {
-      method: "PUT",
-      headers: this.headers({ "Content-Type": "application/json" }),
-      body: JSON.stringify({
-        message: `Update ${relativePath}`,
-        content: encodeBase64(content),
-        sha: expectedVersion,
-        branch,
-      }),
-    });
+    const res = await githubFetch(
+      `${API}/repos/${owner}/${repo}/contents/${relativePath}`,
+      {
+        method: "PUT",
+        headers: this.headers({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          message: `Update ${relativePath}`,
+          content: encodeBase64(content),
+          sha: expectedVersion,
+          branch,
+        }),
+      },
+    );
     if (res.status === 409 || res.status === 422) {
-      const errBody = (await res.json().catch(() => ({}))) as { message?: string };
+      const errBody = (await res.json().catch(() => ({}))) as {
+        message?: string;
+      };
       // 422 is also used for plain validation errors — only a SHA mismatch is a real conflict.
       if (res.status === 422 && !errBody.message?.includes("but expected")) {
-        throw new Error(`GitHub save failed (422): ${errBody.message ?? "validation error"}`);
+        throw new Error(
+          `GitHub save failed (422): ${errBody.message ?? "validation error"}`,
+        );
       }
       let current: Page;
       try {
@@ -143,7 +164,10 @@ export class GitHubBackend implements StorageBackend {
     invalidateCachedUrl(this.contentsUrl(relativePath));
     return {
       id: pageId(relativePath),
-      title: titleFromContent(content, relativePath.split("/").at(-1) || relativePath),
+      title: titleFromContent(
+        content,
+        relativePath.split("/").at(-1) || relativePath,
+      ),
       content,
       version: json.content.sha,
     };
@@ -159,7 +183,9 @@ export class GitHubBackend implements StorageBackend {
         truncated?: boolean;
       };
       if (json.truncated) {
-        throw new Error("GitHub tree listing was truncated (repo too large to list recursively)");
+        throw new Error(
+          "GitHub tree listing was truncated (repo too large to list recursively)",
+        );
       }
       return json.tree
         .filter((e) => e.type === "blob" && /\.md$/i.test(e.path))
@@ -168,7 +194,9 @@ export class GitHubBackend implements StorageBackend {
   }
 
   saveAsset(_file: File): Promise<StoredAsset> {
-    return Promise.reject(new Error("Asset upload is not supported yet in GitHub mode"));
+    return Promise.reject(
+      new Error("Asset upload is not supported yet in GitHub mode"),
+    );
   }
 
   resolveFileUrl(path: string): string | null {

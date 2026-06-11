@@ -1,9 +1,15 @@
-import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
-import { completeLoginFromUrl, getStoredToken, clearToken } from "./github-auth";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  clearToken,
+  completeLoginFromUrl,
+  getStoredToken,
+} from "./github-auth";
 
 const originalFetch = global.fetch;
 
-beforeEach(() => { sessionStorage.clear(); });
+beforeEach(() => {
+  sessionStorage.clear();
+});
 afterEach(() => {
   global.fetch = originalFetch;
   window.history.replaceState(null, "", "/");
@@ -18,10 +24,13 @@ describe("github-auth code exchange", () => {
   it("exchanges the code for a token when the returned state matches", async () => {
     sessionStorage.setItem("margins.gh.state", "st-1");
     setCallbackUrl("?code=oauthcode&state=st-1");
-    const fetchMock = vi.fn(async () => new Response(
-      JSON.stringify({ access_token: "gho_abc" }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
-    ));
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ access_token: "gho_abc" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const token = await completeLoginFromUrl();
@@ -31,7 +40,9 @@ describe("github-auth code exchange", () => {
     // token came from the POST body, not the URL
     const [url, opts] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/auth/token");
-    expect(JSON.parse((opts as RequestInit).body as string)).toEqual({ code: "oauthcode" });
+    expect(JSON.parse((opts as RequestInit).body as string)).toEqual({
+      code: "oauthcode",
+    });
     // code/state stripped from the URL, and the token never appears in it
     expect(window.location.search).toBe("");
     expect(window.location.href).not.toContain("gho_abc");
@@ -65,7 +76,9 @@ describe("github-auth code exchange", () => {
     sessionStorage.setItem("margins.gh.state", "st-1");
     sessionStorage.setItem("margins.gh.token", "gho_old");
     setCallbackUrl("?code=oauthcode&state=st-1");
-    global.fetch = vi.fn(async () => new Response("nope", { status: 500 })) as unknown as typeof fetch;
+    global.fetch = vi.fn(
+      async () => new Response("nope", { status: 500 }),
+    ) as unknown as typeof fetch;
 
     expect(await completeLoginFromUrl()).toBe("gho_old");
   });

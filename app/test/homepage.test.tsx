@@ -1,6 +1,5 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   afterEach,
   beforeAll,
@@ -10,6 +9,7 @@ import {
   it,
   vi,
 } from "vitest";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { Homepage, HomepageSubtitle } from "../src/Homepage";
 import { PreviewPage } from "../src/PreviewPage";
 import { RoughdraftFlavoredMarkdownPage } from "../src/RoughdraftFlavoredMarkdownPage";

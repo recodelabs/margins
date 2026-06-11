@@ -68,7 +68,9 @@ export function getFolderContents(
  *    { name: "design", path: "docs/design" },
  *    { name: "patterns", path: "docs/design/patterns" }]
  */
-export function splitPath(folderPath: string): Array<{ name: string; path: string }> {
+export function splitPath(
+  folderPath: string,
+): Array<{ name: string; path: string }> {
   if (!folderPath) return [];
   const parts = folderPath.split("/");
   return parts.map((name, i) => ({

@@ -1,6 +1,6 @@
-import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GitHubPicker } from "./GitHubPicker";
 import { clearGitHubCache } from "./github-cache";
 

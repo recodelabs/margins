@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  type DocumentSaveController,
   createDocumentSessionStore,
+  type DocumentSaveController,
 } from "./document-session";
 
 const noopController: DocumentSaveController = {

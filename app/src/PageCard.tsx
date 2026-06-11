@@ -12,7 +12,7 @@ import {
   useRef,
   useState,
 } from "react";
-
+import { buildLocationForLinkedMarkdownDocument } from "./app-navigation";
 import { CommentEditorList } from "./CommentEditorList";
 import {
   type CriticChangeAttrs,
@@ -37,7 +37,6 @@ import {
   SUGGESTED_PARAGRAPH_SENTINEL,
 } from "./editor-extensions";
 import { cn } from "./lib/utils";
-import { buildLocationForLinkedMarkdownDocument } from "./app-navigation";
 import { toHtml } from "./markdown";
 import { runWithErrorFeedback } from "./run-with-error-feedback";
 import type { Page, StorageBackend } from "./storage";
@@ -600,7 +599,9 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
 }: RichTextEditorSurfaceProps) {
   const editorRef = useRef<Editor | null>(null);
   const criticChangeFrameRef = useRef<number | null>(null);
-  const onContentTouchedRef = useRef<(() => void) | undefined>(onContentTouched);
+  const onContentTouchedRef = useRef<(() => void) | undefined>(
+    onContentTouched,
+  );
   onContentTouchedRef.current = onContentTouched;
   const interactionModeRef = useRef<DocumentInteractionMode>(interactionMode);
   const commentsRef = useRef<Map<string, CriticComment>>(new Map());
@@ -855,9 +856,13 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
             if (!$from.parent.isTextblock) return true;
             if ($from.parentOffset !== $from.parent.content.size) return true;
 
-            const change = createCriticChange("addition", { authorId }, {
-              existingChanges: getDocumentCriticChanges(currentEditor),
-            });
+            const change = createCriticChange(
+              "addition",
+              { authorId },
+              {
+                existingChanges: getDocumentCriticChanges(currentEditor),
+              },
+            );
             const mark = view.state.schema.marks.criticChange.create(change);
             const tr = view.state.tr.split(selection.from);
             const insertPos = tr.selection.from;
@@ -1212,9 +1217,12 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     if (!currentEditor || currentEditor.state.selection.empty) return;
 
     const existingIds = getSelectionCommentIds(currentEditor);
-    const comment = createCriticComment({ authorId }, {
-      existingComments: commentsRef.current.values(),
-    });
+    const comment = createCriticComment(
+      { authorId },
+      {
+        existingComments: commentsRef.current.values(),
+      },
+    );
     const nextComments = new Map(commentsRef.current);
     nextComments.set(comment.id, comment);
     commentsRef.current = nextComments;
@@ -1241,9 +1249,13 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     const currentEditor = editorRef.current;
     if (!currentEditor || currentEditor.state.selection.empty) return;
 
-    const change = createCriticChange("deletion", { authorId }, {
-      existingChanges: getDocumentCriticChanges(currentEditor),
-    });
+    const change = createCriticChange(
+      "deletion",
+      { authorId },
+      {
+        existingChanges: getDocumentCriticChanges(currentEditor),
+      },
+    );
 
     currentEditor.chain().focus().setCriticChange(change).run();
     emitMarkdownChange(currentEditor.getJSON());
@@ -1275,9 +1287,13 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     }
 
     if (draftSuggestion.type === "insertion") {
-      const change = createCriticChange("addition", { authorId }, {
-        existingChanges: getDocumentCriticChanges(currentEditor),
-      });
+      const change = createCriticChange(
+        "addition",
+        { authorId },
+        {
+          existingChanges: getDocumentCriticChanges(currentEditor),
+        },
+      );
 
       currentEditor
         .chain()
@@ -1300,9 +1316,13 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
       return;
     }
 
-    const change = createCriticChange("substitution-old", { authorId }, {
-      existingChanges: getDocumentCriticChanges(currentEditor),
-    });
+    const change = createCriticChange(
+      "substitution-old",
+      { authorId },
+      {
+        existingChanges: getDocumentCriticChanges(currentEditor),
+      },
+    );
     const replacementChange: CriticChangeAttrs = {
       ...change,
       kind: "substitution-new",

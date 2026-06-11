@@ -1,19 +1,27 @@
-import { defineConfig, loadEnv } from "vite";
-import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
+import tailwindcss from "@tailwindcss/vite";
+import react from "@vitejs/plugin-react";
+import { defineConfig, loadEnv } from "vite";
 import { exchangeCodeForToken } from "../auth/exchange";
 
 // Minimal structural type so we don't depend on @types/node here (this file is
 // loaded by esbuild and isn't part of the tsc project).
-type ReadableReq = { on(event: string, listener: (chunk?: unknown) => void): void };
+type ReadableReq = {
+  on(event: string, listener: (chunk?: unknown) => void): void;
+};
 
 function readJsonBody(req: ReadableReq): Promise<unknown> {
   return new Promise((resolve) => {
     let raw = "";
-    req.on("data", (chunk) => { raw += String(chunk); });
+    req.on("data", (chunk) => {
+      raw += String(chunk);
+    });
     req.on("end", () => {
-      try { resolve(raw ? JSON.parse(raw) : {}); } catch { resolve({}); }
+      try {
+        resolve(raw ? JSON.parse(raw) : {});
+      } catch {
+        resolve({});
+      }
     });
     req.on("error", () => resolve({}));
   });
@@ -24,14 +32,19 @@ function authDevPlugin(env: Record<string, string>) {
     name: "margins-auth-dev",
     configureServer(server: import("vite").ViteDevServer) {
       server.middlewares.use(async (req, res, next) => {
-        const host = (req.headers && (req.headers as Record<string, string>)["host"]) || "localhost";
+        const host =
+          (req.headers && (req.headers as Record<string, string>)["host"]) ||
+          "localhost";
         const url = new URL(req.url || "", `http://${host}`);
         if (url.pathname === "/api/auth/login") {
           const redirectUri = `${url.origin}/api/auth/callback`;
           const authorize = new URL("https://github.com/login/oauth/authorize");
           authorize.searchParams.set("client_id", env.GITHUB_CLIENT_ID || "");
           authorize.searchParams.set("redirect_uri", redirectUri);
-          authorize.searchParams.set("state", url.searchParams.get("state") || "");
+          authorize.searchParams.set(
+            "state",
+            url.searchParams.get("state") || "",
+          );
           res.statusCode = 302;
           res.setHeader("Location", authorize.toString());
           res.end();
@@ -43,17 +56,26 @@ function authDevPlugin(env: Record<string, string>) {
           const code = url.searchParams.get("code") || "";
           const state = url.searchParams.get("state") || "";
           res.statusCode = 302;
-          res.setHeader("Location", `/?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`);
+          res.setHeader(
+            "Location",
+            `/?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
+          );
           res.end();
           return;
         }
-        if (url.pathname === "/api/auth/token" && (req.method || "").toUpperCase() === "POST") {
+        if (
+          url.pathname === "/api/auth/token" &&
+          (req.method || "").toUpperCase() === "POST"
+        ) {
           try {
             const body = await readJsonBody(req);
-            const token = await exchangeCodeForToken((body as { code?: string }).code || "", {
-              clientId: env.GITHUB_CLIENT_ID || "",
-              clientSecret: env.GITHUB_CLIENT_SECRET || "",
-            });
+            const token = await exchangeCodeForToken(
+              (body as { code?: string }).code || "",
+              {
+                clientId: env.GITHUB_CLIENT_ID || "",
+                clientSecret: env.GITHUB_CLIENT_SECRET || "",
+              },
+            );
             res.statusCode = 200;
             res.setHeader("Content-Type", "application/json");
             res.end(JSON.stringify({ access_token: token }));

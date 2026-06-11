@@ -21,10 +21,6 @@ import {
   useState,
 } from "react";
 import type { DocumentEditorViewMode } from "./app-navigation";
-import {
-  type DocumentSessionStore,
-  useDocumentSession,
-} from "./document-session";
 import { RemoteSessionBanner } from "./components/RemoteSessionBanner";
 import { Button } from "./components/ui/button";
 import {
@@ -46,16 +42,20 @@ import {
   TooltipTrigger,
 } from "./components/ui/tooltip";
 import { criticMarkdownHasReviewRail } from "./critic-markup";
+import {
+  type DocumentSessionStore,
+  useDocumentSession,
+} from "./document-session";
+import { gitHubHref } from "./github-route";
 import { cn } from "./lib/utils";
-import { toHtml } from "./markdown";
 import { MermaidOverlays } from "./MermaidOverlays";
+import { toHtml } from "./markdown";
 import {
   type DocumentInteractionMode,
   type DocumentSaveState,
   PageCard,
 } from "./PageCard";
 import type { CompleteReviewOptions, Page, StorageBackend } from "./storage";
-import { gitHubHref } from "./github-route";
 
 type DiskChangeState = "clean" | "changed" | "conflict" | "paused";
 type ReviewHandoffState =
@@ -808,63 +808,63 @@ export function DocumentWorkspace({
           className="fixed top-3 left-1/2 z-50 flex w-[min(calc(100vw-1rem),52rem)] -translate-x-1/2 flex-col gap-3 rounded-[8px] border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 px-3 py-3 text-amber-950 dark:text-amber-100 shadow-[0_14px_40px_rgba(120,53,15,0.18)] dark:shadow-[0_14px_40px_rgba(0,0,0,0.4)] sm:px-4"
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-start gap-2.5">
-            <AlertTriangle
-              className="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-400"
-              aria-hidden="true"
-            />
-            <div className="min-w-0">
-              <div className="text-sm font-semibold leading-5">
-                {conflictNotice.title}
-              </div>
-              <div className="mt-0.5 text-xs leading-5 text-amber-900 dark:text-amber-200">
-                {conflictNotice.body}
+            <div className="flex min-w-0 items-start gap-2.5">
+              <AlertTriangle
+                className="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-400"
+                aria-hidden="true"
+              />
+              <div className="min-w-0">
+                <div className="text-sm font-semibold leading-5">
+                  {conflictNotice.title}
+                </div>
+                <div className="mt-0.5 text-xs leading-5 text-amber-900 dark:text-amber-200">
+                  {conflictNotice.body}
+                </div>
               </div>
             </div>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-1.5 sm:justify-end">
-            <Button
-              type="button"
-              data-testid="file-conflict-action-reload"
-              variant="ghost"
-              size="sm"
-              className="h-8 rounded-[7px] bg-white/55 dark:bg-white/10 px-2 text-xs text-amber-950 dark:text-amber-100 hover:bg-white dark:hover:bg-white/20"
-              onClick={() => void onReloadDocumentFromDisk()}
-            >
-              <RefreshCcw className="size-3.5" />
-              Reload from disk
-            </Button>
-            {documentDiskChangeState !== "paused" ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-1.5 sm:justify-end">
               <Button
                 type="button"
-                data-testid="file-conflict-action-keep-editing"
+                data-testid="file-conflict-action-reload"
                 variant="ghost"
                 size="sm"
                 className="h-8 rounded-[7px] bg-white/55 dark:bg-white/10 px-2 text-xs text-amber-950 dark:text-amber-100 hover:bg-white dark:hover:bg-white/20"
-                onClick={onKeepEditingWithoutAutosave}
+                onClick={() => void onReloadDocumentFromDisk()}
               >
-                <PencilLine className="size-3.5" />
-                Keep editing with autosave paused
+                <RefreshCcw className="size-3.5" />
+                Reload from disk
               </Button>
-            ) : null}
-            <Button
-              type="button"
-              data-testid="file-conflict-action-overwrite"
-              variant="ghost"
-              size="sm"
-              className="h-8 rounded-[7px] bg-amber-900 dark:bg-amber-600 px-2 text-xs text-white hover:bg-amber-800 dark:hover:bg-amber-500"
-              onClick={() => {
-                // Persist any deferred serialization into the draft before
-                // overwrite reads it from the session store, so we push the
-                // latest edits to disk.
-                documentSession.getSnapshot().saveController?.flushDraft();
-                void onOverwriteDocumentOnDisk();
-              }}
-            >
-              <Upload className="size-3.5" />
-              Overwrite disk file
-            </Button>
-          </div>
+              {documentDiskChangeState !== "paused" ? (
+                <Button
+                  type="button"
+                  data-testid="file-conflict-action-keep-editing"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 rounded-[7px] bg-white/55 dark:bg-white/10 px-2 text-xs text-amber-950 dark:text-amber-100 hover:bg-white dark:hover:bg-white/20"
+                  onClick={onKeepEditingWithoutAutosave}
+                >
+                  <PencilLine className="size-3.5" />
+                  Keep editing with autosave paused
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                data-testid="file-conflict-action-overwrite"
+                variant="ghost"
+                size="sm"
+                className="h-8 rounded-[7px] bg-amber-900 dark:bg-amber-600 px-2 text-xs text-white hover:bg-amber-800 dark:hover:bg-amber-500"
+                onClick={() => {
+                  // Persist any deferred serialization into the draft before
+                  // overwrite reads it from the session store, so we push the
+                  // latest edits to disk.
+                  documentSession.getSnapshot().saveController?.flushDraft();
+                  void onOverwriteDocumentOnDisk();
+                }}
+              >
+                <Upload className="size-3.5" />
+                Overwrite disk file
+              </Button>
+            </div>
           </div>
           {documentActionError ? (
             <div
@@ -952,7 +952,9 @@ export function DocumentWorkspace({
                       // edits into the draft so the code view opens with them
                       // (rich-text serialization is otherwise deferred to save).
                       if (documentEditorViewMode === "rich-text") {
-                        documentSession.getSnapshot().saveController?.flushDraft();
+                        documentSession
+                          .getSnapshot()
+                          .saveController?.flushDraft();
                       }
                       onDocumentEditorViewModeChange(
                         documentEditorViewMode === "rich-text"

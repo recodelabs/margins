@@ -10,30 +10,34 @@ import {
 import type TurndownService from "turndown";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import {
+  type CriticChangeAttrs,
+  type CriticChangeKind,
+  createEditorExtensions,
+} from "../editor-extensions";
+import {
+  appendYamlEndmatter,
+  createMarkedRenderer,
+  createTurndownService,
+  type MarkdownOptions,
+  normalizeBlockSpacing,
+  prependYamlFrontmatter,
+  protectRichTextRoundTripMarkdown,
+  splitYamlDocumentMetadata,
+} from "../markdown";
+import {
   buildCommentThreads,
   type CriticComment,
   type CriticCommentThread,
   flattenCommentThreads,
 } from "./comment-threads";
-import {
-  createEditorExtensions,
-  type CriticChangeAttrs,
-  type CriticChangeKind,
-} from "../editor-extensions";
-import {
-  createMarkedRenderer,
-  createTurndownService,
-  normalizeBlockSpacing,
-  appendYamlEndmatter,
-  prependYamlFrontmatter,
-  protectRichTextRoundTripMarkdown,
-  splitYamlDocumentMetadata,
-  type MarkdownOptions,
-} from "../markdown";
 
+export type {
+  CriticChangeAttrs,
+  CriticChangeKind,
+  CriticComment,
+  CriticCommentThread,
+};
 export { buildCommentThreads, flattenCommentThreads };
-export type { CriticChangeAttrs, CriticChangeKind, CriticCommentThread };
-export type { CriticComment };
 
 interface CriticCommentToken {
   type: "criticCommentAnchor";

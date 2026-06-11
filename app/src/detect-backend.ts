@@ -1,10 +1,10 @@
-import type { StorageBackend } from "./storage";
 import { ApiBackend } from "./api-backend";
+import { completeLoginFromUrl, fetchLogin } from "./github-auth";
+import { GitHubBackend } from "./github-backend";
+import { parseGitHubLocation } from "./github-route";
 import { LocalStorageBackend } from "./local-storage-backend";
 import { RemoteBackend } from "./remote-backend";
-import { GitHubBackend } from "./github-backend";
-import { completeLoginFromUrl, fetchLogin } from "./github-auth";
-import { parseGitHubLocation } from "./github-route";
+import type { StorageBackend } from "./storage";
 
 interface StatusPayload {
   backend?: string;

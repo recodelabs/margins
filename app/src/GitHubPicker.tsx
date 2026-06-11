@@ -1,16 +1,22 @@
+import {
+  ArrowLeft,
+  ChevronRight,
+  FileText,
+  Folder,
+  Loader2,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ChevronRight, FileText, Folder, Loader2 } from "lucide-react";
-import { login, getStoredToken, clearToken } from "./github-auth";
-import { GitHubBackend } from "./github-backend";
 import { Button } from "./components/ui/button";
-import { cn } from "./lib/utils";
-import { getFolderContents, splitPath } from "./github-tree";
+import { clearToken, getStoredToken, login } from "./github-auth";
+import { GitHubBackend } from "./github-backend";
 import {
   gitHubHref,
   isMarkdownPath,
   navigate,
   parseGitHubLocation,
 } from "./github-route";
+import { getFolderContents, splitPath } from "./github-tree";
+import { cn } from "./lib/utils";
 
 // ---------------------------------------------------------------------------
 // GitHub mark SVG (inline, no external dependency)
@@ -168,7 +174,13 @@ export function GitHubPicker() {
       setError(null);
       setAllPaths(null);
 
-      const backend = new GitHubBackend({ token, owner, repo: name, branch: ref, login: "" });
+      const backend = new GitHubBackend({
+        token,
+        owner,
+        repo: name,
+        branch: ref,
+        login: "",
+      });
       backend
         .listMarkdownPaths()
         .then((p) => {
@@ -197,7 +209,12 @@ export function GitHubPicker() {
   // from the URL, so we keep a single source of truth (the URL).
   const drillInto = (folderPath: string) => {
     navigate(
-      gitHubHref({ owner: repoOwner ?? "", repo: repoName ?? "", branch: ref, path: folderPath }),
+      gitHubHref({
+        owner: repoOwner ?? "",
+        repo: repoName ?? "",
+        branch: ref,
+        path: folderPath,
+      }),
     );
   };
 
@@ -218,7 +235,12 @@ export function GitHubPicker() {
   // App's popstate-driven location state swaps the picker for the workspace.
   const openFile = (filePath: string) => {
     navigate(
-      gitHubHref({ owner: repoOwner ?? "", repo: repoName ?? "", branch: ref, path: filePath }),
+      gitHubHref({
+        owner: repoOwner ?? "",
+        repo: repoName ?? "",
+        branch: ref,
+        path: filePath,
+      }),
     );
   };
 
@@ -291,7 +313,9 @@ export function GitHubPicker() {
 
         {/* Error state */}
         {error ? (
-          <p className="mt-4 text-sm text-rose-600 dark:text-rose-400">{error}</p>
+          <p className="mt-4 text-sm text-rose-600 dark:text-rose-400">
+            {error}
+          </p>
         ) : null}
 
         {/* Repo browser */}
@@ -321,7 +345,10 @@ export function GitHubPicker() {
                 </button>
                 {breadcrumbSegments.map((seg, i) => (
                   <span key={seg.path} className="flex items-center gap-1">
-                    <ChevronRight className="size-3 text-stone-300 dark:text-stone-600" aria-hidden="true" />
+                    <ChevronRight
+                      className="size-3 text-stone-300 dark:text-stone-600"
+                      aria-hidden="true"
+                    />
                     {i === breadcrumbSegments.length - 1 ? (
                       <span className="font-medium text-slate-700 dark:text-slate-300">
                         {seg.name}
@@ -355,12 +382,16 @@ export function GitHubPicker() {
                     className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-sm text-stone-500 dark:text-stone-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors border-b border-slate-100 dark:border-slate-800"
                     onClick={drillUp}
                   >
-                    <ArrowLeft className="size-4 shrink-0 text-stone-400 dark:text-stone-500" aria-hidden="true" />
+                    <ArrowLeft
+                      className="size-4 shrink-0 text-stone-400 dark:text-stone-500"
+                      aria-hidden="true"
+                    />
                     <span>
                       Up to{" "}
                       <span className="font-medium text-slate-700 dark:text-slate-300">
                         {breadcrumbSegments.length > 1
-                          ? breadcrumbSegments[breadcrumbSegments.length - 2].name
+                          ? breadcrumbSegments[breadcrumbSegments.length - 2]
+                              .name
                           : repoName}
                       </span>
                     </span>
@@ -382,7 +413,8 @@ export function GitHubPicker() {
                           type="button"
                           className={cn(
                             "flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-sm text-slate-950 dark:text-slate-50 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors",
-                            !isLast && "border-b border-slate-100 dark:border-slate-800",
+                            !isLast &&
+                              "border-b border-slate-100 dark:border-slate-800",
                           )}
                           onClick={() => drillInto(entry.path)}
                         >
@@ -407,7 +439,8 @@ export function GitHubPicker() {
                         type="button"
                         className={cn(
                           "group flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-sm text-slate-950 dark:text-slate-50 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors",
-                          !isLast && "border-b border-slate-100 dark:border-slate-800",
+                          !isLast &&
+                            "border-b border-slate-100 dark:border-slate-800",
                         )}
                         onClick={() => openFile(entry.path)}
                       >

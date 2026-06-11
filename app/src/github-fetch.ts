@@ -8,9 +8,9 @@
  *    bare `GitHub tree failed (403)`.
  */
 import {
+  type CacheEntry,
   getCachedEntry,
   setCachedEntry,
-  type CacheEntry,
 } from "./github-cache";
 import { GitHubRateLimitError, type GitHubRateLimitInfo } from "./storage";
 

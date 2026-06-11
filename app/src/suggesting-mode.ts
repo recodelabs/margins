@@ -1,6 +1,6 @@
 import type {
-  Mark as ProseMirrorMark,
   MarkType,
+  Mark as ProseMirrorMark,
   Node as ProseMirrorNode,
 } from "@tiptap/pm/model";
 import type { EditorState, Transaction } from "@tiptap/pm/state";
@@ -145,9 +145,13 @@ export function buildSuggestionInputTransaction(
     const hasOriginalText = segments.some((s) => !s.isAddition);
 
     if (hasOriginalText) {
-      const oldChange = createCriticChange("substitution-old", ctx.changeAttrs, {
-        existingChanges: ctx.existingChanges,
-      });
+      const oldChange = createCriticChange(
+        "substitution-old",
+        ctx.changeAttrs,
+        {
+          existingChanges: ctx.existingChanges,
+        },
+      );
       const newMark = markType.create({
         ...oldChange,
         kind: "substitution-new",
