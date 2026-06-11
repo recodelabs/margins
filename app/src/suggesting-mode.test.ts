@@ -1,9 +1,12 @@
 import { Editor } from "@tiptap/core";
-import type { Mark as ProseMirrorMark } from "@tiptap/pm/model";
 import { TextSelection } from "@tiptap/pm/state";
 import { describe, expect, it } from "vitest";
-import { createCriticChange } from "./critic-markup";
 import { createEditorExtensions } from "./editor-extensions";
+import {
+  buildSuggestionDeleteTransaction,
+  buildSuggestionInputTransaction,
+  computeKeyboardDeleteRange,
+} from "./suggesting-mode";
 
 /**
  * Helper: build a tiptap Editor in JSDOM with the standard Roughdraft
@@ -23,177 +26,60 @@ function createTestEditor(html?: string): Editor {
 /**
  * Helper: simulate one character of text input in suggesting mode.
  *
- * Mirrors the `handleTextInput` logic in PageCard.tsx — when the cursor
- * is a collapsed caret the character is wrapped in an addition mark that
- * reuses an adjacent addition/substitution-new mark when possible.
+ * Drives the production `buildSuggestionInputTransaction` engine for the
+ * collapsed-caret case, matching PageCard's handleTextInput.
  */
 function suggestingTypeChar(editor: Editor, char: string) {
   const { state } = editor.view;
-  const from = state.selection.from;
-  const to = state.selection.to;
-  const tr = state.tr;
-  const markType = state.schema.marks.criticChange;
-
-  const isReusable = (m: ProseMirrorMark) =>
-    m.type === markType &&
-    (m.attrs.kind === "addition" || m.attrs.kind === "substitution-new");
-
-  const $pos = state.doc.resolve(from);
-  const reusableMark =
-    $pos.nodeBefore?.marks.find(isReusable) ??
-    $pos.nodeAfter?.marks.find(isReusable) ??
-    null;
-
-  if (from !== to) {
+  if (state.selection.from !== state.selection.to) {
     throw new Error("suggestingTypeChar does not support range selections");
   }
 
-  const mark =
-    reusableMark ??
-    markType.create(
-      createCriticChange("addition", undefined, {
-        existingChanges: [],
-      }),
-    );
-
-  tr.insert(from, state.schema.text(char, [mark]));
-  tr.setSelection(TextSelection.create(tr.doc, from + char.length));
+  const tr = buildSuggestionInputTransaction(
+    state,
+    { from: state.selection.from, to: state.selection.to },
+    char,
+    { markType: state.schema.marks.criticChange, existingChanges: [] },
+  );
   editor.view.dispatch(tr);
 }
 
 /**
  * Helper: simulate a Backspace press in suggesting mode.
  *
- * Mirrors the *fixed* handleKeyDown logic from PageCard.tsx: if the
- * character being deleted carries an addition/substitution-new mark it
- * is truly removed; otherwise it is marked as a deletion.
+ * Drives the production `computeKeyboardDeleteRange` +
+ * `buildSuggestionDeleteTransaction` engine — the same calls PageCard's
+ * handleKeyDown makes.
  */
 function suggestingBackspace(editor: Editor) {
   const { state } = editor.view;
-  const { selection } = state;
-  const criticMarkType = state.schema.marks.criticChange;
-  let from = selection.from;
-  const to = selection.to;
-
-  if (selection.empty) {
-    from = Math.max(1, selection.from - 1);
-  }
-
+  const { from, to } = computeKeyboardDeleteRange(state, "Backspace", false);
   if (from === to) return;
 
-  const isAdditionKind = (m: ProseMirrorMark) =>
-    m.type === criticMarkType &&
-    (m.attrs.kind === "addition" || m.attrs.kind === "substitution-new");
-
-  type Segment = { from: number; to: number; isAddition: boolean };
-  const segments: Segment[] = [];
-  state.doc.nodesBetween(from, to, (node, pos) => {
-    if (!node.isText) return;
-    const segFrom = Math.max(pos, from);
-    const segTo = Math.min(pos + node.nodeSize, to);
-    if (segFrom >= segTo) return;
-    const isAdd = node.marks.some(isAdditionKind);
-    const prev = segments[segments.length - 1];
-    if (prev && prev.isAddition === isAdd && prev.to === segFrom) {
-      prev.to = segTo;
-    } else {
-      segments.push({ from: segFrom, to: segTo, isAddition: isAdd });
-    }
-  });
-
-  const tr = state.tr;
-
-  for (const seg of [...segments].reverse()) {
-    if (seg.isAddition) {
-      tr.delete(seg.from, seg.to);
-    } else {
-      const isReusableDeletion = (m: ProseMirrorMark) =>
-        m.type === criticMarkType && m.attrs.kind === "deletion";
-
-      const deletionMark =
-        state.doc
-          .resolve(seg.from)
-          .nodeBefore?.marks.find(isReusableDeletion) ??
-        state.doc.resolve(seg.to).nodeAfter?.marks.find(isReusableDeletion) ??
-        criticMarkType.create(
-          createCriticChange("deletion", undefined, { existingChanges: [] }),
-        );
-
-      tr.addMark(seg.from, seg.to, deletionMark);
-    }
-  }
-
-  const mappedPos = tr.mapping.map(from, -1);
-  tr.setSelection(TextSelection.create(tr.doc, mappedPos));
+  const tr = buildSuggestionDeleteTransaction(
+    state,
+    { from, to },
+    { markType: state.schema.marks.criticChange, existingChanges: [] },
+    { selectionBasePos: from },
+  );
   tr.scrollIntoView();
   editor.view.dispatch(tr);
 }
 
 /**
  * Helper: simulate Ctrl+Backspace (word-delete backward) in suggesting mode.
- *
- * Mirrors the handleKeyDown logic from PageCard.tsx for
- * event.key === "Backspace" && (event.ctrlKey || event.altKey).
  */
 function suggestingCtrlBackspace(editor: Editor) {
   const { state } = editor.view;
-  const { selection } = state;
-  const criticMarkType = state.schema.marks.criticChange;
-
-  const $pos = state.doc.resolve(selection.from);
-  const blockStart = $pos.start($pos.depth);
-
-  const textBefore = state.doc.textBetween(blockStart, selection.from);
-  const match = textBefore.match(/\S+\s*$/);
-  const from = match
-    ? selection.from - match[0].length
-    : Math.max(blockStart, selection.from - 1);
-  const to = selection.to;
-
+  const { from, to } = computeKeyboardDeleteRange(state, "Backspace", true);
   if (from === to) return;
 
-  const isAdditionKind = (m: ProseMirrorMark) =>
-    m.type === criticMarkType &&
-    (m.attrs.kind === "addition" || m.attrs.kind === "substitution-new");
-
-  type Segment = { from: number; to: number; isAddition: boolean };
-  const segments: Segment[] = [];
-  state.doc.nodesBetween(from, to, (node, pos) => {
-    if (!node.isText) return;
-    const segFrom = Math.max(pos, from);
-    const segTo = Math.min(pos + node.nodeSize, to);
-    if (segFrom >= segTo) return;
-    const isAdd = node.marks.some(isAdditionKind);
-    const prev = segments[segments.length - 1];
-    if (prev && prev.isAddition === isAdd && prev.to === segFrom) {
-      prev.to = segTo;
-    } else {
-      segments.push({ from: segFrom, to: segTo, isAddition: isAdd });
-    }
-  });
-
-  const tr = state.tr;
-
-  for (const seg of [...segments].reverse()) {
-    if (seg.isAddition) {
-      tr.delete(seg.from, seg.to);
-    } else {
-      const isReusableDeletion = (m: ProseMirrorMark) =>
-        m.type === criticMarkType && m.attrs.kind === "deletion";
-      const deletionMark =
-        state.doc
-          .resolve(seg.from)
-          .nodeBefore?.marks.find(isReusableDeletion) ??
-        state.doc.resolve(seg.to).nodeAfter?.marks.find(isReusableDeletion) ??
-        criticMarkType.create(
-          createCriticChange("deletion", undefined, { existingChanges: [] }),
-        );
-      tr.addMark(seg.from, seg.to, deletionMark);
-    }
-  }
-
-  const mappedPos = tr.mapping.map(from, -1);
-  tr.setSelection(TextSelection.create(tr.doc, mappedPos));
+  const tr = buildSuggestionDeleteTransaction(
+    state,
+    { from, to },
+    { markType: state.schema.marks.criticChange, existingChanges: [] },
+    { selectionBasePos: from },
+  );
   tr.scrollIntoView();
   editor.view.dispatch(tr);
 }
@@ -203,63 +89,15 @@ function suggestingCtrlBackspace(editor: Editor) {
  */
 function suggestingCtrlDelete(editor: Editor) {
   const { state } = editor.view;
-  const { selection } = state;
-  const criticMarkType = state.schema.marks.criticChange;
-
-  const from = selection.from;
-  const $pos = state.doc.resolve(selection.to);
-  const blockEnd = $pos.end($pos.depth);
-
-  const textAfter = state.doc.textBetween(selection.to, blockEnd);
-  const match = textAfter.match(/^\s*\S+/);
-  const to = match
-    ? selection.to + match[0].length
-    : Math.min(blockEnd, selection.to + 1);
-
+  const { from, to } = computeKeyboardDeleteRange(state, "Delete", true);
   if (from === to) return;
 
-  const isAdditionKind = (m: ProseMirrorMark) =>
-    m.type === criticMarkType &&
-    (m.attrs.kind === "addition" || m.attrs.kind === "substitution-new");
-
-  type Segment = { from: number; to: number; isAddition: boolean };
-  const segments: Segment[] = [];
-  state.doc.nodesBetween(from, to, (node, pos) => {
-    if (!node.isText) return;
-    const segFrom = Math.max(pos, from);
-    const segTo = Math.min(pos + node.nodeSize, to);
-    if (segFrom >= segTo) return;
-    const isAdd = node.marks.some(isAdditionKind);
-    const prev = segments[segments.length - 1];
-    if (prev && prev.isAddition === isAdd && prev.to === segFrom) {
-      prev.to = segTo;
-    } else {
-      segments.push({ from: segFrom, to: segTo, isAddition: isAdd });
-    }
-  });
-
-  const tr = state.tr;
-
-  for (const seg of [...segments].reverse()) {
-    if (seg.isAddition) {
-      tr.delete(seg.from, seg.to);
-    } else {
-      const isReusableDeletion = (m: ProseMirrorMark) =>
-        m.type === criticMarkType && m.attrs.kind === "deletion";
-      const deletionMark =
-        state.doc
-          .resolve(seg.from)
-          .nodeBefore?.marks.find(isReusableDeletion) ??
-        state.doc.resolve(seg.to).nodeAfter?.marks.find(isReusableDeletion) ??
-        criticMarkType.create(
-          createCriticChange("deletion", undefined, { existingChanges: [] }),
-        );
-      tr.addMark(seg.from, seg.to, deletionMark);
-    }
-  }
-
-  const mappedPos = tr.mapping.map(to, -1);
-  tr.setSelection(TextSelection.create(tr.doc, mappedPos));
+  const tr = buildSuggestionDeleteTransaction(
+    state,
+    { from, to },
+    { markType: state.schema.marks.criticChange, existingChanges: [] },
+    { selectionBasePos: to },
+  );
   tr.scrollIntoView();
   editor.view.dispatch(tr);
 }
@@ -267,140 +105,38 @@ function suggestingCtrlDelete(editor: Editor) {
 /**
  * Helper: simulate Cut (Ctrl+X) in suggesting mode.
  *
- * Mirrors the handleKeyDown logic from PageCard.tsx for cut.
- * Addition/substitution-new text is truly deleted; original text gets
- * a deletion mark.
+ * Drives the production `buildSuggestionDeleteTransaction` engine with no
+ * `selectionBasePos`, matching PageCard's cut handler: addition text is truly
+ * deleted, original text gets a deletion mark, and the selection is left alone.
  */
 function suggestingCut(editor: Editor) {
   const { state } = editor.view;
   const { selection } = state;
   if (selection.empty) return;
 
-  const criticMarkType = state.schema.marks.criticChange;
-  const from = selection.from;
-  const to = selection.to;
-
-  const isAdditionKind = (m: ProseMirrorMark) =>
-    m.type === criticMarkType &&
-    (m.attrs.kind === "addition" || m.attrs.kind === "substitution-new");
-
-  type Segment = { from: number; to: number; isAddition: boolean };
-  const segments: Segment[] = [];
-  state.doc.nodesBetween(from, to, (node, pos) => {
-    if (!node.isText) return;
-    const segFrom = Math.max(pos, from);
-    const segTo = Math.min(pos + node.nodeSize, to);
-    if (segFrom >= segTo) return;
-    const isAdd = node.marks.some(isAdditionKind);
-    const prev = segments[segments.length - 1];
-    if (prev && prev.isAddition === isAdd && prev.to === segFrom) {
-      prev.to = segTo;
-    } else {
-      segments.push({ from: segFrom, to: segTo, isAddition: isAdd });
-    }
-  });
-
-  const tr = state.tr;
-  for (const seg of [...segments].reverse()) {
-    if (seg.isAddition) {
-      tr.delete(seg.from, seg.to);
-    } else {
-      const isReusableDeletion = (m: ProseMirrorMark) =>
-        m.type === criticMarkType && m.attrs.kind === "deletion";
-      const deletionMark =
-        state.doc
-          .resolve(seg.from)
-          .nodeBefore?.marks.find(isReusableDeletion) ??
-        state.doc.resolve(seg.to).nodeAfter?.marks.find(isReusableDeletion) ??
-        criticMarkType.create(
-          createCriticChange("deletion", undefined, { existingChanges: [] }),
-        );
-      tr.addMark(seg.from, seg.to, deletionMark);
-    }
-  }
+  const tr = buildSuggestionDeleteTransaction(
+    state,
+    { from: selection.from, to: selection.to },
+    { markType: state.schema.marks.criticChange, existingChanges: [] },
+  );
   editor.view.dispatch(tr.scrollIntoView());
 }
 
 /**
  * Helper: simulate type-with-selection in suggesting mode.
  *
- * Mirrors the handleTextInput logic from PageCard.tsx when from !== to.
- * Addition/substitution-new text is truly deleted; original text gets
- * substitution-old mark.
+ * Drives the production `buildSuggestionInputTransaction` engine for the
+ * range case, matching PageCard's handleTextInput: addition text is truly
+ * deleted, original text becomes a substitution.
  */
 function suggestingTypeWithSelection(editor: Editor, text: string) {
   const { state } = editor.view;
-  const { selection } = state;
-  const from = selection.from;
-  const to = selection.to;
-  const tr = state.tr;
-  const criticMarkType = state.schema.marks.criticChange;
-
-  const isAdditionKind = (m: ProseMirrorMark) =>
-    m.type === criticMarkType &&
-    (m.attrs.kind === "addition" || m.attrs.kind === "substitution-new");
-
-  type Segment = { from: number; to: number; isAddition: boolean };
-  const segments: Segment[] = [];
-  state.doc.nodesBetween(from, to, (node, pos) => {
-    if (!node.isText) return;
-    const segFrom = Math.max(pos, from);
-    const segTo = Math.min(pos + node.nodeSize, to);
-    if (segFrom >= segTo) return;
-    const isAdd = node.marks.some(isAdditionKind);
-    const prev = segments[segments.length - 1];
-    if (prev && prev.isAddition === isAdd && prev.to === segFrom) {
-      prev.to = segTo;
-    } else {
-      segments.push({ from: segFrom, to: segTo, isAddition: isAdd });
-    }
-  });
-
-  const hasOriginalText = segments.some((s) => !s.isAddition);
-
-  if (hasOriginalText) {
-    const oldChange = createCriticChange("substitution-old", undefined, {
-      existingChanges: [],
-    });
-    const newMark = criticMarkType.create({
-      ...oldChange,
-      kind: "substitution-new",
-    });
-
-    for (const seg of [...segments].reverse()) {
-      if (seg.isAddition) {
-        tr.delete(seg.from, seg.to);
-      } else {
-        tr.addMark(seg.from, seg.to, criticMarkType.create(oldChange));
-      }
-    }
-
-    const insertPos = tr.mapping.map(to, -1);
-    tr.insert(insertPos, state.schema.text(text, [newMark]));
-    tr.setSelection(TextSelection.create(tr.doc, insertPos + text.length));
-  } else {
-    for (const seg of [...segments].reverse()) {
-      tr.delete(seg.from, seg.to);
-    }
-    const insertPos = tr.mapping.map(from, -1);
-
-    const isReusable = (m: ProseMirrorMark) =>
-      m.type === criticMarkType &&
-      (m.attrs.kind === "addition" || m.attrs.kind === "substitution-new");
-    const $pos = state.doc.resolve(from);
-    const reusableMark =
-      $pos.nodeBefore?.marks.find(isReusable) ??
-      $pos.nodeAfter?.marks.find(isReusable) ??
-      null;
-    const mark =
-      reusableMark ??
-      criticMarkType.create(
-        createCriticChange("addition", undefined, { existingChanges: [] }),
-      );
-    tr.insert(insertPos, state.schema.text(text, [mark]));
-    tr.setSelection(TextSelection.create(tr.doc, insertPos + text.length));
-  }
-
+  const tr = buildSuggestionInputTransaction(
+    state,
+    { from: state.selection.from, to: state.selection.to },
+    text,
+    { markType: state.schema.marks.criticChange, existingChanges: [] },
+  );
   editor.view.dispatch(tr.scrollIntoView());
 }
 
