@@ -6,6 +6,7 @@ import {
   type DocumentEditorViewMode,
   getDocumentEditorViewModeFromLocation,
 } from "../src/app-navigation";
+import { createDocumentSessionStore } from "../src/document-session";
 import {
   DocumentSaveStatusIndicator,
   DocumentWorkspace,
@@ -308,9 +309,7 @@ describe("saving/saved status indicator (issue 2 fix)", () => {
           documentEditorViewMode="rich-text"
           onDocumentEditorViewModeChange={() => {}}
           onSaveDocument={onSaveDocument}
-          onDocumentSaveStateChange={() => {}}
-          onDocumentDirtyStateChange={() => {}}
-          onDocumentLocalContentChange={() => {}}
+          documentSession={createDocumentSessionStore()}
           documentDiskChangeState={documentDiskChangeState}
           documentForceResetKey={null}
           onReloadDocumentFromDisk={() => {}}
@@ -585,9 +584,7 @@ describe("interaction mode preserved across view toggle (issue 3 fix)", () => {
             documentEditorViewMode={viewMode}
             onDocumentEditorViewModeChange={() => {}}
             onSaveDocument={async () => {}}
-            onDocumentSaveStateChange={() => {}}
-            onDocumentDirtyStateChange={() => {}}
-            onDocumentLocalContentChange={() => {}}
+            documentSession={createDocumentSessionStore()}
             documentDiskChangeState="clean"
             documentForceResetKey={null}
             onReloadDocumentFromDisk={() => {}}
@@ -655,9 +652,7 @@ describe("review handoff watcher affordance", () => {
           documentEditorViewMode="rich-text"
           onDocumentEditorViewModeChange={() => {}}
           onSaveDocument={async () => {}}
-          onDocumentSaveStateChange={() => {}}
-          onDocumentDirtyStateChange={() => {}}
-          onDocumentLocalContentChange={() => {}}
+          documentSession={createDocumentSessionStore()}
           documentDiskChangeState="clean"
           documentForceResetKey={null}
           onReloadDocumentFromDisk={() => {}}
@@ -897,5 +892,85 @@ describe("review handoff watcher affordance", () => {
 
     expect(container.textContent).toContain("I'm done");
     expect(container.textContent).not.toContain("Sent");
+  });
+});
+
+describe("document session store wiring", () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    setupDomMocks();
+    (
+      globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+    vi.restoreAllMocks();
+  });
+
+  async function renderWorkspaceWithStore(
+    documentSession: ReturnType<typeof createDocumentSessionStore>,
+  ) {
+    await act(async () => {
+      root.render(
+        <DocumentWorkspace
+          documentPage={createPage()}
+          activeDocumentPath="test.md"
+          documentFilenameLabel="test.md"
+          documentEditorViewMode="rich-text"
+          onDocumentEditorViewModeChange={() => {}}
+          onSaveDocument={async () => {}}
+          documentSession={documentSession}
+          documentDiskChangeState="clean"
+          documentForceResetKey={null}
+          onReloadDocumentFromDisk={() => {}}
+          onKeepEditingWithoutAutosave={() => {}}
+          onOverwriteDocumentOnDisk={() => {}}
+          onCompleteReview={async () => ({ delivered: false })}
+          backend={createBackend()}
+        />,
+      );
+      await Promise.resolve();
+    });
+  }
+
+  it("reflects external store save-state updates in the header indicator", async () => {
+    const documentSession = createDocumentSessionStore();
+    await renderWorkspaceWithStore(documentSession);
+
+    const header = getByTestId(container, "document-page-header");
+    expect(
+      getByTestId(header, "document-save-status").getAttribute("aria-label"),
+    ).toBe("Saved");
+
+    // The leaf editor publishes through the store; simulate that write and
+    // assert the workspace re-renders via useSyncExternalStore.
+    await act(async () => {
+      documentSession.setSaveState("saving");
+      await Promise.resolve();
+    });
+
+    expect(
+      getByTestId(header, "document-save-status").getAttribute("aria-label"),
+    ).toBe("Saving");
+  });
+
+  it("registers the leaf save controller into the store for ⌘S/handoff flush", async () => {
+    const documentSession = createDocumentSessionStore();
+    await renderWorkspaceWithStore(documentSession);
+
+    expect(documentSession.getSnapshot().saveController).not.toBeNull();
+    expect(
+      typeof documentSession.getSnapshot().saveController?.flushSave,
+    ).toBe("function");
   });
 });
