@@ -30,12 +30,17 @@ function createBackend({
       label: "Test backend",
       detail: "In-memory",
     },
+    capabilities: {
+      documentPath: false,
+      manualCommit: false,
+      remoteSession: false,
+    },
     canManageProjects: false,
     async getMarkdownFile(relativePath) {
       return { id: relativePath, title: relativePath, content: "" };
     },
-    async saveMarkdownFile() {
-      return undefined;
+    async saveMarkdownFile(relativePath, content) {
+      return { id: relativePath, title: relativePath, content };
     },
     async saveAsset(file) {
       return {
@@ -612,6 +617,54 @@ describe("interaction mode preserved across view toggle (issue 3 fix)", () => {
     expect(
       getByTestId(container, "document-mode-trigger").textContent,
     ).toContain("Editing");
+  });
+
+  it("applies an external content change without remounting the rich-text editor (PERF-8)", async () => {
+    // Regression guard for PERF-8: the editor is keyed on `page.id`, not the
+    // full markdown string, so an external content change for the same document
+    // updates the editor in place (via setContent) instead of forcing a full
+    // remount + loss of editor state.
+    (
+      globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
+
+    const renderWorkspace = async (page: Page) => {
+      await act(async () => {
+        root.render(
+          <DocumentWorkspace
+            documentPage={page}
+            activeDocumentPath="test.md"
+            documentFilenameLabel="test.md"
+            documentEditorViewMode="rich-text"
+            onDocumentEditorViewModeChange={() => {}}
+            onSaveDocument={async () => {}}
+            onDocumentSaveStateChange={() => {}}
+            onDocumentDirtyStateChange={() => {}}
+            onDocumentLocalContentChange={() => {}}
+            documentDiskChangeState="clean"
+            documentForceResetKey={null}
+            onReloadDocumentFromDisk={() => {}}
+            onKeepEditingWithoutAutosave={() => {}}
+            onOverwriteDocumentOnDisk={() => {}}
+            onCompleteReview={async () => ({ delivered: false })}
+            backend={createBackend()}
+          />,
+        );
+      });
+    };
+
+    await renderWorkspace(createPage("Original content"));
+    const editorBefore = getByTestId(container, "rich-text-editor");
+    expect(editorBefore.textContent).toContain("Original content");
+
+    // Same document id, new content arrives from outside (e.g. disk/remote).
+    await renderWorkspace(createPage("Updated externally"));
+    const editorAfter = getByTestId(container, "rich-text-editor");
+
+    // Same DOM node => the editor subtree was preserved, not remounted.
+    expect(editorAfter).toBe(editorBefore);
+    expect(editorAfter.textContent).toContain("Updated externally");
+    expect(editorAfter.textContent).not.toContain("Original content");
   });
 });
 
