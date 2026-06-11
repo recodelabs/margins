@@ -8,3 +8,6 @@
 
 # node (in case tooling is added later)
 node_modules/
+
+# wrangler / cloudflare pages local state
+.wrangler/
