@@ -43,10 +43,10 @@ function LoginScreen() {
         <img
           src="/roughneck.svg"
           alt="roughneck"
-          className="w-[clamp(14rem,44vw,23rem)] select-none dark:invert"
+          className="w-[clamp(16rem,52vw,28rem)] select-none dark:invert"
           draggable={false}
         />
-        <h1 className="font-die-grotesk-b mt-10 text-[clamp(2.5rem,3rem+1.5vw,4rem)] leading-[0.92] font-bold tracking-tight text-slate-950 dark:text-slate-50">
+        <h1 className="font-die-grotesk-b mt-8 text-[clamp(1.875rem,1.6rem+1.3vw,2.875rem)] leading-[0.95] font-bold tracking-tight text-slate-950 dark:text-slate-50">
           Review your repo's markdown
         </h1>
         <p className="mt-5 max-w-md text-[clamp(1.05rem,1rem+0.3vw,1.2rem)] leading-relaxed text-slate-600 dark:text-slate-400">
