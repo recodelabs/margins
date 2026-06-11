@@ -2,17 +2,16 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { App } from "./App";
+import { ThemeToggle } from "./ThemeToggle";
+import { applyTheme, currentTheme, getStoredTheme } from "./theme";
 import "./style.css";
 
 const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
-function applyColorScheme(dark: boolean) {
-  document.documentElement.classList.toggle("dark", dark);
-}
-
-applyColorScheme(darkQuery.matches);
+// Apply the user's saved choice; otherwise follow the system preference.
+applyTheme(currentTheme());
 darkQuery.addEventListener("change", (event) => {
-  applyColorScheme(event.matches);
+  if (!getStoredTheme()) applyTheme(event.matches ? "dark" : "light");
 });
 
 const rootElement = document.getElementById("root");
@@ -25,6 +24,7 @@ createRoot(rootElement).render(
   <StrictMode>
     <TooltipProvider>
       <App />
+      <ThemeToggle />
     </TooltipProvider>
   </StrictMode>,
 );
