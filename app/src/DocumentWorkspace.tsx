@@ -801,7 +801,7 @@ export function DocumentWorkspace({
           </div>
         </div>
       ) : null}
-      <div className="mx-auto min-h-full max-w-[1080px]">
+      <div className="mx-auto min-h-full max-w-[1280px]">
         {documentPage ? (
           <div
             data-testid="document-page-header"
@@ -811,7 +811,7 @@ export function DocumentWorkspace({
                 "document-page-shell-no-comments min-[1100px]:grid-cols-[minmax(0,46.5rem)] min-[1100px]:justify-center",
             )}
           >
-            <div className="document-page-main w-full max-w-[46.5rem] min-w-0">
+            <div className="document-page-main w-full max-w-[56rem] min-w-0">
               <div className="flex w-full flex-wrap items-center gap-1.5 px-1">
                 <Tooltip>
                   <TooltipTrigger

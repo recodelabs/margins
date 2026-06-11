@@ -209,7 +209,7 @@ export function GitHubPicker() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[#FCFCFC] dark:bg-background px-6 pt-8 pb-12 text-slate-950 dark:text-slate-50">
-      <div className="mx-auto w-full max-w-3xl">
+      <div className="mx-auto w-full max-w-4xl">
         <MarginsLogo />
 
         {/* Repo + branch inputs */}
