@@ -161,6 +161,25 @@
     background-color: transparent;
   }
 
+  /* When comments are hidden (e.g. presenting a file), the inline comment
+     highlights render as plain text so the document reads cleanly. */
+  .comments-hidden .tiptap .comment-decoration,
+  .comments-hidden .tiptap .comment-decoration.comment-decoration-hovered,
+  .comments-hidden .tiptap .comment-decoration.comment-decoration-active,
+  .dark .comments-hidden .tiptap .comment-decoration,
+  .dark
+    .comments-hidden
+    .tiptap
+    .comment-decoration.comment-decoration-hovered,
+  .dark
+    .comments-hidden
+    .tiptap
+    .comment-decoration.comment-decoration-active {
+    @apply px-0;
+    background-color: transparent;
+    cursor: text;
+  }
+
   .tiptap .critic-change {
     box-decoration-break: clone;
     -webkit-box-decoration-break: clone;
