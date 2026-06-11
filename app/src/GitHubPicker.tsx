@@ -1,27 +1,18 @@
-import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ChevronRight, FileText, Folder, Loader2 } from "lucide-react";
-import { login, getStoredToken, clearToken } from "./github-auth";
-import { GitHubBackend } from "./github-backend";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "./components/ui/button";
-import { cn } from "./lib/utils";
+import { clearToken, getStoredToken, login } from "./github-auth";
+import { GitHubBackend } from "./github-backend";
+import { gitHubHref, isMarkdownPath, parseGitHubLocation } from "./github-route";
 import { getFolderContents, splitPath } from "./github-tree";
-import {
-  gitHubHref,
-  isMarkdownPath,
-  parseGitHubLocation,
-} from "./github-route";
+import { cn } from "./lib/utils";
 
 // ---------------------------------------------------------------------------
 // GitHub mark SVG (inline, no external dependency)
 // ---------------------------------------------------------------------------
 function GitHubMark({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 16 16"
-      aria-hidden="true"
-      fill="currentColor"
-      className={className}
-    >
+    <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor" className={className}>
       <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
     </svg>
   );
@@ -79,8 +70,8 @@ function LoginScreen() {
           >
             Install the margins app
           </a>{" "}
-          on the repos you want to review — pick your account, choose
-          repositories, then come back and sign in.
+          on the repos you want to review — pick your account, choose repositories, then come back
+          and sign in.
         </p>
         <p className="mt-8 text-xs font-medium tracking-wide text-stone-400 dark:text-stone-500">
           Free &amp; open source · your edits commit straight to GitHub ·{" "}
@@ -124,9 +115,7 @@ export function GitHubPicker() {
   };
 
   const [repo, setRepo] = useState(
-    initialLoc.owner && initialLoc.repo
-      ? `${initialLoc.owner}/${initialLoc.repo}`
-      : "",
+    initialLoc.owner && initialLoc.repo ? `${initialLoc.owner}/${initialLoc.repo}` : "",
   );
   const [ref, setRef] = useState(initialLoc.branch || "main");
   const [currentDir, setCurrentDir] = useState(() => getDirFromUrl());
@@ -195,9 +184,7 @@ export function GitHubPicker() {
 
   // Navigate up one level
   const drillUp = () => {
-    const parent = currentDir.includes("/")
-      ? currentDir.slice(0, currentDir.lastIndexOf("/"))
-      : "";
+    const parent = currentDir.includes("/") ? currentDir.slice(0, currentDir.lastIndexOf("/")) : "";
     drillInto(parent);
   };
 
@@ -281,9 +268,7 @@ export function GitHubPicker() {
         </div>
 
         {/* Error state */}
-        {error ? (
-          <p className="mt-4 text-sm text-rose-600 dark:text-rose-400">{error}</p>
-        ) : null}
+        {error ? <p className="mt-4 text-sm text-rose-600 dark:text-rose-400">{error}</p> : null}
 
         {/* Repo browser */}
         {repo && repo.includes("/") ? (
@@ -312,7 +297,10 @@ export function GitHubPicker() {
                 </button>
                 {breadcrumbSegments.map((seg, i) => (
                   <span key={seg.path} className="flex items-center gap-1">
-                    <ChevronRight className="size-3 text-stone-300 dark:text-stone-600" aria-hidden="true" />
+                    <ChevronRight
+                      className="size-3 text-stone-300 dark:text-stone-600"
+                      aria-hidden="true"
+                    />
                     {i === breadcrumbSegments.length - 1 ? (
                       <span className="font-medium text-slate-700 dark:text-slate-300">
                         {seg.name}
@@ -346,7 +334,10 @@ export function GitHubPicker() {
                     className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-sm text-stone-500 dark:text-stone-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors border-b border-slate-100 dark:border-slate-800"
                     onClick={drillUp}
                   >
-                    <ArrowLeft className="size-4 shrink-0 text-stone-400 dark:text-stone-500" aria-hidden="true" />
+                    <ArrowLeft
+                      className="size-4 shrink-0 text-stone-400 dark:text-stone-500"
+                      aria-hidden="true"
+                    />
                     <span>
                       Up to{" "}
                       <span className="font-medium text-slate-700 dark:text-slate-300">
@@ -406,9 +397,7 @@ export function GitHubPicker() {
                           className="size-4 shrink-0 text-stone-400 dark:text-stone-500"
                           aria-hidden="true"
                         />
-                        <span className="min-w-0 flex-1 truncate text-left">
-                          {entry.name}
-                        </span>
+                        <span className="min-w-0 flex-1 truncate text-left">{entry.name}</span>
                         <span className="shrink-0 text-xs text-stone-300 dark:text-stone-600 opacity-0 group-hover:opacity-100 transition-opacity">
                           Open
                         </span>

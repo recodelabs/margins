@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   Homepage,
   HomepageSubtitle,
@@ -45,17 +45,11 @@ async function click(element: Element) {
   });
 }
 
-function queryByTestId<T extends Element = HTMLElement>(
-  container: ParentNode,
-  testId: string,
-) {
+function queryByTestId<T extends Element = HTMLElement>(container: ParentNode, testId: string) {
   return container.querySelector<T>(`[data-testid="${testId}"]`);
 }
 
-function getByTestId<T extends Element = HTMLElement>(
-  container: ParentNode,
-  testId: string,
-) {
+function getByTestId<T extends Element = HTMLElement>(container: ParentNode, testId: string) {
   const element = queryByTestId<T>(container, testId);
   expect(element).not.toBeNull();
   return element as T;
@@ -63,9 +57,7 @@ function getByTestId<T extends Element = HTMLElement>(
 
 async function renderHomepage(root: Root) {
   await act(async () => {
-    root.render(
-      <Homepage message={<HomepageSubtitle />} updateStatus={null} />,
-    );
+    root.render(<Homepage message={<HomepageSubtitle />} updateStatus={null} />);
     await Promise.resolve();
   });
 }
@@ -76,9 +68,7 @@ describe("Homepage", () => {
   let writeText: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    (
-      globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
-    ).IS_REACT_ACT_ENVIRONMENT = true;
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     if (!("ResizeObserver" in globalThis)) {
       Object.defineProperty(globalThis, "ResizeObserver", {
         configurable: true,
@@ -141,32 +131,22 @@ describe("Homepage", () => {
   it("opens the agent setup prompt from the CTA and copies it", async () => {
     await renderHomepage(root);
 
-    expect(container.textContent).toContain(
-      "Easier collaborationwith your agent",
-    );
+    expect(container.textContent).toContain("Easier collaborationwith your agent");
     expect(getByTestId(container, "homepage").className).toContain("pt-8");
-    expect(getByTestId(container, "homepage").className).toContain(
-      "items-start",
-    );
+    expect(getByTestId(container, "homepage").className).toContain("items-start");
     expect(container.textContent).toContain("roughdraft.md");
     const homepageLogo = getByTestId(container, "homepage-logo");
     expect(homepageLogo?.textContent).toBe("roughdraft.md");
     expect(homepageLogo?.className).toContain("text-[clamp(");
     expect(homepageLogo?.className).not.toContain("tracking-");
-    expect(container.textContent).toContain(
-      "Refine complex ideas with comments and suggestions.",
-    );
+    expect(container.textContent).toContain("Refine complex ideas with comments and suggestions.");
     expect(container.textContent).toContain("Free, open source, local.");
     expect(getByTestId(container, "homepage-subtitle-break")).not.toBeNull();
-    expect(
-      getByTestId(container, "homepage-subtitle-comment").className,
-    ).toContain("bg-[#fff5c7]");
-    expect(
-      getByTestId(container, "homepage-subtitle-addition").className,
-    ).toContain("bg-emerald-50");
-    expect(
-      getByTestId(container, "homepage-subtitle-addition").className,
-    ).toContain("underline");
+    expect(getByTestId(container, "homepage-subtitle-comment").className).toContain("bg-[#fff5c7]");
+    expect(getByTestId(container, "homepage-subtitle-addition").className).toContain(
+      "bg-emerald-50",
+    );
+    expect(getByTestId(container, "homepage-subtitle-addition").className).toContain("underline");
     const homepageHeading = getByTestId(container, "homepage-heading");
     expect(getByTestId(container, "homepage-heading-break")).not.toBeNull();
     const homepageTextWrapper = homepageHeading?.parentElement?.parentElement;
@@ -177,141 +157,85 @@ describe("Homepage", () => {
     expect(homepageTextWrapper?.className).not.toContain("font-bold");
     expect(homepageHeading?.className).not.toContain("max-w-");
     expect(homepageHeading?.className).toContain("text-[clamp(");
-    expect(homepageHeading?.className).toContain(
-      "text-[clamp(2.875rem,14.2vw,5rem)]",
-    );
+    expect(homepageHeading?.className).toContain("text-[clamp(2.875rem,14.2vw,5rem)]");
     expect(homepageHeading?.className).toContain("leading-[0.88]");
     expect(homepageHeading?.className).not.toContain("text-balance");
-    expect(homepageHeading?.nextElementSibling?.className).toContain(
-      "text-[clamp(",
-    );
-    expect(homepageHeading?.nextElementSibling?.className).toContain(
-      "leading-none",
-    );
-    expect(homepageHeading?.nextElementSibling?.className).toContain(
-      "max-w-5xl",
-    );
-    expect(homepageHeading?.nextElementSibling?.className).not.toContain(
-      "mx-auto",
-    );
-    expect(homepageHeading?.nextElementSibling?.className).not.toContain(
-      "text-balance",
-    );
-    expect(homepageHeading?.nextElementSibling?.className).toContain(
-      "text-slate-950",
-    );
-    expect(homepageHeading?.nextElementSibling?.className).toContain(
-      "dark:text-slate-50",
-    );
+    expect(homepageHeading?.nextElementSibling?.className).toContain("text-[clamp(");
+    expect(homepageHeading?.nextElementSibling?.className).toContain("leading-none");
+    expect(homepageHeading?.nextElementSibling?.className).toContain("max-w-5xl");
+    expect(homepageHeading?.nextElementSibling?.className).not.toContain("mx-auto");
+    expect(homepageHeading?.nextElementSibling?.className).not.toContain("text-balance");
+    expect(homepageHeading?.nextElementSibling?.className).toContain("text-slate-950");
+    expect(homepageHeading?.nextElementSibling?.className).toContain("dark:text-slate-50");
     expect(container.textContent).not.toContain("Open-source");
     expect(container.textContent).toContain("Roughdraft flavored Markdown");
     expect(container.textContent).toContain("It's just Markdown");
     expect(container.textContent).toContain(
       "We extended the markdown format, building on prior art like CriticMarkup",
     );
-    expect(
-      container.querySelector('a[href="https://criticmarkup.com/"]')
-        ?.textContent,
-    ).toContain("CriticMarkup");
+    expect(container.querySelector('a[href="https://criticmarkup.com/"]')?.textContent).toContain(
+      "CriticMarkup",
+    );
     expect(container.textContent).toContain(
       "working with other major Markdown apps to rally support",
     );
     expect(container.textContent).toContain("# Homepage Conversion Plan");
-    expect(container.textContent).toContain(
-      'This should go above "It\'s just Markdown."',
-    );
+    expect(container.textContent).toContain('This should go above "It\'s just Markdown."');
     expect(container.textContent).toContain("Review a homepage plan");
     expect(container.textContent).toContain("Review a spec");
     expect(container.textContent).toContain("Review a plan");
     expect(container.textContent).toContain("Edit writing");
-    expect(getByTestId(container, "rfm-format-demo").className).toContain(
-      "max-w-none",
-    );
-    expect(getByTestId(container, "rfm-format-demo-intro").className).toContain(
-      "px-4",
-    );
-    expect(
-      getByTestId(container, "rfm-format-demo-examples").className,
-    ).toContain("px-4");
+    expect(getByTestId(container, "rfm-format-demo").className).toContain("max-w-none");
+    expect(getByTestId(container, "rfm-format-demo-intro").className).toContain("px-4");
+    expect(getByTestId(container, "rfm-format-demo-examples").className).toContain("px-4");
     const formatDemoArrow = getByTestId(container, "rfm-format-demo-arrow");
     expect(formatDemoArrow?.className).toContain("items-start");
-    expect(getByTestId(container, "rfm-source-pane").textContent).toContain(
-      "Source",
-    );
-    expect(getByTestId(container, "rfm-result-pane").textContent).toContain(
-      "Result",
-    );
-    expect(getByTestId(container, "rfm-source-pane").className).toContain(
-      "bg-transparent",
-    );
-    expect(getByTestId(container, "rfm-result-pane").className).toContain(
-      "overflow-visible",
-    );
-    expect(getByTestId(container, "rfm-source-pane").className).toContain(
-      "flex-col",
-    );
+    expect(getByTestId(container, "rfm-source-pane").textContent).toContain("Source");
+    expect(getByTestId(container, "rfm-result-pane").textContent).toContain("Result");
+    expect(getByTestId(container, "rfm-source-pane").className).toContain("bg-transparent");
+    expect(getByTestId(container, "rfm-result-pane").className).toContain("overflow-visible");
+    expect(getByTestId(container, "rfm-source-pane").className).toContain("flex-col");
     expect(
-      getByTestId(container, "rfm-source-pane").querySelector(
-        ".rfm-source-editor",
-      )?.className,
+      getByTestId(container, "rfm-source-pane").querySelector(".rfm-source-editor")?.className,
     ).toContain("pt-10");
     expect(
-      getByTestId(container, "rfm-source-pane").querySelector(
-        ".rfm-source-editor",
-      )?.className,
+      getByTestId(container, "rfm-source-pane").querySelector(".rfm-source-editor")?.className,
     ).toContain("[--cm-selection-bg:rgb(30_58_138_/_0.45)]");
     expect(
       getByTestId(container, "rfm-result-editor").querySelector(
         '[data-testid="document-page-shell"]',
       )?.className,
-    ).toContain(
-      "min-[900px]:grid-cols-[minmax(0,min(100%,42rem))_minmax(13rem,16rem)]",
+    ).toContain("min-[900px]:grid-cols-[minmax(0,min(100%,42rem))_minmax(13rem,16rem)]");
+    const resultDocumentCard = getByTestId(container, "rfm-result-editor").querySelector(
+      '[data-testid="document-content-card"]',
     );
-    const resultDocumentCard = getByTestId(
-      container,
-      "rfm-result-editor",
-    ).querySelector('[data-testid="document-content-card"]');
     expect(resultDocumentCard?.className).toContain("bg-white");
     expect(resultDocumentCard?.className).toContain("shadow-");
     expect(queryByTestId(container, "rfm-token")).toBeNull();
-    expect(
-      container.querySelector(".comment-anchor[data-comment-ids]"),
-    ).not.toBeNull();
-    expect(
-      container.querySelector(".critic-change[data-critic-change-id]"),
-    ).not.toBeNull();
-    expect(container.innerHTML).not.toContain(
-      'contenteditable="plaintext-only"',
+    expect(container.querySelector(".comment-anchor[data-comment-ids]")).not.toBeNull();
+    expect(container.querySelector(".critic-change[data-critic-change-id]")).not.toBeNull();
+    expect(container.innerHTML).not.toContain('contenteditable="plaintext-only"');
+    expect(getByTestId(container, "homepage-sneak-peek-image").getAttribute("src")).toBe(
+      "/sneak-peek.png",
     );
-    expect(
-      getByTestId(container, "homepage-sneak-peek-image").getAttribute("src"),
-    ).toBe("/sneak-peek.png");
-    expect(
-      getByTestId(container, "homepage-sneak-peek-image").parentElement
-        ?.className,
-    ).toContain("w-screen");
-    expect(
-      getByTestId(container, "homepage-sneak-peek-image").parentElement
-        ?.className,
-    ).toContain("-translate-x-6");
-    expect(
-      getByTestId(container, "homepage-sneak-peek-image").parentElement
-        ?.className,
-    ).toContain("max-w-[100rem]");
+    expect(getByTestId(container, "homepage-sneak-peek-image").parentElement?.className).toContain(
+      "w-screen",
+    );
+    expect(getByTestId(container, "homepage-sneak-peek-image").parentElement?.className).toContain(
+      "-translate-x-6",
+    );
+    expect(getByTestId(container, "homepage-sneak-peek-image").parentElement?.className).toContain(
+      "max-w-[100rem]",
+    );
     expect(document.body.textContent).not.toContain(AGENT_SETUP_PROMPT);
 
-    const cta = getByTestId<HTMLButtonElement>(
-      container,
-      "homepage-install-button",
-    );
+    const cta = getByTestId<HTMLButtonElement>(container, "homepage-install-button");
     expect(cta.textContent).toBe("Install now");
     expect(cta.className).toContain("h-14");
     expect(cta.className).toContain("cursor-pointer");
     expect(cta.className).toContain("px-5");
     expect(cta.className).toContain("text-[clamp(");
-    const githubLink = container.querySelector(
-      'a[href="https://github.com/Lex-Inc/roughdraft"]',
-    );
+    const githubLink = container.querySelector('a[href="https://github.com/Lex-Inc/roughdraft"]');
 
     expect(container.textContent).not.toContain("Try live preview");
     expect(container.querySelector('a[href="/preview"]')).toBeNull();
@@ -319,8 +243,7 @@ describe("Homepage", () => {
     expect(githubLink?.getAttribute("target")).toBe("_blank");
     expect(githubLink?.getAttribute("rel")).toBe("noreferrer");
     expect(
-      container.querySelector('a[href="/roughdraft-flavored-markdown"]')
-        ?.textContent,
+      container.querySelector('a[href="/roughdraft-flavored-markdown"]')?.textContent,
     ).toContain("spec");
 
     const planReviewButton = getByTestId<HTMLButtonElement>(
@@ -340,15 +263,10 @@ describe("Homepage", () => {
 
     await click(cta);
 
-    expect(document.body.textContent).toContain(
-      "Give this to your coding agent",
-    );
+    expect(document.body.textContent).toContain("Give this to your coding agent");
     expect(document.body.textContent).toContain(AGENT_SETUP_PROMPT);
 
-    const copyButton = getByTestId<HTMLButtonElement>(
-      document.body,
-      "homepage-copy-prompt-button",
-    );
+    const copyButton = getByTestId<HTMLButtonElement>(document.body, "homepage-copy-prompt-button");
 
     await click(copyButton);
 
@@ -363,32 +281,27 @@ describe("Homepage", () => {
     expect(text).toContain("How it works");
 
     const storyboard = getByTestId(container, "homepage-workflow-storyboard");
-    expect(storyboard.getAttribute("aria-labelledby")).toBe(
-      "homepage-workflow-heading",
+    expect(storyboard.getAttribute("aria-labelledby")).toBe("homepage-workflow-heading");
+    expect(getByTestId(storyboard, "homepage-workflow-heading").textContent).toBe("How it works");
+    expect(getByTestId(storyboard, "homepage-workflow-heading").className).toContain(
+      "text-[clamp(",
     );
-    expect(
-      getByTestId(storyboard, "homepage-workflow-heading").textContent,
-    ).toBe("How it works");
-    expect(
-      getByTestId(storyboard, "homepage-workflow-heading").className,
-    ).toContain("text-[clamp(");
-    expect(
-      getByTestId(storyboard, "homepage-workflow-heading").className,
-    ).toContain("text-slate-950");
-    expect(
-      getByTestId(storyboard, "homepage-workflow-heading").className,
-    ).toContain("dark:text-slate-50");
-    expect(
-      getByTestId(storyboard, "homepage-workflow-heading").className,
-    ).not.toContain("leading-");
-    expect(
-      getByTestId(storyboard, "homepage-workflow-heading").className,
-    ).not.toContain("text-balance");
+    expect(getByTestId(storyboard, "homepage-workflow-heading").className).toContain(
+      "text-slate-950",
+    );
+    expect(getByTestId(storyboard, "homepage-workflow-heading").className).toContain(
+      "dark:text-slate-50",
+    );
+    expect(getByTestId(storyboard, "homepage-workflow-heading").className).not.toContain(
+      "leading-",
+    );
+    expect(getByTestId(storyboard, "homepage-workflow-heading").className).not.toContain(
+      "text-balance",
+    );
 
     const markdownDemo = getByTestId(container, "rfm-format-demo");
     expect(
-      storyboard.compareDocumentPosition(markdownDemo) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
+      storyboard.compareDocumentPosition(markdownDemo) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
 
     const scenes = [
@@ -400,22 +313,15 @@ describe("Homepage", () => {
       "The agent resumes",
     ];
 
-    const sceneNodes = [
-      ...storyboard.querySelectorAll('[data-testid="homepage-workflow-scene"]'),
-    ];
+    const sceneNodes = [...storyboard.querySelectorAll('[data-testid="homepage-workflow-scene"]')];
     expect(sceneNodes).toHaveLength(scenes.length);
 
-    const stickyVisual = getByTestId(
-      storyboard,
-      "homepage-workflow-sticky-visual",
-    );
+    const stickyVisual = getByTestId(storyboard, "homepage-workflow-sticky-visual");
     expect(stickyVisual).not.toBeNull();
-    expect(stickyVisual.getAttribute("data-mobile-workflow-visible")).toBe(
-      "true",
+    expect(stickyVisual.getAttribute("data-mobile-workflow-visible")).toBe("true");
+    expect(storyboard.querySelectorAll('[data-testid="homepage-workflow-terminal"]')).toHaveLength(
+      1,
     );
-    expect(
-      storyboard.querySelectorAll('[data-testid="homepage-workflow-terminal"]'),
-    ).toHaveLength(1);
     expect(
       getByTestId(storyboard, "homepage-workflow-terminal").getAttribute(
         "data-homepage-workflow-terminal-stage",
@@ -427,57 +333,42 @@ describe("Homepage", () => {
       ),
     ).toBe("false");
     expect(
-      getByTestId(
-        storyboard,
-        "homepage-workflow-terminal-command",
-      ).getAttribute("data-terminal-line-visible"),
+      getByTestId(storyboard, "homepage-workflow-terminal-command").getAttribute(
+        "data-terminal-line-visible",
+      ),
     ).toBe("false");
     expect(
       getByTestId(storyboard, "homepage-workflow-terminal-input").getAttribute(
         "data-terminal-line-visible",
       ),
     ).toBe("false");
+    expect(storyboard.querySelectorAll('[data-testid="homepage-workflow-popup"]')).toHaveLength(1);
+    expect(getByTestId(storyboard, "homepage-workflow-popup-traffic-lights").children).toHaveLength(
+      3,
+    );
     expect(
-      storyboard.querySelectorAll('[data-testid="homepage-workflow-popup"]'),
-    ).toHaveLength(1);
-    expect(
-      getByTestId(storyboard, "homepage-workflow-popup-traffic-lights")
-        .children,
-    ).toHaveLength(3);
-    expect(
-      getByTestId(storyboard, "homepage-workflow-popup").getAttribute(
-        "data-popup-visible",
-      ),
+      getByTestId(storyboard, "homepage-workflow-popup").getAttribute("data-popup-visible"),
     ).toBe("false");
-    expect(
-      getByTestId(storyboard, "homepage-workflow-popup").getAttribute(
-        "aria-hidden",
-      ),
-    ).toBe("true");
+    expect(getByTestId(storyboard, "homepage-workflow-popup").getAttribute("aria-hidden")).toBe(
+      "true",
+    );
     expect(stickyVisual.className).toContain("min-[900px]:sticky");
     expect(stickyVisual.className).toContain(
       "max-[899px]:data-[mobile-workflow-visible=false]:opacity-0",
     );
-    expect(
-      getByTestId(storyboard, "homepage-workflow-scene-list").className,
-    ).toContain(
+    expect(getByTestId(storyboard, "homepage-workflow-scene-list").className).toContain(
       "max-[899px]:pb-[calc(var(--homepage-workflow-dock-height)+var(--homepage-workflow-dock-bottom)+2rem)]",
     );
-    expect(
-      getByTestId(storyboard, "homepage-workflow-popup").className,
-    ).toContain("absolute");
-    expect(
-      getByTestId(storyboard, "homepage-workflow-popup").className,
-    ).toContain("data-[popup-visible=false]:opacity-0");
-    expect(
-      getByTestId(storyboard, "homepage-workflow-agent-work").className,
-    ).toContain("data-[agent-work-visible=false]:max-h-0");
-    expect(
-      getByTestId(storyboard, "homepage-workflow-document-scale").parentElement
-        ?.className,
-    ).toContain(
-      "max-[899px]:[--homepage-workflow-document-offset-y:clamp(1rem,5svh,2.75rem)]",
+    expect(getByTestId(storyboard, "homepage-workflow-popup").className).toContain("absolute");
+    expect(getByTestId(storyboard, "homepage-workflow-popup").className).toContain(
+      "data-[popup-visible=false]:opacity-0",
     );
+    expect(getByTestId(storyboard, "homepage-workflow-agent-work").className).toContain(
+      "data-[agent-work-visible=false]:max-h-0",
+    );
+    expect(
+      getByTestId(storyboard, "homepage-workflow-document-scale").parentElement?.className,
+    ).toContain("max-[899px]:[--homepage-workflow-document-offset-y:clamp(1rem,5svh,2.75rem)]");
 
     scenes.forEach((scene, index) => {
       expect(sceneNodes[index]?.textContent).toContain(String(index + 1));
@@ -492,17 +383,11 @@ describe("Homepage", () => {
     );
     expect(storyboard.textContent).toContain("Explored");
     expect(storyboard.textContent).toContain("Search");
-    expect(storyboard.textContent).toContain(
-      'rg "It\'s just Markdown" packages/app/src',
-    );
+    expect(storyboard.textContent).toContain('rg "It\'s just Markdown" packages/app/src');
     expect(storyboard.textContent).toContain("Read");
-    expect(storyboard.textContent).toContain(
-      "sed -n '1,220p' packages/app/src/App.tsx",
-    );
+    expect(storyboard.textContent).toContain("sed -n '1,220p' packages/app/src/App.tsx");
     expect(storyboard.textContent).toContain("Write");
-    expect(storyboard.textContent).toContain(
-      ".context/homepage-conversion-plan.md",
-    );
+    expect(storyboard.textContent).toContain(".context/homepage-conversion-plan.md");
     expect(storyboard.textContent).toContain("Homepage Conversion Plan");
     expect(storyboard.textContent).toContain(
       'Move the workflow story above "It\'s just Markdown."',
@@ -513,12 +398,8 @@ describe("Homepage", () => {
     expect(storyboard.textContent).toContain(
       "Keep the format section as proof that the review data is portable Markdown.",
     );
-    expect(storyboard.textContent).toContain(
-      "Review an agent's plan before it starts coding.",
-    );
-    expect(storyboard.textContent).not.toContain(
-      'This should go above "It\'s just Markdown."',
-    );
+    expect(storyboard.textContent).toContain("Review an agent's plan before it starts coding.");
+    expect(storyboard.textContent).not.toContain('This should go above "It\'s just Markdown."');
     expect(storyboard.textContent).not.toContain("Review complete");
     expect(storyboard.textContent).toContain("I read your comments.");
     expect(storyboard.textContent).toContain("Waiting for I'm done...");
@@ -546,11 +427,7 @@ describe("Homepage", () => {
         }
 
         if (this.classList.contains("homepage-workflow-scene")) {
-          const scenes = [
-            ...document.querySelectorAll(
-              '[data-testid="homepage-workflow-scene"]',
-            ),
-          ];
+          const scenes = [...document.querySelectorAll('[data-testid="homepage-workflow-scene"]')];
           const sceneIndex = scenes.indexOf(this);
           return createDomRect({
             top: sceneIndex < activeStage ? -12 : 320,
@@ -570,16 +447,12 @@ describe("Homepage", () => {
         "data-homepage-workflow-terminal-stage",
       ),
     ).toBe("4");
-    expect(storyboard.textContent).toContain(
-      'This should go above "It\'s just Markdown."',
-    );
+    expect(storyboard.textContent).toContain('This should go above "It\'s just Markdown."');
     expect(storyboard.textContent).toContain("Nora");
-    expect(storyboard.textContent).toContain(
-      'Replace: "agent\'s plan" with "homepage plan"',
+    expect(storyboard.textContent).toContain('Replace: "agent\'s plan" with "homepage plan"');
+    expect(getByTestId(storyboard, "homepage-workflow-review-rail").textContent).not.toContain(
+      "AI",
     );
-    expect(
-      getByTestId(storyboard, "homepage-workflow-review-rail").textContent,
-    ).not.toContain("AI");
     expect(
       getByTestId(storyboard, "homepage-workflow-agent-resume").getAttribute(
         "data-terminal-line-visible",
@@ -630,11 +503,7 @@ describe("Homepage", () => {
         }
 
         if (this.classList.contains("homepage-workflow-scene")) {
-          const scenes = [
-            ...document.querySelectorAll(
-              '[data-testid="homepage-workflow-scene"]',
-            ),
-          ];
+          const scenes = [...document.querySelectorAll('[data-testid="homepage-workflow-scene"]')];
           const sceneIndex = scenes.indexOf(this);
 
           return createDomRect({
@@ -709,13 +578,8 @@ describe("Homepage", () => {
 
     await renderHomepage(root);
 
-    const stickyVisual = getByTestId(
-      container,
-      "homepage-workflow-sticky-visual",
-    );
-    expect(stickyVisual.getAttribute("data-mobile-workflow-visible")).toBe(
-      "false",
-    );
+    const stickyVisual = getByTestId(container, "homepage-workflow-sticky-visual");
+    expect(stickyVisual.getAttribute("data-mobile-workflow-visible")).toBe("false");
 
     workflowIntroBottom = 0;
     await act(async () => {
@@ -723,9 +587,7 @@ describe("Homepage", () => {
       await Promise.resolve();
     });
 
-    expect(stickyVisual.getAttribute("data-mobile-workflow-visible")).toBe(
-      "true",
-    );
+    expect(stickyVisual.getAttribute("data-mobile-workflow-visible")).toBe("true");
   });
 
   it("renders the Roughdraft flavored Markdown spec page", async () => {
@@ -733,28 +595,20 @@ describe("Homepage", () => {
       root.render(<RoughdraftFlavoredMarkdownPage />);
     });
 
-    expect(container.textContent).toContain(
-      "Markdown with review comments and suggested changes",
-    );
-    expect(container.textContent).toContain(
-      "regular Markdown plus portable review markup",
-    );
+    expect(container.textContent).toContain("Markdown with review comments and suggested changes");
+    expect(container.textContent).toContain("regular Markdown plus portable review markup");
     expect(container.textContent).toContain("CriticMarkup");
     expect(container.textContent).toContain("Notion-flavored Markdown");
     expect(container.textContent).toContain("Official RFM spec");
     expect(container.textContent).toContain("Format contract");
-    expect(container.textContent).toContain(
-      "Review data lives where agents can inspect it",
-    );
+    expect(container.textContent).toContain("Review data lives where agents can inspect it");
     expect(container.textContent).toContain("document-local");
     expect(
-      container.querySelector('a[href="/spec/roughdraft-flavored-markdown.md"]')
-        ?.textContent,
+      container.querySelector('a[href="/spec/roughdraft-flavored-markdown.md"]')?.textContent,
     ).toContain("Official RFM spec");
-    expect(
-      container.querySelector('a[href="https://criticmarkup.com/"]')
-        ?.textContent,
-    ).toContain("CriticMarkup");
+    expect(container.querySelector('a[href="https://criticmarkup.com/"]')?.textContent).toContain(
+      "CriticMarkup",
+    );
     expect(
       container.querySelector(
         'a[href="https://developers.notion.com/guides/data-apis/enhanced-markdown"]',
@@ -765,9 +619,7 @@ describe("Homepage", () => {
     expect(container.textContent).toContain("YAML metadata");
     expect(container.textContent).toContain("Substitution");
     expect(container.textContent).toContain("{~~old text~>new text~~}");
-    expect(container.querySelector('a[href="/"]')?.textContent).toContain(
-      "Back to Roughdraft",
-    );
+    expect(container.querySelector('a[href="/"]')?.textContent).toContain("Back to Roughdraft");
   });
 
   it("renders an in-memory live preview page", async () => {

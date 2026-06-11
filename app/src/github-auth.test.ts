@@ -1,8 +1,12 @@
-import { describe, it, expect, afterEach, beforeEach } from "vitest";
-import { captureTokenFromUrl, getStoredToken, clearToken } from "./github-auth";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { captureTokenFromUrl, clearToken, getStoredToken } from "./github-auth";
 
-beforeEach(() => { sessionStorage.clear(); });
-afterEach(() => { window.location.hash = ""; });
+beforeEach(() => {
+  sessionStorage.clear();
+});
+afterEach(() => {
+  window.location.hash = "";
+});
 
 describe("github-auth token capture", () => {
   it("captures a token when the returned state matches the stored state", () => {

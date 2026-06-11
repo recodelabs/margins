@@ -12,6 +12,9 @@ if (typeof document !== "undefined" && typeof document.elementFromPoint !== "fun
 
 // ShadowRoot.elementFromPoint is not available in jsdom either; patch the
 // prototype so any shadow-root-backed editor view also works.
-if (typeof ShadowRoot !== "undefined" && typeof ShadowRoot.prototype.elementFromPoint !== "function") {
+if (
+  typeof ShadowRoot !== "undefined" &&
+  typeof ShadowRoot.prototype.elementFromPoint !== "function"
+) {
   ShadowRoot.prototype.elementFromPoint = (_x: number, _y: number) => null;
 }

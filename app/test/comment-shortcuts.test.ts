@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  getAddCommentShortcutLabel,
-  matchesAddCommentShortcut,
-} from "../src/comment-shortcuts";
+import { getAddCommentShortcutLabel, matchesAddCommentShortcut } from "../src/comment-shortcuts";
 
 describe("comment shortcuts", () => {
   it("formats the add comment shortcut label for Mac platforms", () => {

@@ -146,10 +146,7 @@ async function selectText(editor: Editor, text: string) {
 
 async function addCommentWithShortcut() {
   await flushAnimationFrame();
-  const commentButton = queryByTestId<HTMLButtonElement>(
-    document,
-    "selection-menu-action-comment",
-  );
+  const commentButton = queryByTestId<HTMLButtonElement>(document, "selection-menu-action-comment");
   if (commentButton) {
     await act(async () => {
       commentButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -237,17 +234,11 @@ async function pressEditorKey(
   await flushReact();
 }
 
-function queryByTestId<T extends Element = HTMLElement>(
-  container: ParentNode,
-  testId: string,
-) {
+function queryByTestId<T extends Element = HTMLElement>(container: ParentNode, testId: string) {
   return container.querySelector<T>(`[data-testid="${testId}"]`);
 }
 
-function getByTestId<T extends Element = HTMLElement>(
-  container: ParentNode,
-  testId: string,
-) {
+function getByTestId<T extends Element = HTMLElement>(container: ParentNode, testId: string) {
   const element = queryByTestId<T>(container, testId);
   expect(element).not.toBeNull();
   return element as T;
@@ -262,10 +253,7 @@ function getEditable(container: HTMLElement) {
 
 function getToolbarButton(container: HTMLElement, label: string) {
   const actionId = label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-  return getByTestId<HTMLButtonElement>(
-    container,
-    `selection-menu-action-${actionId}`,
-  );
+  return getByTestId<HTMLButtonElement>(container, `selection-menu-action-${actionId}`);
 }
 
 type PageCardTestOptions = Partial<{
@@ -291,9 +279,7 @@ type RenderedPageCard = {
 
 const cleanups: Array<() => Promise<void>> = [];
 
-async function renderPageCard(
-  options: PageCardTestOptions = {},
-): Promise<RenderedPageCard> {
+async function renderPageCard(options: PageCardTestOptions = {}): Promise<RenderedPageCard> {
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
@@ -399,9 +385,7 @@ describe("PageCard comment thread dismissal", () => {
 describe("PageCard editor integration", () => {
   beforeEach(() => {
     vi.useRealTimers();
-    (
-      globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
-    ).IS_REACT_ACT_ENVIRONMENT = true;
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
       function getBoundingClientRect() {
         const isEditor = this.classList.contains("ProseMirror");
@@ -501,10 +485,7 @@ describe("PageCard editor integration", () => {
     });
 
     expect(rendered.onSave).toHaveBeenCalledTimes(1);
-    expect(rendered.onSave).toHaveBeenCalledWith(
-      "doc-1",
-      expect.stringContaining("Start now"),
-    );
+    expect(rendered.onSave).toHaveBeenCalledWith("doc-1", expect.stringContaining("Start now"));
     expect(rendered.onSaveStateChange.mock.calls.at(-1)?.[0]).toBe("saved");
   });
 
@@ -771,17 +752,11 @@ describe("PageCard editor integration", () => {
       selected: true,
     });
 
-    expect(
-      getEditable(rendered.container).getAttribute("contenteditable"),
-    ).toBe("false");
+    expect(getEditable(rendered.container).getAttribute("contenteditable")).toBe("false");
   });
 
   it("renders local markdown document links as Roughdraft routes", async () => {
-    window.history.replaceState(
-      null,
-      "",
-      "/?path=%2FUsers%2Fme%2Fproject%2Fnotes%2Fsource.md",
-    );
+    window.history.replaceState(null, "", "/?path=%2FUsers%2Fme%2Fproject%2Fnotes%2Fsource.md");
     const backend = createBackend();
     backend.info = {
       ...backend.info,
@@ -799,23 +774,15 @@ describe("PageCard editor integration", () => {
     });
 
     expect(
-      rendered.container
-        .querySelector("a[data-markdown-src='target.md']")
-        ?.getAttribute("href"),
+      rendered.container.querySelector("a[data-markdown-src='target.md']")?.getAttribute("href"),
     ).toBe("/?path=%2FUsers%2Fme%2Fproject%2Fnotes%2Ftarget.md");
     expect(
-      rendered.container
-        .querySelector("img[data-markdown-src='diagram.png']")
-        ?.getAttribute("src"),
+      rendered.container.querySelector("img[data-markdown-src='diagram.png']")?.getAttribute("src"),
     ).toBe("file://diagram.png");
   });
 
   it("opens local markdown document links through Roughdraft from the link popover", async () => {
-    window.history.replaceState(
-      null,
-      "",
-      "/?path=%2FUsers%2Fme%2Fproject%2Fnotes%2Fsource.md",
-    );
+    window.history.replaceState(null, "", "/?path=%2FUsers%2Fme%2Fproject%2Fnotes%2Fsource.md");
     const backend = createBackend();
     backend.info = {
       ...backend.info,
@@ -832,15 +799,11 @@ describe("PageCard editor integration", () => {
       },
     });
 
-    const link = rendered.container.querySelector(
-      "a[data-markdown-src='target.md']",
-    );
+    const link = rendered.container.querySelector("a[data-markdown-src='target.md']");
     expect(link).not.toBeNull();
 
     await act(async () => {
-      link?.dispatchEvent(
-        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
-      );
+      link?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
     });
     await flushAnimationFrame();
 
@@ -895,22 +858,15 @@ describe("PageCard editor integration", () => {
       selected: true,
     });
 
-    const link = rendered.container.querySelector(
-      'a[href="https://example.com"]',
-    );
+    const link = rendered.container.querySelector('a[href="https://example.com"]');
     expect(link).not.toBeNull();
 
     await act(async () => {
-      link?.dispatchEvent(
-        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
-      );
+      link?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
     });
     await flushAnimationFrame();
 
-    const input = queryByTestId<HTMLInputElement>(
-      rendered.container,
-      "link-url-input",
-    );
+    const input = queryByTestId<HTMLInputElement>(rendered.container, "link-url-input");
 
     expect(input).not.toBeNull();
     expect(input?.value).toBe("https://example.com");
@@ -946,9 +902,7 @@ describe("PageCard editor integration", () => {
 
     expect(rendered.onSave).toHaveBeenCalledWith(
       "doc-suggesting-1",
-      expect.stringMatching(
-        /^Start \{\+\+now\+\+\}\{id="s1" by="user" at="[^"]+"\}\n$/,
-      ),
+      expect.stringMatching(/^Start \{\+\+now\+\+\}\{id="s1" by="user" at="[^"]+"\}\n$/),
     );
   });
 
@@ -981,9 +935,7 @@ describe("PageCard editor integration", () => {
 
     expect(rendered.onSave).toHaveBeenCalledWith(
       "doc-suggesting-grouped-insertion-1",
-      expect.stringMatching(
-        /^Start-\{\+\+now\+\+\}\{id="s1" by="user" at="[^"]+"\}\n$/,
-      ),
+      expect.stringMatching(/^Start-\{\+\+now\+\+\}\{id="s1" by="user" at="[^"]+"\}\n$/),
     );
   });
 
@@ -1004,9 +956,7 @@ describe("PageCard editor integration", () => {
 
     await act(async () => {
       const { from, to } = editor.state.selection;
-      editor.view.someProp("handleTextInput", (handler) =>
-        handler(editor.view, from, to, "new"),
-      );
+      editor.view.someProp("handleTextInput", (handler) => handler(editor.view, from, to, "new"));
     });
 
     await act(async () => {
@@ -1016,9 +966,7 @@ describe("PageCard editor integration", () => {
 
     expect(rendered.onSave).toHaveBeenCalledWith(
       "doc-suggesting-2",
-      expect.stringMatching(
-        /^Use \{~~old~>new~~\}\{id="s1" by="user" at="[^"]+"\} text\n$/,
-      ),
+      expect.stringMatching(/^Use \{~~old~>new~~\}\{id="s1" by="user" at="[^"]+"\} text\n$/),
     );
   });
 
@@ -1045,9 +993,7 @@ describe("PageCard editor integration", () => {
 
     expect(rendered.onSave).toHaveBeenCalledWith(
       "doc-suggesting-grouped-replacement-1",
-      expect.stringMatching(
-        /^Use \{~~old~>new~~\}\{id="s1" by="user" at="[^"]+"\} text\n$/,
-      ),
+      expect.stringMatching(/^Use \{~~old~>new~~\}\{id="s1" by="user" at="[^"]+"\} text\n$/),
     );
   });
 
@@ -1083,9 +1029,7 @@ describe("PageCard editor integration", () => {
 
     expect(rendered.onSave).toHaveBeenCalledWith(
       "doc-suggesting-repeated-delete-1",
-      expect.stringMatching(
-        /^S\{--tar--\}\{id="s1" by="user" at="[^"]+"\}t\n$/,
-      ),
+      expect.stringMatching(/^S\{--tar--\}\{id="s1" by="user" at="[^"]+"\}t\n$/),
     );
   });
 
@@ -1121,9 +1065,7 @@ describe("PageCard editor integration", () => {
 
     expect(rendered.onSave).toHaveBeenCalledWith(
       "doc-suggesting-enter-paragraph-1",
-      expect.stringMatching(
-        /^Start\n\n\{\+\+\u2060\+\+\}\{id="s1" by="user" at="[^"]+"\}\n$/,
-      ),
+      expect.stringMatching(/^Start\n\n\{\+\+\u2060\+\+\}\{id="s1" by="user" at="[^"]+"\}\n$/),
     );
   });
 
@@ -1234,9 +1176,7 @@ describe("PageCard editor integration", () => {
 
     expect(rendered.container.textContent).toContain("{==alpha==}");
     expect(rendered.container.textContent).toContain("{>>Comment body<<}");
-    expect(
-      queryByTestId(rendered.container, "selection-menu-block-type"),
-    ).toBeNull();
+    expect(queryByTestId(rendered.container, "selection-menu-block-type")).toBeNull();
     expect(
       rendered.container
         .querySelector('[data-testid="document-review-rail"]')
@@ -1290,9 +1230,7 @@ describe("PageCard editor integration", () => {
         .querySelector('[data-testid="document-page-shell"]')
         ?.classList.contains("document-page-shell-no-comments"),
     ).toBe(false);
-    expect(
-      queryByTestId(rendered.container, "document-review-rail"),
-    ).not.toBeNull();
+    expect(queryByTestId(rendered.container, "document-review-rail")).not.toBeNull();
   });
 
   it("document code mode does not keep rail space for fenced CriticMarkup examples", async () => {
@@ -1318,9 +1256,7 @@ describe("PageCard editor integration", () => {
         .querySelector('[data-testid="document-page-shell"]')
         ?.classList.contains("document-page-shell-no-comments"),
     ).toBe(true);
-    expect(
-      queryByTestId(rendered.container, "document-review-rail"),
-    ).toBeNull();
+    expect(queryByTestId(rendered.container, "document-review-rail")).toBeNull();
   });
 
   it("document code mode shows line numbers without the default dotted focus outline", async () => {
@@ -1334,16 +1270,14 @@ describe("PageCard editor integration", () => {
       selected: true,
     });
 
-    const editor = getByTestId(
-      rendered.container,
-      "markdown-code-editor",
-    ).querySelector(".cm-editor");
+    const editor = getByTestId(rendered.container, "markdown-code-editor").querySelector(
+      ".cm-editor",
+    );
     expect(editor).not.toBeNull();
 
-    const gutters = getByTestId(
-      rendered.container,
-      "markdown-code-editor",
-    ).querySelector(".cm-gutters");
+    const gutters = getByTestId(rendered.container, "markdown-code-editor").querySelector(
+      ".cm-gutters",
+    );
     expect(gutters).not.toBeNull();
     expect(gutters?.textContent).toContain("1");
     expect(getComputedStyle(gutters as Element).display).not.toBe("none");
@@ -1368,9 +1302,7 @@ describe("PageCard editor integration", () => {
 
     await selectText(editor, "bold");
     await flushAnimationFrame();
-    expect(
-      getToolbarButton(rendered.container, "Bold").getAttribute("aria-pressed"),
-    ).toBe("true");
+    expect(getToolbarButton(rendered.container, "Bold").getAttribute("aria-pressed")).toBe("true");
   });
 
   it("external page content updates replace editor content when unfocused", async () => {
@@ -1438,9 +1370,7 @@ describe("PageCard editor integration", () => {
     });
 
     const savedMarkdown = rendered.onSave.mock.calls[0]?.[1];
-    expect(savedMarkdown).toMatch(
-      /^Plain \{\+\+now\+\+\}\{id="s1" by="user" at="[^"]+"\}\n$/,
-    );
+    expect(savedMarkdown).toMatch(/^Plain \{\+\+now\+\+\}\{id="s1" by="user" at="[^"]+"\}\n$/);
     expect(savedMarkdown).not.toContain("---\ncomments:");
     expect(savedMarkdown).not.toContain("Needs a source.");
   });
@@ -1469,10 +1399,9 @@ describe("PageCard editor integration", () => {
     expect(typeof savedMarkdown).toBe("string");
 
     await selectText(editor, "alpha");
-    expect(
-      queryByTestId(rendered.container, "document-comment-fallback")
-        ?.textContent,
-    ).toContain("Comment body");
+    expect(queryByTestId(rendered.container, "document-comment-fallback")?.textContent).toContain(
+      "Comment body",
+    );
 
     await act(async () => {
       editor.commands.blur();
@@ -1486,10 +1415,9 @@ describe("PageCard editor integration", () => {
       },
     });
 
-    expect(
-      queryByTestId(rendered.container, "document-comment-fallback")
-        ?.textContent,
-    ).toContain("Comment body");
+    expect(queryByTestId(rendered.container, "document-comment-fallback")?.textContent).toContain(
+      "Comment body",
+    );
   });
 
   it("same-content disk echoes do not recreate the rich text editor", async () => {
@@ -1550,10 +1478,9 @@ describe("PageCard editor integration", () => {
 
     await selectText(rendered.getEditor(), "alpha");
 
-    expect(
-      queryByTestId(rendered.container, "document-comment-fallback")
-        ?.textContent,
-    ).toContain("Comment body");
+    expect(queryByTestId(rendered.container, "document-comment-fallback")?.textContent).toContain(
+      "Comment body",
+    );
     expect(rendered.container.textContent).toContain("Me");
   });
 
@@ -1612,9 +1539,7 @@ describe("PageCard editor integration", () => {
 
     expect(rendered.onSave).toHaveBeenCalledWith(
       "doc-comment-empty-draft-1",
-      expect.stringMatching(
-        /\{==target==\}\{>>Draft comment<<\}\{id="c1" by="user" at="[^"]+"\}/,
-      ),
+      expect.stringMatching(/\{==target==\}\{>>Draft comment<<\}\{id="c1" by="user" at="[^"]+"\}/),
     );
   });
 
@@ -1685,9 +1610,7 @@ describe("PageCard editor integration", () => {
 
     vi.useFakeTimers();
     await act(async () => {
-      deleteThreadButton?.dispatchEvent(
-        new MouseEvent("click", { bubbles: true }),
-      );
+      deleteThreadButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       await Promise.resolve();
     });
 
@@ -1717,9 +1640,7 @@ describe("PageCard editor integration", () => {
 
     await flushAnimationFrame();
 
-    const railText =
-      queryByTestId(rendered.container, "document-review-rail")?.textContent ??
-      "";
+    const railText = queryByTestId(rendered.container, "document-review-rail")?.textContent ?? "";
 
     expect(railText.split(commentText).length - 1).toBe(1);
   });
@@ -1764,13 +1685,9 @@ describe("PageCard editor integration", () => {
       '[data-suggestion-thread-container="true"]',
     );
 
-    expect(suggestionThread?.textContent).toContain(
-      'Insert: "clearer wording"',
-    );
+    expect(suggestionThread?.textContent).toContain('Insert: "clearer wording"');
     expect(suggestionThread?.textContent).toContain("Looks good.");
-    expect(
-      suggestionThread?.querySelector('[data-testid="comment-tree-line"]'),
-    ).not.toBeNull();
+    expect(suggestionThread?.querySelector('[data-testid="comment-tree-line"]')).not.toBeNull();
   });
 
   it("saving a reply to a YAML endmatter-backed suggestion preserves split endmatter", async () => {
@@ -1863,13 +1780,9 @@ describe("PageCard editor integration", () => {
 
     await flushAnimationFrame();
 
-    const suggestion = rendered.container.querySelector(
-      '[data-critic-change-id="s1"]',
-    );
+    const suggestion = rendered.container.querySelector('[data-critic-change-id="s1"]');
     expect(suggestion?.textContent).toContain("clearer wording");
-    expect(
-      queryByTestId(rendered.container, "comment-decoration-on-critic-change"),
-    ).not.toBeNull();
+    expect(queryByTestId(rendered.container, "comment-decoration-on-critic-change")).not.toBeNull();
   });
 
   it("activates a suggestion thread when the cursor is inside suggested text", async () => {
@@ -1899,9 +1812,7 @@ describe("PageCard editor integration", () => {
       '[data-suggestion-thread-container="true"]',
     );
     expect(suggestionThread?.classList.contains("-translate-x-2")).toBe(true);
-    expect(
-      rendered.container.querySelector(".critic-change-decoration-active"),
-    ).not.toBeNull();
+    expect(rendered.container.querySelector(".critic-change-decoration-active")).not.toBeNull();
   });
 
   it("centers document layout when there are no comments", async () => {
@@ -1960,9 +1871,7 @@ describe("PageCard editor integration", () => {
     await rendered.rerender({ selected: false });
 
     expect(rendered.getEditor().getText()).toContain("Hello document updated");
-    expect(rendered.getEditor().state.selection.from).toBe(
-      initialSelection.from,
-    );
+    expect(rendered.getEditor().state.selection.from).toBe(initialSelection.from);
     expect(rendered.getEditor().state.selection.to).toBe(initialSelection.to);
     expect(getEditable(rendered.container)).toBe(initialEditable);
   });
@@ -1990,9 +1899,7 @@ describe("PageCard editor integration", () => {
 
     expect(rendered.getEditor()).toBe(editor);
     expect(getEditable(rendered.container)).toBe(initialEditable);
-    expect(rendered.getEditor().state.selection.from).toBeGreaterThan(
-      initialSelection,
-    );
+    expect(rendered.getEditor().state.selection.from).toBeGreaterThan(initialSelection);
     expect(rendered.getEditor().getText()).toContain("Focus target");
   });
 

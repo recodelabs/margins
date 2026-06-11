@@ -48,9 +48,7 @@ export class ApiBackend implements StorageBackend {
       }),
     );
     if (!res.ok) {
-      throw new Error(
-        `Failed to get markdown file ${relativePath}: ${res.status}`,
-      );
+      throw new Error(`Failed to get markdown file ${relativePath}: ${res.status}`);
     }
     return res.json();
   }
@@ -60,18 +58,15 @@ export class ApiBackend implements StorageBackend {
     content: string,
     expectedVersion?: string,
   ): Promise<Page> {
-    const res = await fetch(
-      this.buildUrl("/api/markdown-file", { path: relativePath }),
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content,
-          expectedVersion,
-          projectPath: this.info.projectPath,
-        }),
-      },
-    );
+    const res = await fetch(this.buildUrl("/api/markdown-file", { path: relativePath }), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content,
+        expectedVersion,
+        projectPath: this.info.projectPath,
+      }),
+    });
     if (res.status === 409) {
       const payload = (await res.json()) as { current?: Page };
       if (payload.current) {
@@ -79,9 +74,7 @@ export class ApiBackend implements StorageBackend {
       }
     }
     if (!res.ok) {
-      throw new Error(
-        `Failed to save markdown file ${relativePath}: ${res.status}`,
-      );
+      throw new Error(`Failed to save markdown file ${relativePath}: ${res.status}`);
     }
     return res.json();
   }
@@ -116,23 +109,18 @@ export class ApiBackend implements StorageBackend {
     options: CompleteReviewOptions = {},
   ): Promise<CompleteReviewResult> {
     const overallComment = options.overallComment?.trim();
-    const res = await fetch(
-      this.buildUrl("/api/review-events", { path: relativePath }),
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectPath: this.info.projectPath,
-          path: relativePath,
-          ...(overallComment ? { overallComment } : {}),
-        }),
-      },
-    );
+    const res = await fetch(this.buildUrl("/api/review-events", { path: relativePath }), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectPath: this.info.projectPath,
+        path: relativePath,
+        ...(overallComment ? { overallComment } : {}),
+      }),
+    });
 
     if (!res.ok) {
-      throw new Error(
-        `Failed to complete review ${relativePath}: ${res.status}`,
-      );
+      throw new Error(`Failed to complete review ${relativePath}: ${res.status}`);
     }
 
     const payload = (await res.json()) as { delivered?: unknown };
@@ -140,14 +128,10 @@ export class ApiBackend implements StorageBackend {
   }
 
   async getReviewWatchStatus(relativePath: string): Promise<ReviewWatchStatus> {
-    const res = await fetch(
-      this.buildUrl("/api/review-events/status", { path: relativePath }),
-    );
+    const res = await fetch(this.buildUrl("/api/review-events/status", { path: relativePath }));
 
     if (!res.ok) {
-      throw new Error(
-        `Failed to get review watch status ${relativePath}: ${res.status}`,
-      );
+      throw new Error(`Failed to get review watch status ${relativePath}: ${res.status}`);
     }
 
     const payload = (await res.json()) as {
@@ -156,8 +140,7 @@ export class ApiBackend implements StorageBackend {
     };
     return {
       watching: payload.watching === true,
-      watcherCount:
-        typeof payload.watcherCount === "number" ? payload.watcherCount : 0,
+      watcherCount: typeof payload.watcherCount === "number" ? payload.watcherCount : 0,
     };
   }
 

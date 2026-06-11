@@ -19,11 +19,7 @@ import type {
   StorageBackend,
 } from "../src/storage";
 
-function createBackend({
-  watcherCount,
-}: {
-  watcherCount?: number;
-} = {}): StorageBackend {
+function createBackend({ watcherCount }: { watcherCount?: number } = {}): StorageBackend {
   const backend: StorageBackend = {
     info: {
       kind: "local-storage",
@@ -190,17 +186,11 @@ async function change(element: HTMLTextAreaElement, value: string) {
   });
 }
 
-function queryByTestId<T extends Element = HTMLElement>(
-  container: ParentNode,
-  testId: string,
-) {
+function queryByTestId<T extends Element = HTMLElement>(container: ParentNode, testId: string) {
   return container.querySelector<T>(`[data-testid="${testId}"]`);
 }
 
-function getByTestId<T extends Element = HTMLElement>(
-  container: ParentNode,
-  testId: string,
-) {
+function getByTestId<T extends Element = HTMLElement>(container: ParentNode, testId: string) {
   const element = queryByTestId<T>(container, testId);
   expect(element).not.toBeNull();
   return element as T;
@@ -212,11 +202,7 @@ describe("view mode toggle uses client-side state (issue 1 fix)", () => {
   });
 
   it("buildLocationForDocumentEditorViewMode produces a URL for history.replaceState", () => {
-    window.history.replaceState(
-      null,
-      "",
-      "/?path=/test/doc.md&editor=rich-text",
-    );
+    window.history.replaceState(null, "", "/?path=/test/doc.md&editor=rich-text");
 
     const nextLocation = buildLocationForDocumentEditorViewMode("code");
 
@@ -226,9 +212,7 @@ describe("view mode toggle uses client-side state (issue 1 fix)", () => {
 
   it("view mode can be read from the URL query param", () => {
     window.history.replaceState(null, "", "/?editor=rich-text");
-    expect(getDocumentEditorViewModeFromLocation("rich-text")).toBe(
-      "rich-text",
-    );
+    expect(getDocumentEditorViewModeFromLocation("rich-text")).toBe("rich-text");
 
     window.history.replaceState(null, "", "/?editor=code");
     expect(getDocumentEditorViewModeFromLocation("rich-text")).toBe("code");
@@ -252,9 +236,7 @@ describe("saving/saved status indicator (issue 2 fix)", () => {
     document.body.appendChild(container);
     root = createRoot(container);
     setupDomMocks();
-    (
-      globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
-    ).IS_REACT_ACT_ENVIRONMENT = true;
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   });
 
   afterEach(async () => {
@@ -295,9 +277,7 @@ describe("saving/saved status indicator (issue 2 fix)", () => {
     watcherCount?: number;
     onSaveDocument?: (id: string, content: string) => Promise<void>;
   } = {}) {
-    (
-      globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
-    ).IS_REACT_ACT_ENVIRONMENT = true;
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
     await act(async () => {
       root.render(
@@ -366,10 +346,7 @@ describe("saving/saved status indicator (issue 2 fix)", () => {
 
     const stack = queryByTestId(container, "document-status-stack");
     const header = getByTestId(container, "document-page-header");
-    const doneReviewingButton = queryByTestId(
-      container,
-      "review-handoff-button",
-    );
+    const doneReviewingButton = queryByTestId(container, "review-handoff-button");
     expect(stack).not.toBeNull();
     expect(doneReviewingButton).toBeDefined();
     expect(doneReviewingButton?.textContent).toContain("I'm done");
@@ -377,9 +354,7 @@ describe("saving/saved status indicator (issue 2 fix)", () => {
     expect(stack?.textContent).not.toContain("Saved");
     expect(header.textContent).toContain("test.md");
     expect(header.textContent).not.toContain("Saved");
-    expect(
-      getByTestId(header, "document-save-status").getAttribute("aria-label"),
-    ).toBe("Saved");
+    expect(getByTestId(header, "document-save-status").getAttribute("aria-label")).toBe("Saved");
   });
 
   it("renders save status next to the filename without handoff", async () => {
@@ -392,9 +367,7 @@ describe("saving/saved status indicator (issue 2 fix)", () => {
     expect(stack?.textContent).not.toContain("Saved");
     expect(header.textContent).toContain("test.md");
     expect(header.textContent).not.toContain("Saved");
-    expect(
-      getByTestId(header, "document-save-status").getAttribute("aria-label"),
-    ).toBe("Saved");
+    expect(getByTestId(header, "document-save-status").getAttribute("aria-label")).toBe("Saved");
   });
 
   it.each([
@@ -444,9 +417,7 @@ describe("saving/saved status indicator (issue 2 fix)", () => {
       "text/html": expect.any(Blob),
       "text/plain": expect.any(Blob),
     });
-    expect(write).toHaveBeenCalledWith([
-      expect.objectContaining({ items: expect.any(Object) }),
-    ]);
+    expect(write).toHaveBeenCalledWith([expect.objectContaining({ items: expect.any(Object) })]);
   });
 
   it.each([
@@ -501,9 +472,9 @@ describe("saving/saved status indicator (issue 2 fix)", () => {
 
     expect(container.textContent).toContain("Save conflict");
     expect(container.textContent).toContain("This file changed on disk");
-    expect(
-      getByTestId(container, "document-save-status").getAttribute("aria-label"),
-    ).toBe("Save conflict");
+    expect(getByTestId(container, "document-save-status").getAttribute("aria-label")).toBe(
+      "Save conflict",
+    );
   });
 
   it.each([
@@ -571,9 +542,7 @@ describe("interaction mode preserved across view toggle (issue 3 fix)", () => {
     // so the DocumentWorkspace component stays mounted and interaction
     // mode is preserved.
 
-    (
-      globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
-    ).IS_REACT_ACT_ENVIRONMENT = true;
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
     const renderWorkspace = async (viewMode: DocumentEditorViewMode) => {
       await act(async () => {
@@ -602,16 +571,12 @@ describe("interaction mode preserved across view toggle (issue 3 fix)", () => {
 
     // Mount with rich-text -> mode is "Editing" by default
     await renderWorkspace("rich-text");
-    expect(
-      getByTestId(container, "document-mode-trigger").textContent,
-    ).toContain("Editing");
+    expect(getByTestId(container, "document-mode-trigger").textContent).toContain("Editing");
 
     // Rerender with code view (same component instance, no remount) ->
     // mode stays "Editing" because the component is not destroyed.
     await renderWorkspace("code");
-    expect(
-      getByTestId(container, "document-mode-trigger").textContent,
-    ).toContain("Editing");
+    expect(getByTestId(container, "document-mode-trigger").textContent).toContain("Editing");
   });
 });
 
@@ -624,9 +589,7 @@ describe("review handoff watcher affordance", () => {
     document.body.appendChild(container);
     root = createRoot(container);
     setupDomMocks();
-    (
-      globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
-    ).IS_REACT_ACT_ENVIRONMENT = true;
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   });
 
   afterEach(async () => {
@@ -642,9 +605,7 @@ describe("review handoff watcher affordance", () => {
     onCompleteReview = async () => ({ delivered: false }),
   }: {
     getWatcherCount: () => number;
-    onCompleteReview?: (
-      options?: CompleteReviewOptions,
-    ) => Promise<CompleteReviewResult>;
+    onCompleteReview?: (options?: CompleteReviewOptions) => Promise<CompleteReviewResult>;
   }) {
     await act(async () => {
       root.render(
@@ -775,9 +736,7 @@ describe("review handoff watcher affordance", () => {
     expect(onCompleteReview).toHaveBeenCalledWith({
       overallComment: "Please prioritize the CLI contract.",
     });
-    expect(document.body.textContent).not.toContain(
-      "Please prioritize the CLI contract.",
-    );
+    expect(document.body.textContent).not.toContain("Please prioritize the CLI contract.");
   });
 
   it("includes an overall comment when finishing from the primary handoff button", async () => {

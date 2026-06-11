@@ -1,9 +1,9 @@
 import type { Editor } from "@tiptap/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  type CommentGroupAnchor,
   getCommentAnchorMeasurements,
   groupCommentAnchorMeasurements,
-  type CommentGroupAnchor,
 } from "./document-comments";
 
 interface CommentAnchorLayoutState {
@@ -52,11 +52,7 @@ export function useCommentAnchorLayout(editor: Editor | null, enabled = true) {
       const anchorElements = editorElement.querySelectorAll<HTMLElement>(
         ".comment-anchor[data-comment-ids]",
       );
-      const measurements = getCommentAnchorMeasurements(
-        anchorElements,
-        editorRect.top,
-        1,
-      );
+      const measurements = getCommentAnchorMeasurements(anchorElements, editorRect.top, 1);
 
       setLayoutState({
         commentGroups: groupCommentAnchorMeasurements(measurements),

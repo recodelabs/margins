@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  PREVIEW_PATH,
-  ROUGHDRAFT_FLAVORED_MARKDOWN_PATH,
   buildLocationForLinkedMarkdownDocument,
   getRequestedPathState,
+  PREVIEW_PATH,
+  ROUGHDRAFT_FLAVORED_MARKDOWN_PATH,
   syncRequestedPathInUrl,
 } from "./app-navigation";
 
@@ -13,11 +13,7 @@ describe("app navigation", () => {
   });
 
   it("reads absolute markdown paths from the path query parameter", () => {
-    window.history.replaceState(
-      null,
-      "",
-      "/?path=%2FUsers%2Fme%2F.claude%2Fplans%2Fexample.md",
-    );
+    window.history.replaceState(null, "", "/?path=%2FUsers%2Fme%2F.claude%2Fplans%2Fexample.md");
 
     expect(getRequestedPathState()).toEqual({
       rawPath: "/Users/me/.claude/plans/example.md",
@@ -32,9 +28,7 @@ describe("app navigation", () => {
     syncRequestedPathInUrl("/Users/me/.claude/plans/example.md");
 
     expect(window.location.pathname).toBe("/");
-    expect(window.location.search).toBe(
-      "?path=%2FUsers%2Fme%2F.claude%2Fplans%2Fexample.md",
-    );
+    expect(window.location.search).toBe("?path=%2FUsers%2Fme%2F.claude%2Fplans%2Fexample.md");
   });
 
   it("does not treat reserved app pages as file paths", () => {

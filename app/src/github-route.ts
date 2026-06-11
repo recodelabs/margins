@@ -18,8 +18,7 @@ export function parseGitHubLocation(): GitHubLocation {
         return s;
       }
     });
-  const branch =
-    new URLSearchParams(window.location.search).get("branch")?.trim() || "main";
+  const branch = new URLSearchParams(window.location.search).get("branch")?.trim() || "main";
   return {
     owner: segments[0] ?? "",
     repo: segments[1] ?? "",

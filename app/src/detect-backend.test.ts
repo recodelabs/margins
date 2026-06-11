@@ -41,9 +41,7 @@ describe("detectBackend", () => {
         version: "version-1",
       },
     );
-    const createRemoteBackend = vi
-      .spyOn(RemoteBackend, "create")
-      .mockResolvedValue(remoteBackend);
+    const createRemoteBackend = vi.spyOn(RemoteBackend, "create").mockResolvedValue(remoteBackend);
 
     await expect(detectBackend()).resolves.toBe(remoteBackend);
     expect(createRemoteBackend).toHaveBeenCalledWith("session-1", "secret");
@@ -87,9 +85,7 @@ describe("detectBackend", () => {
       new Error("Could not load remote document session missing: 404"),
     );
 
-    await expect(detectBackend()).rejects.toThrow(
-      /Could not load remote document session/,
-    );
+    await expect(detectBackend()).rejects.toThrow(/Could not load remote document session/);
   });
 
   it("uses local storage when no server is available", async () => {

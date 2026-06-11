@@ -48,10 +48,7 @@ export class PreviewBackend implements StorageBackend {
     return this.page;
   }
 
-  async saveMarkdownFile(
-    _relativePath: string,
-    content: string,
-  ): Promise<Page> {
+  async saveMarkdownFile(_relativePath: string, content: string): Promise<Page> {
     this.page = {
       ...this.page,
       title: titleFromContent(content, this.page.id),
@@ -82,9 +79,7 @@ export class PreviewBackend implements StorageBackend {
   }
 
   resolveFileUrl(path: string): string | null {
-    const normalized = path.startsWith("./")
-      ? path
-      : `./${path.replace(/^\/+/, "")}`;
+    const normalized = path.startsWith("./") ? path : `./${path.replace(/^\/+/, "")}`;
     return this.assets.get(normalized) ?? null;
   }
 

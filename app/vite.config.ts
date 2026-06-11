@@ -1,7 +1,7 @@
-import { defineConfig, loadEnv } from "vite";
-import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
+import tailwindcss from "@tailwindcss/vite";
+import react from "@vitejs/plugin-react";
+import { defineConfig, loadEnv } from "vite";
 import { exchangeCodeForToken } from "../auth/exchange";
 
 function authDevPlugin(env: Record<string, string>) {
@@ -9,7 +9,8 @@ function authDevPlugin(env: Record<string, string>) {
     name: "roughneck-auth-dev",
     configureServer(server: import("vite").ViteDevServer) {
       server.middlewares.use(async (req, res, next) => {
-        const host = (req.headers && (req.headers as Record<string, string>)["host"]) || "localhost";
+        const host =
+          (req.headers && (req.headers as Record<string, string>)["host"]) || "localhost";
         const url = new URL(req.url || "", `http://${host}`);
         if (url.pathname === "/api/auth/login") {
           const redirectUri = `${url.origin}/api/auth/callback`;
@@ -30,7 +31,10 @@ function authDevPlugin(env: Record<string, string>) {
             });
             const state = url.searchParams.get("state") || "";
             res.statusCode = 302;
-            res.setHeader("Location", `/#token=${encodeURIComponent(token)}&state=${encodeURIComponent(state)}`);
+            res.setHeader(
+              "Location",
+              `/#token=${encodeURIComponent(token)}&state=${encodeURIComponent(state)}`,
+            );
             res.end();
           } catch (e) {
             res.statusCode = 500;

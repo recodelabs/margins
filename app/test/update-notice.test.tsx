@@ -38,9 +38,8 @@ describe("UpdateNotice", () => {
     expect(container.textContent).toContain("Update available");
     expect(container.textContent).toContain("0.1.0");
     expect(container.textContent).toContain("0.2.0");
-    expect(
-      container.querySelector('[data-testid="update-notice-button"]')
-        ?.textContent,
-    ).toContain("Update");
+    expect(container.querySelector('[data-testid="update-notice-button"]')?.textContent).toContain(
+      "Update",
+    );
   });
 });

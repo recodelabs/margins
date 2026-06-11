@@ -10,16 +10,12 @@ import {
   useState,
 } from "react";
 import {
-  CommentEditorList,
   type CommentActionDefinition,
   type CommentActionsRenderContext,
   type CommentContentRenderContext,
+  CommentEditorList,
 } from "./CommentEditorList";
-import type {
-  CriticChangeAttrs,
-  CriticChangeKind,
-  CriticComment,
-} from "./critic-markup";
+import type { CriticChangeAttrs, CriticChangeKind, CriticComment } from "./critic-markup";
 import {
   buildCommentThreadRailItems,
   type CommentGroupAnchor,
@@ -101,9 +97,7 @@ function getSuggestionPreview(suggestion: CriticChangeRailItem) {
   return oldText || newText || "Changed text";
 }
 
-function getSuggestionRootComment(
-  suggestion: CriticChangeRailItem,
-): CriticComment {
+function getSuggestionRootComment(suggestion: CriticChangeRailItem): CriticComment {
   return {
     id: suggestion.changeId,
     content: getSuggestionPreview(suggestion),
@@ -114,37 +108,22 @@ function getSuggestionRootComment(
 }
 
 function renderQuotedSuggestionText(text: string, fallback: string) {
-  const withoutParagraphSentinels = text.replaceAll(
-    SUGGESTED_PARAGRAPH_SENTINEL,
-    "",
-  );
+  const withoutParagraphSentinels = text.replaceAll(SUGGESTED_PARAGRAPH_SENTINEL, "");
   const displayText =
     withoutParagraphSentinels.trim() ||
-    (text.includes(SUGGESTED_PARAGRAPH_SENTINEL)
-      ? "Inserted paragraph"
-      : fallback);
+    (text.includes(SUGGESTED_PARAGRAPH_SENTINEL) ? "Inserted paragraph" : fallback);
 
-  return (
-    <span className="italic text-slate-600 dark:text-slate-400">
-      "{displayText}"
-    </span>
-  );
+  return <span className="italic text-slate-600 dark:text-slate-400">"{displayText}"</span>;
 }
 
-function SuggestionCommentContent({
-  suggestion,
-}: {
-  suggestion: CriticChangeRailItem;
-}) {
+function SuggestionCommentContent({ suggestion }: { suggestion: CriticChangeRailItem }) {
   const oldText = suggestion.oldText.trim();
   const newText = suggestion.newText.trim();
 
   if (suggestion.kind === "addition") {
     return (
       <>
-        <span className="font-semibold text-slate-800 dark:text-slate-200">
-          Insert:
-        </span>{" "}
+        <span className="font-semibold text-slate-800 dark:text-slate-200">Insert:</span>{" "}
         {renderQuotedSuggestionText(newText, "Inserted text")}
       </>
     );
@@ -153,9 +132,7 @@ function SuggestionCommentContent({
   if (suggestion.kind === "deletion") {
     return (
       <>
-        <span className="font-semibold text-slate-800 dark:text-slate-200">
-          Delete:
-        </span>{" "}
+        <span className="font-semibold text-slate-800 dark:text-slate-200">Delete:</span>{" "}
         {renderQuotedSuggestionText(oldText, "Deleted text")}
       </>
     );
@@ -163,9 +140,7 @@ function SuggestionCommentContent({
 
   return (
     <>
-      <span className="font-semibold text-slate-800 dark:text-slate-200">
-        Replace:
-      </span>{" "}
+      <span className="font-semibold text-slate-800 dark:text-slate-200">Replace:</span>{" "}
       {renderQuotedSuggestionText(oldText, "Original text")}{" "}
       <span className="text-slate-500 dark:text-slate-400">with</span>{" "}
       {renderQuotedSuggestionText(newText, "Changed text")}
@@ -303,9 +278,8 @@ export function DocumentReviewRail({
   const activeSuggestionIdForComment = useMemo(
     () =>
       selectedCommentId
-        ? (suggestions.find((suggestion) =>
-            suggestion.commentIds.includes(selectedCommentId),
-          )?.changeId ?? null)
+        ? (suggestions.find((suggestion) => suggestion.commentIds.includes(selectedCommentId))
+            ?.changeId ?? null)
         : null,
     [selectedCommentId, suggestions],
   );
@@ -317,10 +291,7 @@ export function DocumentReviewRail({
       ...(draftEntry ? [draftEntry] : []),
     ].sort((left, right) => left.anchorTop - right.anchorTop);
     const activeKey =
-      draftEntry?.key ??
-      selectedChangeId ??
-      activeSuggestionIdForComment ??
-      activeRootThreadId;
+      draftEntry?.key ?? selectedChangeId ?? activeSuggestionIdForComment ?? activeRootThreadId;
 
     return resolveAnchoredRailLayouts(entries, itemHeights, activeKey);
   }, [
@@ -343,9 +314,7 @@ export function DocumentReviewRail({
 
   useLayoutEffect(() => {
     if (layouts.length === 0) {
-      setItemHeights((current) =>
-        Object.keys(current).length === 0 ? current : {},
-      );
+      setItemHeights((current) => (Object.keys(current).length === 0 ? current : {}));
       return;
     }
 
@@ -356,9 +325,7 @@ export function DocumentReviewRail({
 
         for (const layout of layouts) {
           const element = itemRefs.current.get(layout.key);
-          const measuredHeight = Math.ceil(
-            element?.getBoundingClientRect().height ?? 0,
-          );
+          const measuredHeight = Math.ceil(element?.getBoundingClientRect().height ?? 0);
           const height =
             measuredHeight > 0
               ? Math.ceil(normalizeCommentMeasurement(measuredHeight, 1))
@@ -369,10 +336,7 @@ export function DocumentReviewRail({
           }
         }
 
-        if (
-          !changed &&
-          Object.keys(current).length === Object.keys(next).length
-        ) {
+        if (!changed && Object.keys(current).length === Object.keys(next).length) {
           return current;
         }
 
@@ -423,14 +387,11 @@ export function DocumentReviewRail({
         {layouts.map((layout) => {
           if (layout.type === "comment") {
             const isSelected =
-              !!activeRootThreadId &&
-              layout.thread.rootCommentId === activeRootThreadId;
+              !!activeRootThreadId && layout.thread.rootCommentId === activeRootThreadId;
             const isExpanded = isSelected;
             const primaryCommentId =
-              getPreferredCommentId(
-                layout.thread.commentIds,
-                selectedCommentId,
-              ) ?? layout.thread.visibleComments[0]?.id;
+              getPreferredCommentId(layout.thread.commentIds, selectedCommentId) ??
+              layout.thread.visibleComments[0]?.id;
 
             return (
               <div
@@ -494,9 +455,7 @@ export function DocumentReviewRail({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-[11px] font-semibold tracking-[0.08em] text-stone-500 dark:text-stone-400 uppercase">
-                      {draftSuggestion?.type === "replacement"
-                        ? "Replacement"
-                        : "Insertion"}
+                      {draftSuggestion?.type === "replacement" ? "Replacement" : "Insertion"}
                     </div>
                     <div className="mt-1 text-sm leading-5 text-slate-700 dark:text-slate-300">
                       {draftSuggestion?.sourceText || "Current cursor position"}
@@ -519,18 +478,13 @@ export function DocumentReviewRail({
                   rows={2}
                   className="mt-3 min-h-16 w-full resize-y rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm leading-6 text-slate-800 dark:text-slate-200 outline-none transition focus:border-emerald-300 dark:focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 dark:focus:ring-emerald-900"
                   placeholder={
-                    draftSuggestion?.type === "replacement"
-                      ? "Replacement text"
-                      : "Inserted text"
+                    draftSuggestion?.type === "replacement" ? "Replacement text" : "Inserted text"
                   }
                   onChange={(event) => {
                     onDraftSuggestionTextChange?.(event.target.value);
                   }}
                   onKeyDown={(event) => {
-                    if (
-                      (event.metaKey || event.ctrlKey) &&
-                      event.key.toLowerCase() === "enter"
-                    ) {
+                    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "enter") {
                       event.preventDefault();
                       onApplyDraftSuggestion?.();
                     }
@@ -566,25 +520,18 @@ export function DocumentReviewRail({
           const suggestionComments = suggestion.commentIds
             .map((commentId) => comments.get(commentId))
             .filter((comment): comment is CriticComment => Boolean(comment));
-          const suggestionCommentIds = new Set(
-            suggestionComments.map((comment) => comment.id),
-          );
-          const normalizedSuggestionComments = suggestionComments.map(
-            (comment) =>
-              comment.parentCommentId === suggestion.changeId ||
-              (comment.parentCommentId &&
-                suggestionCommentIds.has(comment.parentCommentId))
-                ? comment
-                : {
-                    ...comment,
-                    parentCommentId: suggestion.changeId,
-                  },
+          const suggestionCommentIds = new Set(suggestionComments.map((comment) => comment.id));
+          const normalizedSuggestionComments = suggestionComments.map((comment) =>
+            comment.parentCommentId === suggestion.changeId ||
+            (comment.parentCommentId && suggestionCommentIds.has(comment.parentCommentId))
+              ? comment
+              : {
+                  ...comment,
+                  parentCommentId: suggestion.changeId,
+                },
           );
           const suggestionRootComment = getSuggestionRootComment(suggestion);
-          const suggestionThreadComments = [
-            suggestionRootComment,
-            ...normalizedSuggestionComments,
-          ];
+          const suggestionThreadComments = [suggestionRootComment, ...normalizedSuggestionComments];
           const renderCommentContent = ({
             comment,
             defaultContent,
@@ -659,12 +606,8 @@ export function DocumentReviewRail({
               <CommentEditorList
                 comments={suggestionThreadComments}
                 variant="rail"
-                selectedCommentId={
-                  selectedCommentId ?? (isSelected ? suggestion.changeId : null)
-                }
-                hoveredCommentId={
-                  hoveredCommentId ?? (isHovered ? suggestion.changeId : null)
-                }
+                selectedCommentId={selectedCommentId ?? (isSelected ? suggestion.changeId : null)}
+                hoveredCommentId={hoveredCommentId ?? (isHovered ? suggestion.changeId : null)}
                 onDeleteComment={onDeleteComment}
                 onUpdateComment={onUpdateComment}
                 onReplyComment={(commentId) => {

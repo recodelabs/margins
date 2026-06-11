@@ -1,19 +1,27 @@
-import { describe, it, expect, afterEach, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { GitHubBackend } from "./github-backend";
 import { MarkdownFileConflictError } from "./storage";
 
 const originalFetch = global.fetch;
-afterEach(() => { global.fetch = originalFetch; });
+afterEach(() => {
+  global.fetch = originalFetch;
+});
 
 function backend() {
   return new GitHubBackend({
-    token: "tok", owner: "o", repo: "r", branch: "main", login: "octocat",
+    token: "tok",
+    owner: "o",
+    repo: "r",
+    branch: "main",
+    login: "octocat",
   });
 }
 const b64 = (s: string) => {
   const bytes = new TextEncoder().encode(s);
   let bin = "";
-  bytes.forEach((byte) => { bin += String.fromCharCode(byte); });
+  bytes.forEach((byte) => {
+    bin += String.fromCharCode(byte);
+  });
   return btoa(bin);
 };
 
@@ -26,9 +34,17 @@ describe("GitHubBackend", () => {
   });
 
   it("getMarkdownFile decodes content, sets version=sha and a title", async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
-      sha: "abc123", content: b64("# Hello\n\nbody"), encoding: "base64",
-    }), { status: 200 }));
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            sha: "abc123",
+            content: b64("# Hello\n\nbody"),
+            encoding: "base64",
+          }),
+          { status: 200 },
+        ),
+    );
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const page = await backend().getMarkdownFile("docs/x.md");
@@ -44,27 +60,33 @@ describe("GitHubBackend", () => {
   });
 
   it("saveMarkdownFile PUTs base64 content with the prior sha and returns the new version", async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
-      content: { sha: "def456" },
-    }), { status: 200 }));
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            content: { sha: "def456" },
+          }),
+          { status: 200 },
+        ),
+    );
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const page = await backend().saveMarkdownFile("docs/x.md", "# New\n", "abc123");
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://api.github.com/repos/o/r/contents/docs/x.md",
-      {
-        method: "PUT",
-        headers: { Authorization: "Bearer tok", Accept: "application/vnd.github+json",
-          "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: "Update docs/x.md",
-          content: b64("# New\n"),
-          sha: "abc123",
-          branch: "main",
-        }),
+    expect(fetchMock).toHaveBeenCalledWith("https://api.github.com/repos/o/r/contents/docs/x.md", {
+      method: "PUT",
+      headers: {
+        Authorization: "Bearer tok",
+        Accept: "application/vnd.github+json",
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({
+        message: "Update docs/x.md",
+        content: b64("# New\n"),
+        sha: "abc123",
+        branch: "main",
+      }),
+    });
     expect(page?.version).toBe("def456");
     expect(page?.content).toBe("# New\n");
   });
@@ -72,9 +94,14 @@ describe("GitHubBackend", () => {
   it("saveMarkdownFile throws MarkdownFileConflictError on 409, carrying current content", async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (url.includes("?ref=")) {
-        return new Response(JSON.stringify({ sha: "server999", content: b64("# Server\n"), encoding: "base64" }), { status: 200 });
+        return new Response(
+          JSON.stringify({ sha: "server999", content: b64("# Server\n"), encoding: "base64" }),
+          { status: 200 },
+        );
       }
-      return new Response(JSON.stringify({ message: "is at ... but expected ..." }), { status: 409 });
+      return new Response(JSON.stringify({ message: "is at ... but expected ..." }), {
+        status: 409,
+      });
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
@@ -89,14 +116,20 @@ describe("GitHubBackend", () => {
   });
 
   it("listMarkdownPaths returns only .md blob paths from the tree", async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
-      tree: [
-        { path: "a.md", type: "blob" },
-        { path: "docs", type: "tree" },
-        { path: "docs/b.md", type: "blob" },
-        { path: "img.png", type: "blob" },
-      ],
-    }), { status: 200 }));
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            tree: [
+              { path: "a.md", type: "blob" },
+              { path: "docs", type: "tree" },
+              { path: "docs/b.md", type: "blob" },
+              { path: "img.png", type: "blob" },
+            ],
+          }),
+          { status: 200 },
+        ),
+    );
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const paths = await backend().listMarkdownPaths();
@@ -110,9 +143,17 @@ describe("GitHubBackend", () => {
 
   it("round-trips multibyte UTF-8 content (accents, CJK, emoji)", async () => {
     const text = "# Héllo\n\n日本語 🎉\n";
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
-      sha: "m1", content: b64(text), encoding: "base64",
-    }), { status: 200 }));
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            sha: "m1",
+            content: b64(text),
+            encoding: "base64",
+          }),
+          { status: 200 },
+        ),
+    );
     global.fetch = fetchMock as unknown as typeof fetch;
     const page = await backend().getMarkdownFile("u.md");
     expect(page.content).toBe(text);
@@ -121,8 +162,9 @@ describe("GitHubBackend", () => {
 
   it("resolveFileUrl returns a raw URL; saveAsset throws not-supported; openProject is a no-op", async () => {
     const bk = backend();
-    expect(bk.resolveFileUrl("img/x.png"))
-      .toBe("https://raw.githubusercontent.com/o/r/main/img/x.png");
+    expect(bk.resolveFileUrl("img/x.png")).toBe(
+      "https://raw.githubusercontent.com/o/r/main/img/x.png",
+    );
     await expect(bk.saveAsset(new File(["x"], "x.png"))).rejects.toThrow(/not supported/i);
     await expect(bk.openProject("anything")).resolves.toBeUndefined();
   });
@@ -147,9 +189,17 @@ describe("GitHubBackend", () => {
     });
 
     it("getMarkdownFile accepts a .MD (uppercase) path", async () => {
-      const fetchMock = vi.fn(async () => new Response(JSON.stringify({
-        sha: "x1", content: b64("# Upper\n"), encoding: "base64",
-      }), { status: 200 }));
+      const fetchMock = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              sha: "x1",
+              content: b64("# Upper\n"),
+              encoding: "base64",
+            }),
+            { status: 200 },
+          ),
+      );
       global.fetch = fetchMock as unknown as typeof fetch;
       const page = await backend().getMarkdownFile("NOTE.MD");
       expect(page.content).toBe("# Upper\n");

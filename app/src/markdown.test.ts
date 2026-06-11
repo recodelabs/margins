@@ -1,18 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import {
-  splitYamlFrontmatter,
-  toHtml,
-  toMarkdown,
-  rawMarkdownBlockAttribute,
-} from "./markdown";
+import { rawMarkdownBlockAttribute, splitYamlFrontmatter, toHtml, toMarkdown } from "./markdown";
 
 function readMarkdownFixture(name: string): string {
-  return fs.readFileSync(
-    path.join(process.cwd(), "test", "fixtures", "markdown", name),
-    "utf8",
-  );
+  return fs.readFileSync(path.join(process.cwd(), "test", "fixtures", "markdown", name), "utf8");
 }
 
 describe("splitYamlFrontmatter", () => {
@@ -33,9 +25,7 @@ describe("splitYamlFrontmatter", () => {
       frontmatter: "---\n---\n\n",
       body: "# Body\n",
     });
-    expect(splitYamlFrontmatter(tableLike).frontmatter).toContain(
-      "  | column | value |",
-    );
+    expect(splitYamlFrontmatter(tableLike).frontmatter).toContain("  | column | value |");
   });
 });
 
@@ -60,16 +50,11 @@ describe("toHtml", () => {
   });
 
   it("can resolve markdown document links separately from file assets", () => {
-    const html = toHtml(
-      "[Target](local-link-target.md)\n\n![Diagram](local-link-target.md)",
-      {
-        resolveFileUrl: (path) => `/api/files?path=${encodeURIComponent(path)}`,
-        resolveLinkUrl: (path) =>
-          path.endsWith(".md")
-            ? `/?path=${encodeURIComponent(`/project/${path}`)}`
-            : null,
-      },
-    );
+    const html = toHtml("[Target](local-link-target.md)\n\n![Diagram](local-link-target.md)", {
+      resolveFileUrl: (path) => `/api/files?path=${encodeURIComponent(path)}`,
+      resolveLinkUrl: (path) =>
+        path.endsWith(".md") ? `/?path=${encodeURIComponent(`/project/${path}`)}` : null,
+    });
 
     expect(html).toContain(
       '<a href="/?path=%2Fproject%2Flocal-link-target.md" data-markdown-src="local-link-target.md">Target</a>',
@@ -153,9 +138,7 @@ describe("toMarkdown", () => {
   });
 
   it("keeps in-page anchors untouched", () => {
-    const markdown = toMarkdown(
-      '<p><a href="#comments">Jump to comments</a></p>',
-    );
+    const markdown = toMarkdown('<p><a href="#comments">Jump to comments</a></p>');
 
     expect(markdown).toBe("[Jump to comments](#comments)\n");
   });
@@ -170,8 +153,8 @@ describe("toMarkdown", () => {
     const protectedMarkdown = "<!-- keep this source note -->\n";
     const encoded = encodeURIComponent(protectedMarkdown);
 
-    expect(
-      toMarkdown(`<div ${rawMarkdownBlockAttribute}="${encoded}"></div>`),
-    ).toBe(protectedMarkdown);
+    expect(toMarkdown(`<div ${rawMarkdownBlockAttribute}="${encoded}"></div>`)).toBe(
+      protectedMarkdown,
+    );
   });
 });

@@ -46,9 +46,7 @@ export function DocumentCommentRail({
   onAutoFocusComment,
 }: DocumentCommentRailProps) {
   const threadRefs = useRef(new Map<string, HTMLDivElement>());
-  const [threadHeights, setThreadHeights] = useState<Record<string, number>>(
-    {},
-  );
+  const [threadHeights, setThreadHeights] = useState<Record<string, number>>({});
 
   const activeRootThreadId = useMemo(
     () => getRootThreadIdForCommentId(selectedCommentId, comments),
@@ -80,16 +78,13 @@ export function DocumentCommentRail({
     [commentGroups, comments],
   );
 
-  const setThreadRef = useCallback(
-    (key: string, node: HTMLDivElement | null) => {
-      if (node) {
-        threadRefs.current.set(key, node);
-      } else {
-        threadRefs.current.delete(key);
-      }
-    },
-    [],
-  );
+  const setThreadRef = useCallback((key: string, node: HTMLDivElement | null) => {
+    if (node) {
+      threadRefs.current.set(key, node);
+    } else {
+      threadRefs.current.delete(key);
+    }
+  }, []);
 
   useLayoutEffect(() => {
     if (visibleThreads.length === 0) {
@@ -104,9 +99,7 @@ export function DocumentCommentRail({
 
         for (const thread of visibleThreads) {
           const element = threadRefs.current.get(thread.key);
-          const measuredHeight = Math.ceil(
-            element?.getBoundingClientRect().height ?? 0,
-          );
+          const measuredHeight = Math.ceil(element?.getBoundingClientRect().height ?? 0);
           const height =
             measuredHeight > 0
               ? Math.ceil(normalizeCommentMeasurement(measuredHeight, 1))
@@ -117,10 +110,7 @@ export function DocumentCommentRail({
           }
         }
 
-        if (
-          !changed &&
-          Object.keys(current).length === Object.keys(next).length
-        ) {
+        if (!changed && Object.keys(current).length === Object.keys(next).length) {
           return current;
         }
 
@@ -156,13 +146,11 @@ export function DocumentCommentRail({
     return baseLayouts.map((layout) => ({
       ...layout,
       visibleComments:
-        visibleThreads.find((thread) => thread.key === layout.key)
-          ?.visibleComments ?? [],
+        visibleThreads.find((thread) => thread.key === layout.key)?.visibleComments ?? [],
     }));
   }, [activeRootThreadId, threadHeights, visibleThreads]);
 
-  const railHeight =
-    Math.max(contentHeight, layouts.at(-1)?.railBottom ?? 0) + 24;
+  const railHeight = Math.max(contentHeight, layouts.at(-1)?.railBottom ?? 0) + 24;
 
   if (visibleThreads.length === 0) {
     return <aside className={cn("min-w-0", className)} aria-hidden="true" />;
@@ -172,8 +160,7 @@ export function DocumentCommentRail({
     <aside className={cn("min-w-0", className)}>
       <div className="relative" style={{ minHeight: railHeight }}>
         {layouts.map((layout) => {
-          const isSelected =
-            !!activeRootThreadId && layout.rootCommentId === activeRootThreadId;
+          const isSelected = !!activeRootThreadId && layout.rootCommentId === activeRootThreadId;
           const isExpanded = isSelected;
           const primaryCommentId =
             getPreferredCommentId(layout.commentIds, selectedCommentId) ??

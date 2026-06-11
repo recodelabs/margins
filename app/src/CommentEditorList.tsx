@@ -11,16 +11,8 @@ import {
 } from "react";
 import { Button } from "./components/ui/button";
 import { Textarea } from "./components/ui/textarea";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "./components/ui/tooltip";
-import {
-  buildCommentThreads,
-  type CriticComment,
-  type CriticCommentThread,
-} from "./critic-markup";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./components/ui/tooltip";
+import { buildCommentThreads, type CriticComment, type CriticCommentThread } from "./critic-markup";
 import { cn } from "./lib/utils";
 
 interface CommentEditorListProps {
@@ -40,9 +32,7 @@ interface CommentEditorListProps {
   pendingFocusCommentId?: string | null;
   onAutoFocusComment?: (commentId: string) => void;
   renderCommentContent?: (context: CommentContentRenderContext) => ReactNode;
-  getCommentActions?: (
-    context: CommentActionsRenderContext,
-  ) => CommentActionDefinition[];
+  getCommentActions?: (context: CommentActionsRenderContext) => CommentActionDefinition[];
 }
 
 export interface CommentActionDefinition {
@@ -73,19 +63,12 @@ function isEditableShortcutTarget(target: EventTarget | null) {
   if (target.isContentEditable) return true;
 
   return Boolean(
-    target.closest(
-      'input, textarea, select, [contenteditable="true"], [role="textbox"]',
-    ),
+    target.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]'),
   );
 }
 
 function isReplyShortcut(event: KeyboardEvent) {
-  return (
-    event.key.toLowerCase() === "r" &&
-    !event.metaKey &&
-    !event.ctrlKey &&
-    !event.altKey
-  );
+  return event.key.toLowerCase() === "r" && !event.metaKey && !event.ctrlKey && !event.altKey;
 }
 
 export function CommentEditorList({
@@ -116,8 +99,7 @@ export function CommentEditorList({
     [comments],
   );
   const hasActiveSelection =
-    !!selectedCommentId &&
-    comments.some((comment) => comment.id === selectedCommentId);
+    !!selectedCommentId && comments.some((comment) => comment.id === selectedCommentId);
   const handleKeyDownCapture = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!interactive || !onReplyComment) return;
     if (!isReplyShortcut(event)) return;
@@ -126,9 +108,7 @@ export function CommentEditorList({
     const target = event.target;
     if (!(target instanceof Element)) return;
 
-    const rootThread = target.closest<HTMLElement>(
-      "[data-comment-thread-root-id]",
-    );
+    const rootThread = target.closest<HTMLElement>("[data-comment-thread-root-id]");
     const rootCommentId = rootThread?.dataset.commentThreadRootId;
     if (!rootCommentId) return;
 
@@ -142,9 +122,7 @@ export function CommentEditorList({
 
     setDrafts((current) =>
       Object.fromEntries(
-        Object.entries(current).filter(([commentId]) =>
-          validCommentIds.has(commentId),
-        ),
+        Object.entries(current).filter(([commentId]) => validCommentIds.has(commentId)),
       ),
     );
     setEditingCommentIds((current) =>
@@ -161,13 +139,10 @@ export function CommentEditorList({
 
     setDrafts((current) => ({
       ...current,
-      [pendingFocusCommentId]:
-        current[pendingFocusCommentId] ?? pendingComment.content,
+      [pendingFocusCommentId]: current[pendingFocusCommentId] ?? pendingComment.content,
     }));
     setEditingCommentIds((current) =>
-      current.includes(pendingFocusCommentId)
-        ? current
-        : [...current, pendingFocusCommentId],
+      current.includes(pendingFocusCommentId) ? current : [...current, pendingFocusCommentId],
     );
   }, [commentMap, interactive, pendingFocusCommentId]);
 
@@ -183,12 +158,7 @@ export function CommentEditorList({
     const cursorPosition = target.value.length;
     target.setSelectionRange(cursorPosition, cursorPosition);
     onAutoFocusComment?.(pendingFocusCommentId);
-  }, [
-    editingCommentIds,
-    interactive,
-    onAutoFocusComment,
-    pendingFocusCommentId,
-  ]);
+  }, [editingCommentIds, interactive, onAutoFocusComment, pendingFocusCommentId]);
 
   if (comments.length === 0) return null;
 
@@ -331,9 +301,7 @@ interface CommentThreadNodeProps {
   onSubmitEditingComment: (commentId: string) => void;
   onCancelEditingComment: (commentId: string) => void;
   renderCommentContent?: (context: CommentContentRenderContext) => ReactNode;
-  getCommentActions?: (
-    context: CommentActionsRenderContext,
-  ) => CommentActionDefinition[];
+  getCommentActions?: (context: CommentActionsRenderContext) => CommentActionDefinition[];
   onChangeDraft: (commentId: string, nextContent: string) => void;
 }
 
@@ -454,8 +422,7 @@ function CommentThreadNode({
     variant === "banner"
       ? "bg-[#DED8CE]/90 dark:bg-slate-600/90"
       : "bg-[#DED8CE]/85 dark:bg-slate-600/85";
-  const defaultContent =
-    comment.content.trim().length > 0 ? comment.content : "Empty comment";
+  const defaultContent = comment.content.trim().length > 0 ? comment.content : "Empty comment";
   const renderedContent =
     renderCommentContent?.({
       comment,
@@ -524,15 +491,12 @@ function CommentThreadNode({
       isEditing,
       defaultActions,
     }) ?? defaultActions;
-  const ancestorGuideOffsets = parentLines.reduce<number[]>(
-    (offsets, showLine, guideIndex) => {
-      if (showLine) {
-        offsets.push(guideIndex * COMMENT_TREE_INDENT + COMMENT_AVATAR_CENTER);
-      }
-      return offsets;
-    },
-    [],
-  );
+  const ancestorGuideOffsets = parentLines.reduce<number[]>((offsets, showLine, guideIndex) => {
+    if (showLine) {
+      offsets.push(guideIndex * COMMENT_TREE_INDENT + COMMENT_AVATAR_CENTER);
+    }
+    return offsets;
+  }, []);
 
   return (
     <div
@@ -543,9 +507,7 @@ function CommentThreadNode({
         "relative transition-all duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-300 dark:focus-visible:ring-slate-600",
         variant === "rail" &&
           isRootThread &&
-          (index > 0
-            ? "border-t border-slate-200/80 dark:border-slate-700/80 pt-3"
-            : "pt-0"),
+          (index > 0 ? "border-t border-slate-200/80 dark:border-slate-700/80 pt-3" : "pt-0"),
       )}
       onClick={() => {
         if (!interactive) return;
@@ -585,11 +547,7 @@ function CommentThreadNode({
             ))}
             <div
               data-testid="comment-tree-line"
-              className={cn(
-                "absolute w-px",
-                treeLineTone,
-                isLast ? "" : "bottom-0",
-              )}
+              className={cn("absolute w-px", treeLineTone, isLast ? "" : "bottom-0")}
               style={{
                 left: (depth - 1) * COMMENT_TREE_INDENT + COMMENT_AVATAR_CENTER,
                 top: -COMMENT_TREE_ROW_GAP,
@@ -633,10 +591,7 @@ function CommentThreadNode({
               <div
                 aria-hidden="true"
                 data-testid="comment-tree-line"
-                className={cn(
-                  "pointer-events-none absolute w-px",
-                  treeLineTone,
-                )}
+                className={cn("pointer-events-none absolute w-px", treeLineTone)}
                 style={{
                   left: COMMENT_AVATAR_CENTER,
                   top: COMMENT_AVATAR_SIZE,
@@ -686,9 +641,7 @@ function CommentThreadNode({
                     }
                   }}
                   value={draftContent}
-                  placeholder={
-                    depth === 0 ? "Add your comment" : "Write a reply"
-                  }
+                  placeholder={depth === 0 ? "Add your comment" : "Write a reply"}
                   rows={1}
                   className={cn(
                     "mt-1 min-h-12 px-3 py-2 text-sm leading-6 md:text-sm md:leading-6",
@@ -706,10 +659,7 @@ function CommentThreadNode({
                   onKeyDown={(event) => {
                     // Enter saves & closes the comment; Shift+Enter inserts a
                     // newline (Cmd/Ctrl+Enter also submits, for muscle memory).
-                    if (
-                      event.key.toLowerCase() === "enter" &&
-                      !event.shiftKey
-                    ) {
+                    if (event.key.toLowerCase() === "enter" && !event.shiftKey) {
                       event.preventDefault();
                       event.stopPropagation();
                       onSubmitEditingComment(comment.id);

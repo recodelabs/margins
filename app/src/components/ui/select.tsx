@@ -9,11 +9,7 @@ function Select<Value, Multiple extends boolean | undefined = false>({
   return <SelectPrimitive.Root data-slot="select" {...props} />;
 }
 
-function SelectTrigger({
-  className,
-  children,
-  ...props
-}: SelectPrimitive.Trigger.Props) {
+function SelectTrigger({ className, children, ...props }: SelectPrimitive.Trigger.Props) {
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
@@ -52,10 +48,7 @@ function SelectContent({
   children,
   ...props
 }: SelectPrimitive.Popup.Props &
-  Pick<
-    SelectPrimitive.Positioner.Props,
-    "align" | "alignOffset" | "side" | "sideOffset"
-  >) {
+  Pick<SelectPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset">) {
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Positioner
@@ -72,20 +65,14 @@ function SelectContent({
           )}
           {...props}
         >
-          <SelectPrimitive.List data-slot="select-list">
-            {children}
-          </SelectPrimitive.List>
+          <SelectPrimitive.List data-slot="select-list">{children}</SelectPrimitive.List>
         </SelectPrimitive.Popup>
       </SelectPrimitive.Positioner>
     </SelectPrimitive.Portal>
   );
 }
 
-function SelectItem({
-  className,
-  children,
-  ...props
-}: SelectPrimitive.Item.Props) {
+function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Props) {
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
@@ -106,10 +93,7 @@ function SelectItem({
   );
 }
 
-function SelectItemText({
-  className,
-  ...props
-}: SelectPrimitive.ItemText.Props) {
+function SelectItemText({ className, ...props }: SelectPrimitive.ItemText.Props) {
   return (
     <SelectPrimitive.ItemText
       data-slot="select-item-text"
@@ -119,11 +103,4 @@ function SelectItemText({
   );
 }
 
-export {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-  SelectItemText,
-};
+export { Select, SelectContent, SelectItem, SelectItemText, SelectTrigger, SelectValue };

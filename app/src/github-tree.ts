@@ -25,10 +25,7 @@ export type TreeEntry = FolderEntry | FileEntry;
  * at least one `.md` anywhere beneath them, and `.md` files directly in the
  * current folder. Both lists are sorted alphabetically.
  */
-export function getFolderContents(
-  allPaths: string[],
-  currentDir: string,
-): TreeEntry[] {
+export function getFolderContents(allPaths: string[], currentDir: string): TreeEntry[] {
   const prefix = currentDir ? `${currentDir}/` : "";
 
   const immediateFiles: FileEntry[] = [];

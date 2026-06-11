@@ -21,7 +21,7 @@ import { useEffect } from "react";
 type Mermaid = any;
 
 function natSize(svg: string): { w: number; h: number } {
-  const m = svg.match(/viewBox="[\d.\-]+ [\d.\-]+ ([\d.\-]+) ([\d.\-]+)"/);
+  const m = svg.match(/viewBox="[\d.-]+ [\d.-]+ ([\d.-]+) ([\d.-]+)"/);
   if (m && +m[1] > 0) return { w: +m[1], h: +m[2] };
   const w = svg.match(/width="([\d.]+)/);
   const h = svg.match(/height="([\d.]+)/);
@@ -57,8 +57,7 @@ function openModal(svg: string) {
   bar.append(bOut, pct, bIn, bRst, bX);
 
   const vp = document.createElement("div");
-  vp.style.cssText =
-    "flex:1;overflow:hidden;position:relative;cursor:grab;touch-action:none;";
+  vp.style.cssText = "flex:1;overflow:hidden;position:relative;cursor:grab;touch-action:none;";
 
   const stage = document.createElement("div");
   stage.style.cssText =
@@ -164,9 +163,7 @@ function openModal(svg: string) {
 
 function runMermaidOverlays(signal: AbortSignal): () => void {
   const dark = document.documentElement.classList.contains("dark");
-  const theme = dark
-    ? { bg: "#0b0b0c", bd: "#27272a" }
-    : { bg: "#ffffff", bd: "#e5e7eb" };
+  const theme = dark ? { bg: "#0b0b0c", bd: "#27272a" } : { bg: "#ffffff", bd: "#e5e7eb" };
 
   // ── lazy mermaid loader (only fires once a real block exists) ──
   let mermaid: Mermaid = null;
@@ -346,9 +343,7 @@ function runMermaidOverlays(signal: AbortSignal): () => void {
   }
 
   function scan() {
-    const blocks = document.querySelectorAll<HTMLElement>(
-      "pre > code.language-mermaid",
-    );
+    const blocks = document.querySelectorAll<HTMLElement>("pre > code.language-mermaid");
     if (blocks.length) detectScroller();
     blocks.forEach((c) => applyBlock(c.parentElement as HTMLElement));
     reposition();
@@ -361,9 +356,7 @@ function runMermaidOverlays(signal: AbortSignal): () => void {
     debTimer = setTimeout(scan, 150);
   });
   const editorRoot =
-    document.querySelector(".ProseMirror") ??
-    document.querySelector(".tiptap") ??
-    document.body;
+    document.querySelector(".ProseMirror") ?? document.querySelector(".tiptap") ?? document.body;
   mutObs.observe(editorRoot, { childList: true, subtree: true });
   // Also observe body in case the editor root itself mounts later.
   const bodyObs = new MutationObserver(() => {
@@ -388,9 +381,7 @@ function runMermaidOverlays(signal: AbortSignal): () => void {
   window.addEventListener("resize", reposition);
 
   // Retry scans — editor lays out async after the doc loads.
-  const timers = [0, 300, 800, 1500, 2500, 4000].map((t) =>
-    setTimeout(scan, t),
-  );
+  const timers = [0, 300, 800, 1500, 2500, 4000].map((t) => setTimeout(scan, t));
 
   return () => {
     mutObs.disconnect();

@@ -45,18 +45,15 @@ import {
 } from "./components/ui/dialog";
 import { DocumentWorkspace, type GitHubDocNav } from "./DocumentWorkspace";
 import { detectBackend, isGitHubMode } from "./detect-backend";
-import { GitHubPicker } from "./GitHubPicker";
-import { getStoredToken } from "./github-auth";
-import {
-  isMarkdownPath,
-  parseGitHubLocation,
-} from "./github-route";
 import {
   getCommentAnchorMeasurements,
   groupCommentAnchorMeasurements,
   normalizeCommentMeasurement,
   resolveAnchoredRailLayouts,
 } from "./document-comments";
+import { GitHubPicker } from "./GitHubPicker";
+import { getStoredToken } from "./github-auth";
+import { isMarkdownPath, parseGitHubLocation } from "./github-route";
 import { cn } from "./lib/utils";
 import type { DocumentSaveState } from "./PageCard";
 import { PreviewBackend } from "./preview-backend";
@@ -70,11 +67,7 @@ import {
 import { UpdateNotice } from "./UpdateNotice";
 import { fetchUpdateStatus, type UpdateStatus } from "./update-status";
 
-export type DocumentDiskChangeState =
-  | "clean"
-  | "changed"
-  | "conflict"
-  | "paused";
+export type DocumentDiskChangeState = "clean" | "changed" | "conflict" | "paused";
 
 export function shouldWarnBeforeUnload({
   activeDocumentPath,
@@ -159,15 +152,13 @@ const ROUGHDRAFT_MARKDOWN_SYNTAX = [
   {
     label: "Comment",
     syntax: "{==selected text==}{>>Comment text<<}{#c1}",
-    description:
-      "Highlights the reviewed text and attaches a margin comment to it.",
+    description: "Highlights the reviewed text and attaches a margin comment to it.",
   },
   {
     label: "Reply",
     syntax:
       'comments:\n  c2:\n    body: I can make that edit.\n    by: AI\n    at: "2026-04-28T12:01:00.000Z"\n    re: c1',
-    description:
-      "Adds a threaded reply in YAML endmatter by pointing `re` at the parent id.",
+    description: "Adds a threaded reply in YAML endmatter by pointing `re` at the parent id.",
   },
   {
     label: "Insertion",
@@ -293,14 +284,9 @@ export function HomepageSubtitle() {
 }
 
 function getHomepageWorkflowDocumentScale(element: HTMLElement | null) {
-  const scaleElement = element?.closest<HTMLElement>(
-    "[data-homepage-workflow-document-scale]",
-  );
-  const scaleTransform = scaleElement
-    ? window.getComputedStyle(scaleElement).transform
-    : "none";
-  const matrix =
-    scaleTransform === "none" ? null : new DOMMatrixReadOnly(scaleTransform);
+  const scaleElement = element?.closest<HTMLElement>("[data-homepage-workflow-document-scale]");
+  const scaleTransform = scaleElement ? window.getComputedStyle(scaleElement).transform : "none";
+  const matrix = scaleTransform === "none" ? null : new DOMMatrixReadOnly(scaleTransform);
 
   return matrix?.a || 1;
 }
@@ -312,16 +298,13 @@ export function Homepage({
   message: ReactNode;
   updateStatus: UpdateStatus | null;
 }) {
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">(
-    "idle",
-  );
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
   const workflowStepRefs = useRef<Record<string, HTMLLIElement | null>>({});
   const workflowIntroRef = useRef<HTMLDivElement | null>(null);
   const workflowStickyVisualRef = useRef<HTMLDivElement | null>(null);
   const workflowTerminalRef = useRef<HTMLDivElement | null>(null);
   const [homepageWorkflowStage, setHomepageWorkflowStage] = useState(1);
-  const [mobileWorkflowVisualVisible, setMobileWorkflowVisualVisible] =
-    useState(false);
+  const [mobileWorkflowVisualVisible, setMobileWorkflowVisualVisible] = useState(false);
 
   const handleCopySetupPrompt = useCallback(async () => {
     try {
@@ -336,26 +319,19 @@ export function Homepage({
   useEffect(() => {
     const updateHomepageWorkflowStage = () => {
       const isMobileStoryboard =
-        typeof window.matchMedia === "function" &&
-        window.matchMedia("(max-width: 899px)").matches;
-      const workflowIntroRect =
-        workflowIntroRef.current?.getBoundingClientRect();
+        typeof window.matchMedia === "function" && window.matchMedia("(max-width: 899px)").matches;
+      const workflowIntroRect = workflowIntroRef.current?.getBoundingClientRect();
       const nextMobileWorkflowVisualVisible =
-        !isMobileStoryboard ||
-        (workflowIntroRect ? workflowIntroRect.bottom <= 0 : false);
+        !isMobileStoryboard || (workflowIntroRect ? workflowIntroRect.bottom <= 0 : false);
 
       setMobileWorkflowVisualVisible((current) =>
-        current === nextMobileWorkflowVisualVisible
-          ? current
-          : nextMobileWorkflowVisualVisible,
+        current === nextMobileWorkflowVisualVisible ? current : nextMobileWorkflowVisualVisible,
       );
 
-      const pageCanScroll =
-        document.documentElement.scrollHeight > window.innerHeight + 1;
+      const pageCanScroll = document.documentElement.scrollHeight > window.innerHeight + 1;
       if (!pageCanScroll) return;
 
-      const stickyVisualRect =
-        workflowStickyVisualRef.current?.getBoundingClientRect();
+      const stickyVisualRect = workflowStickyVisualRef.current?.getBoundingClientRect();
       const terminalRect = workflowTerminalRef.current?.getBoundingClientRect();
       const mobileReadableOffset = stickyVisualRect
         ? Math.min(stickyVisualRect.height + 32, window.innerHeight * 0.35)
@@ -370,17 +346,12 @@ export function Homepage({
         if (!element) continue;
 
         const stepNumber = Number(step);
-        if (
-          element.getBoundingClientRect().top <= activationLine &&
-          stepNumber > nextStage
-        ) {
+        if (element.getBoundingClientRect().top <= activationLine && stepNumber > nextStage) {
           nextStage = stepNumber;
         }
       }
 
-      setHomepageWorkflowStage((current) =>
-        current === nextStage ? current : nextStage,
-      );
+      setHomepageWorkflowStage((current) => (current === nextStage ? current : nextStage));
     };
 
     updateHomepageWorkflowStage();
@@ -443,8 +414,8 @@ export function Homepage({
                   <DialogHeader>
                     <DialogTitle>Give this to your coding agent</DialogTitle>
                     <DialogDescription>
-                      This prompt tells the agent how to install Roughdraft and
-                      set up the review workflow.
+                      This prompt tells the agent how to install Roughdraft and set up the review
+                      workflow.
                     </DialogDescription>
                   </DialogHeader>
 
@@ -454,8 +425,7 @@ export function Homepage({
                     </p>
                     {copyState === "error" ? (
                       <p className="mt-3 text-sm text-red-600">
-                        Copy failed. Select the instruction text and copy it
-                        manually.
+                        Copy failed. Select the instruction text and copy it manually.
                       </p>
                     ) : null}
                   </div>
@@ -532,9 +502,7 @@ export function Homepage({
             <div
               className="homepage-workflow-sticky-visual min-w-0 max-[899px]:sticky max-[899px]:z-[2] max-[899px]:flex max-[899px]:h-[var(--homepage-workflow-dock-height)] max-[899px]:min-h-0 max-[899px]:items-end max-[899px]:overflow-visible max-[899px]:rounded-[0.65rem] max-[899px]:shadow-[0_18px_48px_rgba(15,23,42,0.16)] max-[899px]:transition-opacity max-[899px]:duration-200 max-[899px]:[bottom:var(--homepage-workflow-dock-bottom)] max-[899px]:[top:calc(100svh-var(--homepage-workflow-dock-height)-var(--homepage-workflow-dock-bottom))] max-[899px]:data-[mobile-workflow-visible=false]:pointer-events-none max-[899px]:data-[mobile-workflow-visible=false]:opacity-0 min-[900px]:sticky min-[900px]:top-8 min-[900px]:order-2 min-[900px]:flex min-[900px]:min-h-[calc(100vh-4rem)] min-[900px]:items-center min-[900px]:overflow-visible"
               data-homepage-workflow-sticky-visual=""
-              data-mobile-workflow-visible={
-                mobileWorkflowVisualVisible ? "true" : "false"
-              }
+              data-mobile-workflow-visible={mobileWorkflowVisualVisible ? "true" : "false"}
               data-testid="homepage-workflow-sticky-visual"
               ref={workflowStickyVisualRef}
             >
@@ -655,9 +623,7 @@ function AgentChatMock({
 
         <div className="flex gap-3 bg-zinc-700/75 px-4 py-[0.45rem] text-slate-50 max-[899px]:gap-2 max-[899px]:px-3 max-[899px]:py-1.5">
           <span className="text-slate-400">›</span>
-          <span>
-            Let's make the homepage more persuasive. Write a plan first.
-          </span>
+          <span>Let's make the homepage more persuasive. Write a plan first.</span>
         </div>
 
         <div
@@ -669,8 +635,8 @@ function AgentChatMock({
           <div className="flex gap-3 px-4 text-slate-50 max-[899px]:px-3">
             <span className="mt-1 size-2 shrink-0 rounded-full bg-slate-100" />
             <span>
-              I'll inspect the current homepage, draft a Markdown plan, and open
-              it in Roughdraft for review before I code.
+              I'll inspect the current homepage, draft a Markdown plan, and open it in Roughdraft
+              for review before I code.
             </span>
           </div>
 
@@ -688,8 +654,8 @@ function AgentChatMock({
                   └
                 </span>
                 <span>
-                  <span className="text-teal-300">Search</span> rg "It's just
-                  Markdown" packages/app/src
+                  <span className="text-teal-300">Search</span> rg "It's just Markdown"
+                  packages/app/src
                 </span>
               </div>
               <div className="grid grid-cols-[0.8rem_minmax(0,1fr)] gap-x-1.5 text-slate-50 [overflow-wrap:anywhere]">
@@ -702,8 +668,7 @@ function AgentChatMock({
               <div className="grid grid-cols-[0.8rem_minmax(0,1fr)] gap-x-1.5 text-slate-50 [overflow-wrap:anywhere]">
                 <span className="font-bold text-slate-400" aria-hidden="true" />
                 <span>
-                  <span className="text-teal-300">Write</span>{" "}
-                  .context/homepage-conversion-plan.md
+                  <span className="text-teal-300">Write</span> .context/homepage-conversion-plan.md
                 </span>
               </div>
             </div>
@@ -728,8 +693,8 @@ function AgentChatMock({
         >
           <span className="mt-1 size-2 shrink-0 rounded-full bg-emerald-300" />
           <span>
-            I read your comments. I accepted your wording suggestion and moved
-            the workflow story above the Markdown section.
+            I read your comments. I accepted your wording suggestion and moved the workflow story
+            above the Markdown section.
           </span>
         </div>
 
@@ -740,10 +705,7 @@ function AgentChatMock({
           data-testid="homepage-workflow-terminal-input"
         >
           <span className="text-slate-100">›</span>
-          <span
-            className="inline-flex h-5 w-2.5 bg-slate-50"
-            aria-hidden="true"
-          />
+          <span className="inline-flex h-5 w-2.5 bg-slate-50" aria-hidden="true" />
         </div>
       </div>
     </div>
@@ -768,9 +730,7 @@ function RoughdraftPopupMock({ workflowStage }: { workflowStage: number }) {
       anchorBottom: number;
     }>
   >([]);
-  const [threadHeights, setThreadHeights] = useState<Record<string, number>>(
-    {},
-  );
+  const [threadHeights, setThreadHeights] = useState<Record<string, number>>({});
 
   const measureHomepageReviewLayout = useCallback(() => {
     const shellElement = documentShellRef.current;
@@ -784,16 +744,11 @@ function RoughdraftPopupMock({ workflowStage }: { workflowStage: number }) {
 
     const railRect = railElement.getBoundingClientRect();
     const measurementScale = getHomepageWorkflowDocumentScale(shellElement);
-    const anchorElements =
-      pageElement.querySelectorAll<HTMLElement>("[data-comment-ids]");
+    const anchorElements = pageElement.querySelectorAll<HTMLElement>("[data-comment-ids]");
 
     setCommentAnchorGroups(
       groupCommentAnchorMeasurements(
-        getCommentAnchorMeasurements(
-          anchorElements,
-          railRect.top,
-          measurementScale,
-        ),
+        getCommentAnchorMeasurements(anchorElements, railRect.top, measurementScale),
       ),
     );
   }, [showUserFeedback]);
@@ -827,16 +782,13 @@ function RoughdraftPopupMock({ workflowStage }: { workflowStage: number }) {
     };
   }, [measureHomepageReviewLayout, showUserFeedback]);
 
-  const setThreadRef = useCallback(
-    (key: string, node: HTMLDivElement | null) => {
-      if (node) {
-        threadRefs.current.set(key, node);
-      } else {
-        threadRefs.current.delete(key);
-      }
-    },
-    [],
-  );
+  const setThreadRef = useCallback((key: string, node: HTMLDivElement | null) => {
+    if (node) {
+      threadRefs.current.set(key, node);
+    } else {
+      threadRefs.current.delete(key);
+    }
+  }, []);
 
   useLayoutEffect(() => {
     if (!showUserFeedback) {
@@ -845,9 +797,7 @@ function RoughdraftPopupMock({ workflowStage }: { workflowStage: number }) {
     }
 
     const updateThreadHeights = () => {
-      const measurementScale = getHomepageWorkflowDocumentScale(
-        documentShellRef.current,
-      );
+      const measurementScale = getHomepageWorkflowDocumentScale(documentShellRef.current);
 
       setThreadHeights((current) => {
         const next: Record<string, number> = {};
@@ -855,23 +805,16 @@ function RoughdraftPopupMock({ workflowStage }: { workflowStage: number }) {
 
         for (const item of HOMEPAGE_WORKFLOW_REVIEW_ITEMS) {
           const element = threadRefs.current.get(item.key);
-          const measuredHeight = Math.ceil(
-            element?.getBoundingClientRect().height ?? 0,
-          );
+          const measuredHeight = Math.ceil(element?.getBoundingClientRect().height ?? 0);
           const height =
             measuredHeight > 0
-              ? Math.ceil(
-                  normalizeCommentMeasurement(measuredHeight, measurementScale),
-                )
+              ? Math.ceil(normalizeCommentMeasurement(measuredHeight, measurementScale))
               : (current[item.key] ?? 0);
           next[item.key] = height;
           changed ||= current[item.key] !== height;
         }
 
-        if (
-          !changed &&
-          Object.keys(current).length === Object.keys(next).length
-        ) {
+        if (!changed && Object.keys(current).length === Object.keys(next).length) {
           return current;
         }
 
@@ -898,9 +841,7 @@ function RoughdraftPopupMock({ workflowStage }: { workflowStage: number }) {
   const reviewLayouts = useMemo(() => {
     const railItems = HOMEPAGE_WORKFLOW_REVIEW_ITEMS.map((item) => {
       const anchorGroup = commentAnchorGroups.find((group) =>
-        item.commentIds.every((commentId) =>
-          group.commentIds.includes(commentId),
-        ),
+        item.commentIds.every((commentId) => group.commentIds.includes(commentId)),
       );
 
       if (!anchorGroup) return null;
@@ -958,9 +899,7 @@ function RoughdraftPopupMock({ workflowStage }: { workflowStage: number }) {
       </div>
       <div
         className="relative min-h-[28rem] overflow-hidden bg-stone-50 p-4 [--homepage-workflow-document-offset-y:0rem] [--homepage-workflow-document-scale:1] dark:bg-slate-900 min-[780px]:min-h-[25.5rem] min-[780px]:[--homepage-workflow-document-scale:0.6] max-[899px]:min-h-[14.5rem] max-[899px]:p-2.5 max-[899px]:[--homepage-workflow-document-offset-y:clamp(1rem,5svh,2.75rem)] max-[899px]:[--homepage-workflow-document-scale:0.66] max-[520px]:p-3 max-[520px]:[--homepage-workflow-document-scale:0.6]"
-        data-homepage-workflow-review-visible={
-          showUserFeedback ? "true" : "false"
-        }
+        data-homepage-workflow-review-visible={showUserFeedback ? "true" : "false"}
         data-testid="homepage-workflow-document-workspace"
       >
         <div
@@ -1043,12 +982,10 @@ function RoughdraftPopupMock({ workflowStage }: { workflowStage: number }) {
                   )}
                 </p>
                 <p className="m-0 mb-4 text-[clamp(0.95rem,2.25vw,1.12rem)] leading-[1.65] text-stone-700 dark:text-stone-300">
-                  Show the agent pause, the review window, and the resume
-                  signal.
+                  Show the agent pause, the review window, and the resume signal.
                 </p>
                 <p className="m-0 mb-4 text-[clamp(0.95rem,2.25vw,1.12rem)] leading-[1.65] text-stone-700 dark:text-stone-300">
-                  Keep the format section as proof that the review data is
-                  portable Markdown.
+                  Keep the format section as proof that the review data is portable Markdown.
                 </p>
                 {showUserFeedback ? (
                   <p className="m-0 mb-4 text-[clamp(0.95rem,2.25vw,1.12rem)] leading-[1.65] text-stone-700 dark:text-stone-300">
@@ -1107,9 +1044,7 @@ function RoughdraftPopupMock({ workflowStage }: { workflowStage: number }) {
                         <p
                           className="m-0 text-[0.8rem] leading-[1.65] text-stone-700 dark:text-stone-300"
                           data-testid={
-                            item.kind === "comment"
-                              ? "homepage-workflow-review-comment"
-                              : undefined
+                            item.kind === "comment" ? "homepage-workflow-review-comment" : undefined
                           }
                         >
                           {item.body}
@@ -1177,8 +1112,8 @@ export function RoughdraftFlavoredMarkdownPage() {
             Markdown with review comments and suggested changes
           </h1>
           <p className="mt-5 text-lg leading-8 text-stone-600 dark:text-stone-400">
-            Roughdraft Flavored Markdown is regular Markdown plus portable
-            review markup. It builds on{" "}
+            Roughdraft Flavored Markdown is regular Markdown plus portable review markup. It builds
+            on{" "}
             <a
               className="font-medium text-slate-950 dark:text-slate-50 underline decoration-slate-300 dark:decoration-slate-600 underline-offset-4 hover:decoration-slate-950 dark:hover:decoration-slate-50"
               href="https://criticmarkup.com/"
@@ -1197,36 +1132,34 @@ export function RoughdraftFlavoredMarkdownPage() {
               Notion-flavored Markdown
             </a>
             {", "}
-            so a person and a coding agent can review the same file without a
-            sidecar database or hosted document format.
+            so a person and a coding agent can review the same file without a sidecar database or
+            hosted document format.
           </p>
         </section>
 
         <section className="mt-10 grid gap-3 md:grid-cols-2">
-          {ROUGHDRAFT_MARKDOWN_REFERENCES.map(
-            ({ description, href, title }) => (
-              <a
-                className="group rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] transition hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)] dark:hover:shadow-[0_14px_34px_rgba(0,0,0,0.4)]"
-                href={href}
-                key={title}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-base font-semibold text-slate-950 dark:text-slate-50">
-                    {title}
-                  </h2>
-                  <ExternalLink
-                    className="size-4 text-stone-400 dark:text-stone-500 transition group-hover:text-stone-700 dark:group-hover:text-stone-300"
-                    aria-hidden="true"
-                  />
-                </div>
-                <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-400">
-                  {description}
-                </p>
-              </a>
-            ),
-          )}
+          {ROUGHDRAFT_MARKDOWN_REFERENCES.map(({ description, href, title }) => (
+            <a
+              className="group rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] transition hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)] dark:hover:shadow-[0_14px_34px_rgba(0,0,0,0.4)]"
+              href={href}
+              key={title}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-base font-semibold text-slate-950 dark:text-slate-50">
+                  {title}
+                </h2>
+                <ExternalLink
+                  className="size-4 text-stone-400 dark:text-stone-500 transition group-hover:text-stone-700 dark:group-hover:text-stone-300"
+                  aria-hidden="true"
+                />
+              </div>
+              <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-400">
+                {description}
+              </p>
+            </a>
+          ))}
         </section>
 
         <section className="mt-12 grid gap-4 md:grid-cols-3">
@@ -1276,11 +1209,10 @@ export function RoughdraftFlavoredMarkdownPage() {
               Review data lives where agents can inspect it
             </h2>
             <p className="mt-4 text-base leading-7 text-stone-600 dark:text-stone-400">
-              Roughdraft treats the Markdown file as the durable source of
-              truth. The rich editor can add affordances around the text, but
-              the saved representation needs to be readable in a terminal,
-              reviewable in git, and understandable to another agent without
-              loading Roughdraft.
+              Roughdraft treats the Markdown file as the durable source of truth. The rich editor
+              can add affordances around the text, but the saved representation needs to be readable
+              in a terminal, reviewable in git, and understandable to another agent without loading
+              Roughdraft.
             </p>
           </div>
 
@@ -1290,9 +1222,7 @@ export function RoughdraftFlavoredMarkdownPage() {
                 className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4"
                 key={title}
               >
-                <h3 className="text-sm font-semibold text-slate-950 dark:text-slate-50">
-                  {title}
-                </h3>
+                <h3 className="text-sm font-semibold text-slate-950 dark:text-slate-50">{title}</h3>
                 <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-400">
                   {description}
                 </p>
@@ -1310,39 +1240,36 @@ export function RoughdraftFlavoredMarkdownPage() {
               The review layer is small on purpose
             </h2>
             <p className="mt-4 text-base leading-7 text-stone-600 dark:text-stone-400">
-              Roughdraft uses CriticMarkup-compatible markers for comments,
-              highlights, insertions, deletions, and substitutions. Roughdraft
-              extends those markers with document-local metadata so review
-              threads, authorship, timestamps, and suggested-change discussions
+              Roughdraft uses CriticMarkup-compatible markers for comments, highlights, insertions,
+              deletions, and substitutions. Roughdraft extends those markers with document-local
+              metadata so review threads, authorship, timestamps, and suggested-change discussions
               can survive in the Markdown file itself.
             </p>
           </div>
 
           <div className="grid gap-3">
-            {ROUGHDRAFT_MARKDOWN_SYNTAX.map(
-              ({ description, label, syntax }) => (
-                <div
-                  className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4"
-                  key={label}
-                >
-                  <div className="flex items-center gap-2">
-                    <Braces
-                      className="size-4 text-stone-500 dark:text-stone-400"
-                      aria-hidden="true"
-                    />
-                    <h3 className="text-sm font-semibold text-slate-950 dark:text-slate-50">
-                      {label}
-                    </h3>
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-400">
-                    {description}
-                  </p>
-                  <code className="mt-3 block overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700 bg-[#FAFAF8] dark:bg-slate-800 px-3 py-2 text-xs text-stone-700 dark:text-stone-300">
-                    {syntax}
-                  </code>
+            {ROUGHDRAFT_MARKDOWN_SYNTAX.map(({ description, label, syntax }) => (
+              <div
+                className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4"
+                key={label}
+              >
+                <div className="flex items-center gap-2">
+                  <Braces
+                    className="size-4 text-stone-500 dark:text-stone-400"
+                    aria-hidden="true"
+                  />
+                  <h3 className="text-sm font-semibold text-slate-950 dark:text-slate-50">
+                    {label}
+                  </h3>
                 </div>
-              ),
-            )}
+                <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-400">
+                  {description}
+                </p>
+                <code className="mt-3 block overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700 bg-[#FAFAF8] dark:bg-slate-800 px-3 py-2 text-xs text-stone-700 dark:text-stone-300">
+                  {syntax}
+                </code>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -1355,9 +1282,9 @@ export function RoughdraftFlavoredMarkdownPage() {
               The extra fields make review state portable
             </h2>
             <p className="mt-4 text-base leading-7 text-stone-600 dark:text-stone-400">
-              Standard CriticMarkup captures the visible annotation. Roughdraft
-              keeps the same readable markers, adds compact inline references,
-              and stores review metadata in final YAML endmatter.
+              Standard CriticMarkup captures the visible annotation. Roughdraft keeps the same
+              readable markers, adds compact inline references, and stores review metadata in final
+              YAML endmatter.
             </p>
           </div>
 
@@ -1367,12 +1294,8 @@ export function RoughdraftFlavoredMarkdownPage() {
                 className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4"
                 key={title}
               >
-                <h3 className="text-sm font-semibold text-slate-950 dark:text-slate-50">
-                  {title}
-                </h3>
-                <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-400">
-                  {body}
-                </p>
+                <h3 className="text-sm font-semibold text-slate-950 dark:text-slate-50">{title}</h3>
+                <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-400">{body}</p>
               </div>
             ))}
           </div>
@@ -1383,10 +1306,9 @@ export function RoughdraftFlavoredMarkdownPage() {
             What this is not
           </h2>
           <p className="mt-4 text-base leading-7 text-stone-600 dark:text-stone-400">
-            It is not a new replacement for Markdown, and it is not a hidden app
-            state format. If Roughdraft adds review information, that
-            information should stay visible, portable, and understandable in the
-            Markdown file itself.
+            It is not a new replacement for Markdown, and it is not a hidden app state format. If
+            Roughdraft adds review information, that information should stay visible, portable, and
+            understandable in the Markdown file itself.
           </p>
         </section>
       </div>
@@ -1405,14 +1327,10 @@ function createPreviewPage(): Page {
 
 export function PreviewPage() {
   const [backend] = useState(() => new PreviewBackend(createPreviewPage()));
-  const [previewPage, setPreviewPage] = useState<Page>(() =>
-    backend.getCurrentPage(),
-  );
-  const [previewForceResetKey, setPreviewForceResetKey] = useState<
-    string | null
-  >(null);
-  const [editorViewMode, setEditorViewMode] = useState<DocumentEditorViewMode>(
-    () => getDocumentEditorViewModeFromLocation("rich-text"),
+  const [previewPage, setPreviewPage] = useState<Page>(() => backend.getCurrentPage());
+  const [previewForceResetKey, setPreviewForceResetKey] = useState<string | null>(null);
+  const [editorViewMode, setEditorViewMode] = useState<DocumentEditorViewMode>(() =>
+    getDocumentEditorViewModeFromLocation("rich-text"),
   );
   const [, setSaveState] = useState<DocumentSaveState>("saved");
 
@@ -1424,10 +1342,7 @@ export function PreviewPage() {
 
   const handleSaveDocument = useCallback(
     async (_id: string, content: string) => {
-      const savedPage = await backend.saveMarkdownFile(
-        PREVIEW_DOCUMENT_PATH,
-        content,
-      );
+      const savedPage = await backend.saveMarkdownFile(PREVIEW_DOCUMENT_PATH, content);
       setPreviewPage(savedPage);
     },
     [backend],
@@ -1487,13 +1402,10 @@ export function App() {
   const [activeDocumentPath, setActiveDocumentPath] = useState<string | null>(
     initialRequestedPathState.documentPath,
   );
-  const [documentSaveState, setDocumentSaveState] =
-    useState<DocumentSaveState>("saved");
+  const [documentSaveState, setDocumentSaveState] = useState<DocumentSaveState>("saved");
   const [documentDiskChangeState, setDocumentDiskChangeState] =
     useState<DocumentDiskChangeState>("clean");
-  const [documentForceResetKey, setDocumentForceResetKey] = useState<
-    string | null
-  >(null);
+  const [documentForceResetKey, setDocumentForceResetKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
@@ -1611,10 +1523,7 @@ export function App() {
           syncRequestedPathInUrl(requestedPathState.rawPath);
         }
 
-        if (
-          !requestedPathState.projectPath ||
-          !requestedPathState.documentPath
-        ) {
+        if (!requestedPathState.projectPath || !requestedPathState.documentPath) {
           setActiveDocumentPath(null);
           setLoadError("Roughdraft now opens one .md file at a time.");
           setLoading(false);
@@ -1684,9 +1593,7 @@ export function App() {
     async (id: string, content: string) => {
       if (!activeDocumentPath) return;
       const expectedVersion =
-        documentPageRef.current?.id === id
-          ? documentPageRef.current.version
-          : undefined;
+        documentPageRef.current?.id === id ? documentPageRef.current.version : undefined;
 
       let savedDocument: Page | undefined;
       try {
@@ -1723,13 +1630,10 @@ export function App() {
     documentDirtyRef.current = isDirty;
   }, []);
 
-  const handleDocumentSaveStateChange = useCallback(
-    (state: DocumentSaveState) => {
-      documentSaveStateRef.current = state;
-      setDocumentSaveState(state);
-    },
-    [],
-  );
+  const handleDocumentSaveStateChange = useCallback((state: DocumentSaveState) => {
+    documentSaveStateRef.current = state;
+    setDocumentSaveState(state);
+  }, []);
 
   const handleDocumentLocalContentChange = useCallback((markdown: string) => {
     documentDraftContentRef.current = markdown;
@@ -1765,9 +1669,7 @@ export function App() {
     applyDocumentPage(nextDocument);
     documentDirtyRef.current = false;
     setDocumentDiskChangeState("clean");
-    setDocumentForceResetKey(
-      `${currentPath}:${nextDocument.version ?? Date.now()}`,
-    );
+    setDocumentForceResetKey(`${currentPath}:${nextDocument.version ?? Date.now()}`);
   }, [applyDocumentPage]);
 
   const handleKeepEditingWithoutAutosave = useCallback(() => {
@@ -1782,13 +1684,9 @@ export function App() {
 
     const content = documentDraftContentRef.current ?? currentDocument.content;
     const firstLine = content.split("\n")[0] || "";
-    const fallbackTitle =
-      currentDocument.id.split("/").at(-1) || currentDocument.id;
+    const fallbackTitle = currentDocument.id.split("/").at(-1) || currentDocument.id;
     const title = firstLine.replace(/^#*\s*/, "") || fallbackTitle;
-    const savedDocument = (await currentBackend.saveMarkdownFile(
-      currentPath,
-      content,
-    )) ?? {
+    const savedDocument = (await currentBackend.saveMarkdownFile(currentPath, content)) ?? {
       ...currentDocument,
       content,
       title,
@@ -1798,9 +1696,7 @@ export function App() {
     documentDirtyRef.current = false;
     handleDocumentSaveStateChange("saved");
     setDocumentDiskChangeState("clean");
-    setDocumentForceResetKey(
-      `${currentPath}:${savedDocument.version ?? Date.now()}:overwrite`,
-    );
+    setDocumentForceResetKey(`${currentPath}:${savedDocument.version ?? Date.now()}:overwrite`);
   }, [applyDocumentPage, handleDocumentSaveStateChange]);
 
   const handleCompleteReview = useCallback(
@@ -1812,12 +1708,10 @@ export function App() {
         return { delivered: false };
       }
 
-      const content =
-        documentDraftContentRef.current ?? currentDocument.content;
+      const content = documentDraftContentRef.current ?? currentDocument.content;
       const expectedVersion = currentDocument.version;
       const firstLine = content.split("\n")[0] || "";
-      const fallbackTitle =
-        currentDocument.id.split("/").at(-1) || currentDocument.id;
+      const fallbackTitle = currentDocument.id.split("/").at(-1) || currentDocument.id;
       const title = firstLine.replace(/^#*\s*/, "") || fallbackTitle;
 
       const savedDocument = (await currentBackend.saveMarkdownFile(
@@ -1845,47 +1739,43 @@ export function App() {
     if (!backend?.watchMarkdownFile || !activeDocumentPath) return;
 
     let disposed = false;
-    const stopWatching = backend.watchMarkdownFile(
-      activeDocumentPath,
-      (event) => {
-        if (disposed || event.path !== activeDocumentPath) return;
+    const stopWatching = backend.watchMarkdownFile(activeDocumentPath, (event) => {
+      if (disposed || event.path !== activeDocumentPath) return;
 
-        const currentDocument = documentPageRef.current;
-        if (event.version && currentDocument?.version === event.version) {
-          return;
+      const currentDocument = documentPageRef.current;
+      if (event.version && currentDocument?.version === event.version) {
+        return;
+      }
+
+      if (!event.exists) {
+        setDocumentDiskChangeState("changed");
+        return;
+      }
+
+      if (documentDiskChangeState === "paused") {
+        return;
+      }
+
+      if (documentDirtyRef.current) {
+        setDocumentDiskChangeState("changed");
+        return;
+      }
+
+      void (async () => {
+        const currentBackend = backendRef.current;
+        const currentPath = activeDocumentPathRef.current;
+        if (!currentBackend || !currentPath || disposed) return;
+
+        try {
+          const nextDocument = await currentBackend.getMarkdownFile(currentPath);
+          if (disposed) return;
+          applyDocumentPage(nextDocument);
+          setDocumentDiskChangeState("clean");
+        } catch (error) {
+          console.error("Failed to reload changed markdown file:", error);
         }
-
-        if (!event.exists) {
-          setDocumentDiskChangeState("changed");
-          return;
-        }
-
-        if (documentDiskChangeState === "paused") {
-          return;
-        }
-
-        if (documentDirtyRef.current) {
-          setDocumentDiskChangeState("changed");
-          return;
-        }
-
-        void (async () => {
-          const currentBackend = backendRef.current;
-          const currentPath = activeDocumentPathRef.current;
-          if (!currentBackend || !currentPath || disposed) return;
-
-          try {
-            const nextDocument =
-              await currentBackend.getMarkdownFile(currentPath);
-            if (disposed) return;
-            applyDocumentPage(nextDocument);
-            setDocumentDiskChangeState("clean");
-          } catch (error) {
-            console.error("Failed to reload changed markdown file:", error);
-          }
-        })();
-      },
-    );
+      })();
+    });
 
     return () => {
       disposed = true;
@@ -1893,28 +1783,16 @@ export function App() {
     };
   }, [activeDocumentPath, applyDocumentPage, backend, documentDiskChangeState]);
 
-  const handleDocumentEditorViewModeChange = useCallback(
-    (nextMode: DocumentEditorViewMode) => {
-      setDocumentEditorViewMode((current) => {
-        if (nextMode === current) return current;
-        window.history.replaceState(
-          null,
-          "",
-          buildLocationForDocumentEditorViewMode(nextMode),
-        );
-        return nextMode;
-      });
-    },
-    [],
-  );
+  const handleDocumentEditorViewModeChange = useCallback((nextMode: DocumentEditorViewMode) => {
+    setDocumentEditorViewMode((current) => {
+      if (nextMode === current) return current;
+      window.history.replaceState(null, "", buildLocationForDocumentEditorViewMode(nextMode));
+      return nextMode;
+    });
+  }, []);
 
   if (loading) {
-    return (
-      <div
-        className="h-screen bg-[#FCFCFC] dark:bg-background"
-        aria-hidden="true"
-      />
-    );
+    return <div className="h-screen bg-[#FCFCFC] dark:bg-background" aria-hidden="true" />;
   }
 
   if (isRoughdraftFlavoredMarkdownRoute) {
@@ -1934,12 +1812,7 @@ export function App() {
   }
 
   if (!requestedPathState.rawPath || loadError) {
-    return (
-      <Homepage
-        message={loadError ?? <HomepageSubtitle />}
-        updateStatus={updateStatus}
-      />
-    );
+    return <Homepage message={loadError ?? <HomepageSubtitle />} updateStatus={updateStatus} />;
   }
 
   const documentAbsolutePath =

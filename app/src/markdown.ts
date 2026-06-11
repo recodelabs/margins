@@ -57,13 +57,10 @@ function createRawMarkdownBlock(markdown: string): string {
 
 function protectRawHtmlBlocks(markdown: string): string {
   return markdown
-    .replace(
-      /^[ \t]*<details\b[\s\S]*?<\/details>[ \t]*(?:\r?\n|$)/gim,
-      (raw) => createRawMarkdownBlock(raw),
-    )
-    .replace(/^[ \t]*<!--[\s\S]*?-->[ \t]*(?:\r?\n|$)/gm, (raw) =>
+    .replace(/^[ \t]*<details\b[\s\S]*?<\/details>[ \t]*(?:\r?\n|$)/gim, (raw) =>
       createRawMarkdownBlock(raw),
-    );
+    )
+    .replace(/^[ \t]*<!--[\s\S]*?-->[ \t]*(?:\r?\n|$)/gm, (raw) => createRawMarkdownBlock(raw));
 }
 
 function protectIndentedCodeAfterLists(markdown: string): string {
@@ -113,9 +110,7 @@ function protectPipeSensitiveTables(markdown: string): string {
 }
 
 export function protectRichTextRoundTripMarkdown(markdown: string): string {
-  return protectPipeSensitiveTables(
-    protectIndentedCodeAfterLists(protectRawHtmlBlocks(markdown)),
-  );
+  return protectPipeSensitiveTables(protectIndentedCodeAfterLists(protectRawHtmlBlocks(markdown)));
 }
 
 function normalizeMarkdownPath(path: string): string {
@@ -124,11 +119,7 @@ function normalizeMarkdownPath(path: string): string {
 }
 
 function tableHasUnsupportedMarkdownContent(table: HTMLTableElement): boolean {
-  return Boolean(
-    table.querySelector(
-      "blockquote, h1, h2, h3, h4, h5, h6, hr, ol, pre, table, ul",
-    ),
-  );
+  return Boolean(table.querySelector("blockquote, h1, h2, h3, h4, h5, h6, hr, ol, pre, table, ul"));
 }
 
 function getFirstTableRow(table: HTMLTableElement): HTMLTableRowElement | null {
@@ -146,11 +137,7 @@ function isMarkdownTableDivider(line: string | undefined): boolean {
 }
 
 function markdownTableDividerForCell(cell: HTMLTableCellElement): string {
-  const alignment = (
-    cell.getAttribute("align") ||
-    cell.style.textAlign ||
-    ""
-  ).toLowerCase();
+  const alignment = (cell.getAttribute("align") || cell.style.textAlign || "").toLowerCase();
 
   if (alignment === "left") return ":---";
   if (alignment === "right") return "---:";
@@ -164,10 +151,7 @@ function markdownTableDividerForRow(row: HTMLTableRowElement): string {
   return `| ${dividers.join(" | ")} |`;
 }
 
-function resolveRenderedUrl(
-  path: string,
-  resolveFileUrl?: MarkdownOptions["resolveFileUrl"],
-) {
+function resolveRenderedUrl(path: string, resolveFileUrl?: MarkdownOptions["resolveFileUrl"]) {
   if (isExternalUrl(path) || isInPageAnchor(path)) return path;
   return resolveFileUrl?.(path) ?? path;
 }
@@ -210,10 +194,7 @@ function isRoughdraftReviewEndmatter(endmatter: string): boolean {
   }
 
   const record = parsed as Record<string, unknown>;
-  return (
-    isReviewEndmatterMap(record.comments) ||
-    isReviewEndmatterMap(record.suggestions)
-  );
+  return isReviewEndmatterMap(record.comments) || isReviewEndmatterMap(record.suggestions);
 }
 
 export function splitYamlFrontmatter(markdown: string): YamlFrontmatterSplit {
@@ -225,18 +206,14 @@ export function splitYamlFrontmatter(markdown: string): YamlFrontmatterSplit {
   while (lineStart < markdown.length) {
     const nextLineBreak = markdown.indexOf("\n", lineStart);
     const lineEnd = nextLineBreak === -1 ? markdown.length : nextLineBreak + 1;
-    const line = markdown.slice(
-      lineStart,
-      nextLineBreak === -1 ? lineEnd : lineEnd - 1,
-    );
+    const line = markdown.slice(lineStart, nextLineBreak === -1 ? lineEnd : lineEnd - 1);
 
     if (isYamlFrontmatterDelimiter(line)) {
       let bodyStart = lineEnd;
 
       while (bodyStart < markdown.length) {
         const blankLineBreak = markdown.indexOf("\n", bodyStart);
-        const blankLineEnd =
-          blankLineBreak === -1 ? markdown.length : blankLineBreak + 1;
+        const blankLineEnd = blankLineBreak === -1 ? markdown.length : blankLineBreak + 1;
         const blankLine = markdown.slice(
           bodyStart,
           blankLineBreak === -1 ? blankLineEnd : blankLineEnd - 1,
@@ -258,16 +235,11 @@ export function splitYamlFrontmatter(markdown: string): YamlFrontmatterSplit {
   return { frontmatter: null, body: markdown };
 }
 
-export function prependYamlFrontmatter(
-  markdown: string,
-  frontmatter?: string | null,
-): string {
+export function prependYamlFrontmatter(markdown: string, frontmatter?: string | null): string {
   return frontmatter ? `${frontmatter}${markdown}` : markdown;
 }
 
-export function splitYamlDocumentMetadata(
-  markdown: string,
-): YamlDocumentMetadataSplit {
+export function splitYamlDocumentMetadata(markdown: string): YamlDocumentMetadataSplit {
   const { frontmatter, body } = splitYamlFrontmatter(markdown);
   const matches = [...body.matchAll(/\n---[ \t]*\r?\n/g)];
   const match = matches.at(-1);
@@ -298,13 +270,8 @@ export function splitYamlDocumentMetadata(
   };
 }
 
-export function appendYamlEndmatter(
-  markdown: string,
-  endmatter?: string | null,
-): string {
-  return endmatter
-    ? `${markdown.replace(/\s*$/, "\n")}\n${endmatter}`
-    : markdown;
+export function appendYamlEndmatter(markdown: string, endmatter?: string | null): string {
+  return endmatter ? `${markdown.replace(/\s*$/, "\n")}\n${endmatter}` : markdown;
 }
 
 export function createMarkedRenderer(options?: MarkdownOptions) {
@@ -316,9 +283,7 @@ export function createMarkedRenderer(options?: MarkdownOptions) {
   renderer.code = ({ text, lang, escaped }) => {
     const language = (lang || "").match(/\S+/)?.[0];
     const content = escaped ? text : escapeHtml(text);
-    const classAttr = language
-      ? ` class="language-${escapeHtml(language)}"`
-      : "";
+    const classAttr = language ? ` class="language-${escapeHtml(language)}"` : "";
 
     return `<pre><code${classAttr}>${content}</code></pre>\n`;
   };
@@ -333,9 +298,7 @@ export function createMarkedRenderer(options?: MarkdownOptions) {
     const titleAttr = title ? ` title="${escapeHtml(title)}"` : "";
     const markdownSrcAttr = ` data-markdown-src="${escapeHtml(rawHref)}"`;
     const autolinkAttr =
-      !title && raw?.startsWith("<") && raw.endsWith(">")
-        ? ' data-markdown-autolink="true"'
-        : "";
+      !title && raw?.startsWith("<") && raw.endsWith(">") ? ' data-markdown-autolink="true"' : "";
     const externalAttr =
       isExternalUrl(rawHref) && !rawHref.startsWith("mailto:")
         ? ' target="_blank" rel="noreferrer noopener"'
@@ -388,9 +351,7 @@ export function createTurndownService(): TurndownService {
         ).trimEnd()}\n\n`;
       }
 
-      return (node as HTMLElement & { isBlock?: boolean }).isBlock
-        ? "\n\n"
-        : "";
+      return (node as HTMLElement & { isBlock?: boolean }).isBlock ? "\n\n" : "";
     },
   });
 
@@ -400,10 +361,7 @@ export function createTurndownService(): TurndownService {
   service.addRule("compactListItem", {
     filter: "li",
     replacement(content, node, options) {
-      const trimmed = content
-        .replace(/^\n+/, "")
-        .replace(/\n+$/, "\n")
-        .replace(/\n/gm, "\n  ");
+      const trimmed = content.replace(/^\n+/, "").replace(/\n+$/, "\n").replace(/\n/gm, "\n  ");
 
       let prefix = `${options.bulletListMarker} `;
       const parent = node.parentNode;
@@ -413,11 +371,7 @@ export function createTurndownService(): TurndownService {
         prefix = `${start ? Number(start) + index : index + 1}. `;
       }
 
-      return (
-        prefix +
-        trimmed +
-        (node.nextSibling && !/\n$/.test(trimmed) ? "\n" : "")
-      );
+      return prefix + trimmed + (node.nextSibling && !/\n$/.test(trimmed) ? "\n" : "");
     },
   });
 
@@ -427,8 +381,7 @@ export function createTurndownService(): TurndownService {
 
       const table = node as HTMLTableElement;
       return (
-        !tableHasUnsupportedMarkdownContent(table) &&
-        isHeaderTableRow(getFirstTableRow(table))
+        !tableHasUnsupportedMarkdownContent(table) && isHeaderTableRow(getFirstTableRow(table))
       );
     },
     replacement(content, node) {
@@ -457,23 +410,15 @@ export function createTurndownService(): TurndownService {
     filter: "a",
     replacement(content, node) {
       const element = node as HTMLAnchorElement;
-      const href =
-        element.getAttribute("data-markdown-src") ||
-        element.getAttribute("href") ||
-        "";
+      const href = element.getAttribute("data-markdown-src") || element.getAttribute("href") || "";
       const normalizedHref =
-        isExternalUrl(href) || isInPageAnchor(href)
-          ? href
-          : normalizeMarkdownPath(href);
+        isExternalUrl(href) || isInPageAnchor(href) ? href : normalizeMarkdownPath(href);
       const title = element.getAttribute("title");
       const titleMarkdown = title
         ? ` "${title.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`
         : "";
 
-      if (
-        element.getAttribute("data-markdown-autolink") === "true" &&
-        !titleMarkdown
-      ) {
+      if (element.getAttribute("data-markdown-autolink") === "true" && !titleMarkdown) {
         return href.startsWith("mailto:")
           ? `<${href.slice("mailto:".length)}>`
           : `<${normalizedHref}>`;
@@ -487,13 +432,8 @@ export function createTurndownService(): TurndownService {
     filter: "img",
     replacement(_content, node) {
       const element = node as HTMLImageElement;
-      const src =
-        element.getAttribute("data-markdown-src") ||
-        element.getAttribute("src") ||
-        "";
-      const normalizedSrc = isExternalUrl(src)
-        ? src
-        : normalizeMarkdownPath(src);
+      const src = element.getAttribute("data-markdown-src") || element.getAttribute("src") || "";
+      const normalizedSrc = isExternalUrl(src) ? src : normalizeMarkdownPath(src);
       const alt = element.getAttribute("alt") || "";
       const title = element.getAttribute("title");
       const titleMarkdown = title
@@ -505,9 +445,7 @@ export function createTurndownService(): TurndownService {
 
   service.addRule("markdownStrikethrough", {
     filter: (node) =>
-      node.nodeName === "DEL" ||
-      node.nodeName === "S" ||
-      node.nodeName === "STRIKE",
+      node.nodeName === "DEL" || node.nodeName === "S" || node.nodeName === "STRIKE",
     replacement(content) {
       return `~~${content}~~`;
     },
@@ -515,11 +453,9 @@ export function createTurndownService(): TurndownService {
 
   service.addRule("rawMarkdownBlock", {
     filter: (node) =>
-      node.nodeType === 1 &&
-      (node as HTMLElement).hasAttribute(rawMarkdownBlockAttribute),
+      node.nodeType === 1 && (node as HTMLElement).hasAttribute(rawMarkdownBlockAttribute),
     replacement(_content, node) {
-      const encoded =
-        (node as HTMLElement).getAttribute(rawMarkdownBlockAttribute) ?? "";
+      const encoded = (node as HTMLElement).getAttribute(rawMarkdownBlockAttribute) ?? "";
       return `\n\n${decodeRawMarkdownBlock(encoded).trimEnd()}\n\n`;
     },
   });

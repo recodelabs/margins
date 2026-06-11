@@ -17,11 +17,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { DocumentEditorViewMode } from "./app-navigation";
 import { RemoteSessionBanner } from "./components/RemoteSessionBanner";
 import { Button } from "./components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "./components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -30,15 +26,12 @@ import {
   SelectTrigger,
 } from "./components/ui/select";
 import { Textarea } from "./components/ui/textarea";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "./components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./components/ui/tooltip";
 import { criticMarkdownHasReviewRail } from "./critic-markup";
+import { gitHubHref } from "./github-route";
 import { cn } from "./lib/utils";
-import { toHtml } from "./markdown";
 import { MermaidOverlays } from "./MermaidOverlays";
+import { toHtml } from "./markdown";
 import {
   type DocumentInteractionMode,
   type DocumentSaveController,
@@ -46,15 +39,9 @@ import {
   PageCard,
 } from "./PageCard";
 import type { CompleteReviewOptions, Page, StorageBackend } from "./storage";
-import { gitHubHref } from "./github-route";
 
 type DiskChangeState = "clean" | "changed" | "conflict" | "paused";
-type ReviewHandoffState =
-  | "idle"
-  | "notifying"
-  | "notified"
-  | "undelivered"
-  | "error";
+type ReviewHandoffState = "idle" | "notifying" | "notified" | "undelivered" | "error";
 type FileCopyAction = "path" | "filename" | "markdown" | "rich-text";
 
 const documentInteractionModeOptions = [
@@ -120,10 +107,7 @@ async function writeRichTextToClipboard(markdown: string) {
   await writePlainTextToClipboard(markdown);
 }
 
-function getSaveStatusViewModel(
-  saveState: DocumentSaveState,
-  diskChangeState: DiskChangeState,
-) {
+function getSaveStatusViewModel(saveState: DocumentSaveState, diskChangeState: DiskChangeState) {
   if (diskChangeState === "conflict") {
     return {
       label: "Save conflict",
@@ -211,8 +195,7 @@ export function DocumentSaveStatusIndicator({
         data-testid="document-save-status-icon"
         className={cn(
           "size-3.5 shrink-0",
-          (saveStatus.label === "Saving" ||
-            saveStatus.label === "Unsaved changes") &&
+          (saveStatus.label === "Saving" || saveStatus.label === "Unsaved changes") &&
             "animate-spin",
           saveStatus.label === "Saved" && "document-save-status-saved",
         )}
@@ -236,9 +219,7 @@ export function isReviewHandoffDisabled({
   // autosave debounces. Instead the button stays enabled and flushes the
   // pending save on click, so the agent still receives the latest content.
   return (
-    saveState === "error" ||
-    reviewHandoffState !== "idle" ||
-    documentDiskChangeState !== "clean"
+    saveState === "error" || reviewHandoffState !== "idle" || documentDiskChangeState !== "clean"
   );
 }
 
@@ -264,9 +245,7 @@ interface DocumentWorkspaceProps {
   onReloadDocumentFromDisk: () => void | Promise<void>;
   onKeepEditingWithoutAutosave: () => void;
   onOverwriteDocumentOnDisk: () => void | Promise<void>;
-  onCompleteReview: (
-    options?: CompleteReviewOptions,
-  ) => Promise<{ delivered: boolean }>;
+  onCompleteReview: (options?: CompleteReviewOptions) => Promise<{ delivered: boolean }>;
   backend: StorageBackend | null;
   manualCommit?: boolean;
   githubNav?: GitHubDocNav | null;
@@ -295,20 +274,16 @@ export function DocumentWorkspace({
   const [documentInteractionMode, setDocumentInteractionMode] =
     useState<DocumentInteractionMode>("editing");
   const [saveState, setSaveState] = useState<DocumentSaveState>("saved");
-  const [reviewHandoffState, setReviewHandoffState] =
-    useState<ReviewHandoffState>("idle");
+  const [reviewHandoffState, setReviewHandoffState] = useState<ReviewHandoffState>("idle");
   const [reviewWatcherCount, setReviewWatcherCount] = useState(0);
-  const [reviewHandoffPopoverOpen, setReviewHandoffPopoverOpen] =
-    useState(false);
+  const [reviewHandoffPopoverOpen, setReviewHandoffPopoverOpen] = useState(false);
   const [fileCopyMenuOpen, setFileCopyMenuOpen] = useState(false);
-  const [copiedFileAction, setCopiedFileAction] =
-    useState<FileCopyAction | null>(null);
+  const [copiedFileAction, setCopiedFileAction] = useState<FileCopyAction | null>(null);
   const [overallComment, setOverallComment] = useState("");
   const sawNoWatcherAfterNotifiedRef = useRef(false);
   const saveControllerRef = useRef<DocumentSaveController | null>(null);
   const commitShortcutHint =
-    typeof navigator !== "undefined" &&
-    /Mac|iPhone|iPad/.test(navigator.userAgent)
+    typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent)
       ? "⌘S"
       : "Ctrl+S";
 
@@ -321,15 +296,12 @@ export function DocumentWorkspace({
   );
 
   const [documentHasComments, setDocumentHasComments] = useState(
-    () =>
-      !!documentPage?.content &&
-      criticMarkdownHasReviewRail(documentPage.content),
+    () => !!documentPage?.content && criticMarkdownHasReviewRail(documentPage.content),
   );
 
   useEffect(() => {
     setDocumentHasComments(
-      !!documentPage?.content &&
-        criticMarkdownHasReviewRail(documentPage.content),
+      !!documentPage?.content && criticMarkdownHasReviewRail(documentPage.content),
     );
   }, [documentPage?.content]);
 
@@ -394,9 +366,7 @@ export function DocumentWorkspace({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       const isSaveShortcut =
-        event.key.toLowerCase() === "s" &&
-        (event.metaKey || event.ctrlKey) &&
-        !event.altKey;
+        event.key.toLowerCase() === "s" && (event.metaKey || event.ctrlKey) && !event.altKey;
 
       if (!isSaveShortcut) return;
 
@@ -451,10 +421,7 @@ export function DocumentWorkspace({
     async (action: FileCopyAction) => {
       if (!documentPage) return;
 
-      const copyTextByAction: Record<
-        Exclude<FileCopyAction, "rich-text">,
-        string
-      > = {
+      const copyTextByAction: Record<Exclude<FileCopyAction, "rich-text">, string> = {
         path: activeDocumentPath ?? documentFilenameLabel,
         filename: documentFilenameLabel,
         markdown: documentPage.content,
@@ -478,21 +445,15 @@ export function DocumentWorkspace({
   );
 
   const editorViewModeToggleLabel =
-    documentEditorViewMode === "rich-text"
-      ? "Switch to code view"
-      : "Switch to rich text view";
+    documentEditorViewMode === "rich-text" ? "Switch to code view" : "Switch to rich text view";
   const activeDocumentInteractionMode = documentInteractionModeOptions.find(
     (option) => option.value === documentInteractionMode,
   );
-  const ActiveDocumentInteractionModeIcon =
-    activeDocumentInteractionMode?.Icon ?? PencilLine;
+  const ActiveDocumentInteractionModeIcon = activeDocumentInteractionMode?.Icon ?? PencilLine;
   const conflictNotice =
-    documentDiskChangeState === "clean"
-      ? null
-      : conflictNoticeCopy[documentDiskChangeState];
+    documentDiskChangeState === "clean" ? null : conflictNoticeCopy[documentDiskChangeState];
   const showReviewHandoffButton =
-    !!activeDocumentPath &&
-    (reviewWatcherCount > 0 || reviewHandoffState !== "idle");
+    !!activeDocumentPath && (reviewWatcherCount > 0 || reviewHandoffState !== "idle");
   const reviewHandoffButtonLabel =
     reviewHandoffState === "notifying"
       ? "Sending"
@@ -648,10 +609,7 @@ export function DocumentWorkspace({
       >
         <div className="flex max-w-full items-center justify-end gap-1.5">
           {showReviewHandoffButton ? (
-            <Popover
-              open={reviewHandoffPopoverOpen}
-              onOpenChange={setReviewHandoffPopoverOpen}
-            >
+            <Popover open={reviewHandoffPopoverOpen} onOpenChange={setReviewHandoffPopoverOpen}>
               <div className="relative flex items-center overflow-hidden rounded-[7px] shadow-[0_10px_28px_rgba(0,0,0,0.18)] after:pointer-events-none after:absolute after:top-px after:right-8 after:bottom-px after:z-10 after:w-px after:bg-[#444] after:content-[''] dark:after:bg-[#444]">
                 <Button
                   type="button"
@@ -661,18 +619,13 @@ export function DocumentWorkspace({
                   disabled={reviewHandoffDisabled}
                   onClick={() =>
                     void handleCompleteReview(
-                      trimmedOverallComment
-                        ? { overallComment: trimmedOverallComment }
-                        : undefined,
+                      trimmedOverallComment ? { overallComment: trimmedOverallComment } : undefined,
                     )
                   }
                 >
                   {ReviewHandoffButtonIcon ? (
                     <ReviewHandoffButtonIcon
-                      className={cn(
-                        "size-4",
-                        reviewHandoffState === "notifying" && "animate-spin",
-                      )}
+                      className={cn("size-4", reviewHandoffState === "notifying" && "animate-spin")}
                     />
                   ) : null}
                   {reviewHandoffButtonLabel}
@@ -694,9 +647,7 @@ export function DocumentWorkspace({
               </div>
               <PopoverContent
                 aria-label={
-                  reviewHandoffState === "idle"
-                    ? "Review handoff comment"
-                    : "Review handoff status"
+                  reviewHandoffState === "idle" ? "Review handoff comment" : "Review handoff status"
                 }
                 data-testid={
                   reviewHandoffState === "idle"
@@ -721,9 +672,7 @@ export function DocumentWorkspace({
                         aria-label="Overall comment"
                         placeholder="Overall comment"
                         value={overallComment}
-                        onChange={(event) =>
-                          setOverallComment(event.currentTarget.value)
-                        }
+                        onChange={(event) => setOverallComment(event.currentTarget.value)}
                         maxLength={4000}
                         rows={4}
                         className="min-h-24 resize-y"
@@ -745,8 +694,7 @@ export function DocumentWorkspace({
                     <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-black text-white dark:bg-white dark:text-black">
                       {reviewHandoffState === "notifying" ? (
                         <Loader2 className="size-4 animate-spin" />
-                      ) : reviewHandoffState === "error" ||
-                        reviewHandoffState === "undelivered" ? (
+                      ) : reviewHandoffState === "error" || reviewHandoffState === "undelivered" ? (
                         <AlertTriangle className="size-4" />
                       ) : (
                         <CheckCheck className="size-4" />
@@ -780,9 +728,7 @@ export function DocumentWorkspace({
               aria-hidden="true"
             />
             <div className="min-w-0">
-              <div className="text-sm font-semibold leading-5">
-                {conflictNotice.title}
-              </div>
+              <div className="text-sm font-semibold leading-5">{conflictNotice.title}</div>
               <div className="mt-0.5 text-xs leading-5 text-amber-900 dark:text-amber-200">
                 {conflictNotice.body}
               </div>
@@ -870,18 +816,13 @@ export function DocumentWorkspace({
                     aria-label={editorViewModeToggleLabel}
                     onClick={() =>
                       onDocumentEditorViewModeChange(
-                        documentEditorViewMode === "rich-text"
-                          ? "code"
-                          : "rich-text",
+                        documentEditorViewMode === "rich-text" ? "code" : "rich-text",
                       )
                     }
                   />
                   <TooltipContent>{editorViewModeToggleLabel}</TooltipContent>
                 </Tooltip>
-                <Popover
-                  open={fileCopyMenuOpen}
-                  onOpenChange={setFileCopyMenuOpen}
-                >
+                <Popover open={fileCopyMenuOpen} onOpenChange={setFileCopyMenuOpen}>
                   <PopoverTrigger
                     render={
                       <button
@@ -891,13 +832,8 @@ export function DocumentWorkspace({
                         title={documentFilenameLabel}
                         aria-label="Document file actions"
                       >
-                        <span className="min-w-0 truncate">
-                          {documentFilenameLabel}
-                        </span>
-                        <ChevronDown
-                          className="size-[0.62rem] shrink-0"
-                          aria-hidden="true"
-                        />
+                        <span className="min-w-0 truncate">{documentFilenameLabel}</span>
+                        <ChevronDown className="size-[0.62rem] shrink-0" aria-hidden="true" />
                       </button>
                     }
                   />
@@ -947,19 +883,15 @@ export function DocumentWorkspace({
                       className="h-[1.5rem] px-1 font-mono text-[0.7rem] leading-[1.25rem] font-normal tracking-[0.01em] text-stone-400 dark:text-stone-500 hover:text-stone-500 dark:hover:text-stone-400"
                     >
                       <ActiveDocumentInteractionModeIcon className="size-[0.68rem]" />
-                      <span className="truncate">
-                        {activeDocumentInteractionMode?.label}
-                      </span>
+                      <span className="truncate">{activeDocumentInteractionMode?.label}</span>
                     </SelectTrigger>
                     <SelectContent>
-                      {documentInteractionModeOptions.map(
-                        ({ value, label, Icon }) => (
-                          <SelectItem key={value} value={value} label={label}>
-                            <Icon className="size-3 text-stone-500 dark:text-stone-400" />
-                            <SelectItemText>{label}</SelectItemText>
-                          </SelectItem>
-                        ),
-                      )}
+                      {documentInteractionModeOptions.map(({ value, label, Icon }) => (
+                        <SelectItem key={value} value={value} label={label}>
+                          <Icon className="size-3 text-stone-500 dark:text-stone-400" />
+                          <SelectItemText>{label}</SelectItemText>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -996,9 +928,7 @@ export function DocumentWorkspace({
                 forceResetKey={documentForceResetKey}
                 manualCommit={manualCommit}
               />
-              <MermaidOverlays
-                key={`mermaid:${documentPage.id}:${activeDocumentPath ?? ""}`}
-              />
+              <MermaidOverlays key={`mermaid:${documentPage.id}:${activeDocumentPath ?? ""}`} />
             </>
           ) : null
         ) : (

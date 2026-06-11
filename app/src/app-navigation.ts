@@ -5,8 +5,7 @@ interface RequestedPathState {
 }
 
 export type DocumentEditorViewMode = "rich-text" | "code";
-export const ROUGHDRAFT_FLAVORED_MARKDOWN_PATH =
-  "/roughdraft-flavored-markdown";
+export const ROUGHDRAFT_FLAVORED_MARKDOWN_PATH = "/roughdraft-flavored-markdown";
 export const PREVIEW_PATH = "/preview";
 
 function normalizePathSeparators(value: string) {
@@ -15,9 +14,7 @@ function normalizePathSeparators(value: string) {
 
 export function isReservedAppPath(pathname: string) {
   const normalizedPathname = normalizePathSeparators(pathname);
-  return [ROUGHDRAFT_FLAVORED_MARKDOWN_PATH, PREVIEW_PATH].includes(
-    normalizedPathname,
-  );
+  return [ROUGHDRAFT_FLAVORED_MARKDOWN_PATH, PREVIEW_PATH].includes(normalizedPathname);
 }
 
 function getRawPathFromLocation(): string | null {
@@ -30,9 +27,7 @@ function getRawPathFromLocation(): string | null {
 
   if (normalizedPathname !== "/" && !normalizedPathname.startsWith("/api")) {
     const decodedPathname = decodeURIComponent(normalizedPathname);
-    return decodedPathname.startsWith("/")
-      ? decodedPathname
-      : `/${decodedPathname}`;
+    return decodedPathname.startsWith("/") ? decodedPathname : `/${decodedPathname}`;
   }
 
   return null;
@@ -64,8 +59,7 @@ export function getRequestedPathState(): RequestedPathState {
     normalizedPath.lastIndexOf("/"),
     normalizedPath.lastIndexOf("\\"),
   );
-  const projectPath =
-    lastSlashIndex >= 0 ? rawPath.slice(0, lastSlashIndex) || "/" : ".";
+  const projectPath = lastSlashIndex >= 0 ? rawPath.slice(0, lastSlashIndex) || "/" : ".";
   const documentPath = rawPath.slice(lastSlashIndex + 1);
 
   return { rawPath, projectPath, documentPath };
@@ -76,13 +70,8 @@ export function formatWorkspacePathForDisplay(path?: string | null) {
   if (!value) return null;
 
   const normalizedPath = normalizePathSeparators(value);
-  const collapsedHomePath = normalizedPath.replace(
-    /^\/Users\/[^/]+(?=\/|$)/,
-    "~",
-  );
-  return value.includes("\\")
-    ? collapsedHomePath.replace(/\//g, "\\")
-    : collapsedHomePath;
+  const collapsedHomePath = normalizedPath.replace(/^\/Users\/[^/]+(?=\/|$)/, "~");
+  return value.includes("\\") ? collapsedHomePath.replace(/\//g, "\\") : collapsedHomePath;
 }
 
 export function getPathLeaf(path?: string | null) {
@@ -95,17 +84,12 @@ export function getPathLeaf(path?: string | null) {
 
 export function joinPath(basePath: string, relativePath: string) {
   const separator = basePath.includes("\\") ? "\\" : "/";
-  const normalizedBasePath = basePath.endsWith(separator)
-    ? basePath.slice(0, -1)
-    : basePath;
+  const normalizedBasePath = basePath.endsWith(separator) ? basePath.slice(0, -1) : basePath;
 
   return relativePath
     .split("/")
     .filter(Boolean)
-    .reduce(
-      (result, segment) => `${result}${separator}${segment}`,
-      normalizedBasePath,
-    );
+    .reduce((result, segment) => `${result}${separator}${segment}`, normalizedBasePath);
 }
 
 function isExternalUrl(path: string): boolean {
@@ -114,11 +98,7 @@ function isExternalUrl(path: string): boolean {
 
 function linkedMarkdownPathParts(href: string) {
   const trimmedHref = href.trim();
-  if (
-    !trimmedHref ||
-    isExternalUrl(trimmedHref) ||
-    trimmedHref.startsWith("#")
-  ) {
+  if (!trimmedHref || isExternalUrl(trimmedHref) || trimmedHref.startsWith("#")) {
     return null;
   }
 
@@ -187,9 +167,7 @@ function buildLocationForPath(path?: string | null) {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
-export function buildLocationForDocumentEditorViewMode(
-  mode: DocumentEditorViewMode,
-) {
+export function buildLocationForDocumentEditorViewMode(mode: DocumentEditorViewMode) {
   const url = new URL(window.location.href);
   url.searchParams.set("editor", mode);
   return `${url.pathname}${url.search}${url.hash}`;

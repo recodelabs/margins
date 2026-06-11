@@ -42,10 +42,7 @@ function sanitizeFilename(filename: string): string {
   return trimmed.replace(/[^a-zA-Z0-9._-]/g, "-");
 }
 
-function nextAssetPath(
-  assets: Record<string, LocalAssetRecord>,
-  filename: string,
-): string {
+function nextAssetPath(assets: Record<string, LocalAssetRecord>, filename: string): string {
   const safeName = sanitizeFilename(filename);
   const dotIndex = safeName.lastIndexOf(".");
   const basename = dotIndex > 0 ? safeName.slice(0, dotIndex) : safeName;
@@ -64,8 +61,7 @@ function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () =>
-      reject(reader.error ?? new Error("Failed to read file"));
+    reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
     reader.readAsDataURL(file);
   });
 }
@@ -104,10 +100,7 @@ export class LocalStorageBackend implements StorageBackend {
     writePages(pages);
   }
 
-  async saveMarkdownFile(
-    relativePath: string,
-    content: string,
-  ): Promise<undefined> {
+  async saveMarkdownFile(relativePath: string, content: string): Promise<undefined> {
     const id = relativePath.replace(/\.md$/i, "");
     await this.savePage(id, content);
     return undefined;
@@ -146,8 +139,6 @@ export class LocalStorageBackend implements StorageBackend {
   }
 
   async openProject(_path: string): Promise<void> {
-    throw new Error(
-      "Local file access is unavailable in browser storage mode.",
-    );
+    throw new Error("Local file access is unavailable in browser storage mode.");
   }
 }

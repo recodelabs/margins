@@ -1,8 +1,4 @@
-import {
-  buildCommentThreads,
-  type CriticComment,
-  flattenCommentThreads,
-} from "./critic-markup";
+import { buildCommentThreads, type CriticComment, flattenCommentThreads } from "./critic-markup";
 
 interface CommentAnchorMeasurement {
   commentIds: string[];
@@ -60,10 +56,7 @@ interface CommentAnchorElementLike {
   };
 }
 
-export function normalizeCommentMeasurement(
-  value: number,
-  measurementScale = 1,
-) {
+export function normalizeCommentMeasurement(value: number, measurementScale = 1) {
   if (!Number.isFinite(measurementScale) || measurementScale <= 0) {
     return value;
   }
@@ -77,11 +70,7 @@ export function parseCommentIds(value: string | null | undefined): string[] {
   try {
     const parsed = JSON.parse(value);
     if (!Array.isArray(parsed)) return [];
-    return [
-      ...new Set(
-        parsed.filter((entry): entry is string => typeof entry === "string"),
-      ),
-    ];
+    return [...new Set(parsed.filter((entry): entry is string => typeof entry === "string"))];
   } catch {
     return [];
   }
@@ -147,14 +136,8 @@ export function getCommentAnchorMeasurements(
     const rect = element.getBoundingClientRect();
     measurements.push({
       commentIds,
-      anchorTop: normalizeCommentMeasurement(
-        rect.top - containerTop,
-        measurementScale,
-      ),
-      anchorBottom: normalizeCommentMeasurement(
-        rect.bottom - containerTop,
-        measurementScale,
-      ),
+      anchorTop: normalizeCommentMeasurement(rect.top - containerTop, measurementScale),
+      anchorBottom: normalizeCommentMeasurement(rect.bottom - containerTop, measurementScale),
     });
   }
 
@@ -181,15 +164,10 @@ export function groupCommentAnchorMeasurements(
     }
 
     existing.anchorTop = Math.min(existing.anchorTop, measurement.anchorTop);
-    existing.anchorBottom = Math.max(
-      existing.anchorBottom,
-      measurement.anchorBottom,
-    );
+    existing.anchorBottom = Math.max(existing.anchorBottom, measurement.anchorBottom);
   }
 
-  return [...grouped.values()].sort(
-    (left, right) => left.anchorTop - right.anchorTop,
-  );
+  return [...grouped.values()].sort((left, right) => left.anchorTop - right.anchorTop);
 }
 
 export function buildCommentThreadRailItems(
@@ -333,13 +311,7 @@ export function resolveCommentThreadRailLayouts(
   const activeItem =
     selectedRootThreadId == null
       ? null
-      : (items.find((item) => item.rootCommentId === selectedRootThreadId) ??
-        null);
+      : (items.find((item) => item.rootCommentId === selectedRootThreadId) ?? null);
 
-  return resolveAnchoredRailLayouts(
-    items,
-    heights,
-    activeItem?.key ?? null,
-    gap,
-  );
+  return resolveAnchoredRailLayouts(items, heights, activeItem?.key ?? null, gap);
 }

@@ -1,4 +1,4 @@
-import { Extension, Mark, Node, mergeAttributes } from "@tiptap/core";
+import { Extension, Mark, mergeAttributes, Node } from "@tiptap/core";
 import Code from "@tiptap/extension-code";
 import CodeBlock from "@tiptap/extension-code-block";
 import Image from "@tiptap/extension-image";
@@ -10,10 +10,7 @@ import { TableHeader } from "@tiptap/extension-table-header";
 import { TableRow } from "@tiptap/extension-table-row";
 import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
-import type {
-  Mark as ProseMirrorMark,
-  Node as ProseMirrorNode,
-} from "@tiptap/pm/model";
+import type { Mark as ProseMirrorMark, Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import StarterKit from "@tiptap/starter-kit";
@@ -35,11 +32,7 @@ declare module "@tiptap/core" {
   }
 }
 
-export type CriticChangeKind =
-  | "addition"
-  | "deletion"
-  | "substitution-old"
-  | "substitution-new";
+export type CriticChangeKind = "addition" | "deletion" | "substitution-old" | "substitution-new";
 
 export interface CriticChangeAttrs {
   kind: CriticChangeKind;
@@ -125,9 +118,7 @@ const CommentRef = Mark.create({
 
             const from = pos;
             const to = pos + node.nodeSize;
-            const nextIds = (mark.attrs.commentIds as string[]).filter(
-              (id) => id !== commentId,
-            );
+            const nextIds = (mark.attrs.commentIds as string[]).filter((id) => id !== commentId);
 
             tr.removeMark(from, to, markType);
 
@@ -206,12 +197,7 @@ function collectCriticChangeRanges(doc: ProseMirrorNode, changeId: string) {
     const kind = mark.attrs.kind as CriticChangeKind;
     const previous = ranges[ranges.length - 1];
 
-    if (
-      previous &&
-      previous.to === pos &&
-      previous.kind === kind &&
-      previous.mark.eq(mark)
-    ) {
+    if (previous && previous.to === pos && previous.kind === kind && previous.mark.eq(mark)) {
       previous.to = pos + node.nodeSize;
       return;
     }
@@ -227,11 +213,7 @@ function collectCriticChangeRanges(doc: ProseMirrorNode, changeId: string) {
   return ranges;
 }
 
-function findSuggestedParagraphSentinels(
-  doc: ProseMirrorNode,
-  from: number,
-  to: number,
-) {
+function findSuggestedParagraphSentinels(doc: ProseMirrorNode, from: number, to: number) {
   const positions: number[] = [];
 
   doc.nodesBetween(from, to, (node, pos) => {
@@ -247,11 +229,7 @@ function findSuggestedParagraphSentinels(
   return positions;
 }
 
-function isOnlyTextblockContent(
-  doc: ProseMirrorNode,
-  from: number,
-  to: number,
-) {
+function isOnlyTextblockContent(doc: ProseMirrorNode, from: number, to: number) {
   const $from = doc.resolve(from);
   const $to = doc.resolve(to);
 
@@ -273,46 +251,35 @@ const CriticChange = Mark.create({
     return {
       kind: {
         default: "addition",
-        parseHTML: (element) =>
-          readCriticChangeAttrs(element as HTMLElement)?.kind ?? "addition",
+        parseHTML: (element) => readCriticChangeAttrs(element as HTMLElement)?.kind ?? "addition",
         renderHTML: (attributes) => ({
           "data-critic-change-kind": attributes.kind,
         }),
       },
       changeId: {
         default: null,
-        parseHTML: (element) =>
-          readCriticChangeAttrs(element as HTMLElement)?.changeId ?? null,
+        parseHTML: (element) => readCriticChangeAttrs(element as HTMLElement)?.changeId ?? null,
         renderHTML: (attributes) =>
-          attributes.changeId
-            ? { "data-critic-change-id": attributes.changeId }
-            : {},
+          attributes.changeId ? { "data-critic-change-id": attributes.changeId } : {},
       },
       authorType: {
         default: "user",
-        parseHTML: (element) =>
-          readCriticChangeAttrs(element as HTMLElement)?.authorType ?? "user",
+        parseHTML: (element) => readCriticChangeAttrs(element as HTMLElement)?.authorType ?? "user",
         renderHTML: () => ({}),
       },
       authorId: {
         default: "user",
-        parseHTML: (element) =>
-          readCriticChangeAttrs(element as HTMLElement)?.authorId ?? "user",
+        parseHTML: (element) => readCriticChangeAttrs(element as HTMLElement)?.authorId ?? "user",
         renderHTML: (attributes) => ({
           "data-critic-change-by":
-            attributes.authorType === "ai"
-              ? "AI"
-              : attributes.authorId || "user",
+            attributes.authorType === "ai" ? "AI" : attributes.authorId || "user",
         }),
       },
       createdAt: {
         default: null,
-        parseHTML: (element) =>
-          readCriticChangeAttrs(element as HTMLElement)?.createdAt ?? null,
+        parseHTML: (element) => readCriticChangeAttrs(element as HTMLElement)?.createdAt ?? null,
         renderHTML: (attributes) =>
-          attributes.createdAt
-            ? { "data-critic-change-at": attributes.createdAt }
-            : {},
+          attributes.createdAt ? { "data-critic-change-at": attributes.createdAt } : {},
       },
     };
   },
@@ -353,10 +320,7 @@ const CriticChange = Mark.create({
           const tr = state.tr;
 
           for (const range of [...ranges].reverse()) {
-            if (
-              range.kind === "deletion" ||
-              range.kind === "substitution-old"
-            ) {
+            if (range.kind === "deletion" || range.kind === "substitution-old") {
               tr.delete(range.from, range.to);
             } else {
               const sentinelPositions = findSuggestedParagraphSentinels(
@@ -366,10 +330,7 @@ const CriticChange = Mark.create({
               );
 
               for (const position of [...sentinelPositions].reverse()) {
-                tr.delete(
-                  position,
-                  position + SUGGESTED_PARAGRAPH_SENTINEL.length,
-                );
+                tr.delete(position, position + SUGGESTED_PARAGRAPH_SENTINEL.length);
               }
 
               const from = tr.mapping.map(range.from, -1);
@@ -393,10 +354,7 @@ const CriticChange = Mark.create({
           const tr = state.tr;
 
           for (const range of [...ranges].reverse()) {
-            if (
-              range.kind === "addition" ||
-              range.kind === "substitution-new"
-            ) {
+            if (range.kind === "addition" || range.kind === "substitution-new") {
               const sentinelPositions = findSuggestedParagraphSentinels(
                 state.doc,
                 range.from,
@@ -441,10 +399,12 @@ interface CriticChangeHighlightPluginState extends CriticChangeHighlightMeta {
   decorations: DecorationSet;
 }
 
-export const commentHighlightPluginKey =
-  new PluginKey<CommentHighlightPluginState>("commentHighlight");
-export const criticChangeHighlightPluginKey =
-  new PluginKey<CriticChangeHighlightPluginState>("criticChangeHighlight");
+export const commentHighlightPluginKey = new PluginKey<CommentHighlightPluginState>(
+  "commentHighlight",
+);
+export const criticChangeHighlightPluginKey = new PluginKey<CriticChangeHighlightPluginState>(
+  "criticChangeHighlight",
+);
 
 function createCommentHighlightDecorations(
   doc: ProseMirrorNode,
@@ -474,10 +434,8 @@ function createCommentHighlightDecorations(
 
     if (commentIds.length === 0) return;
 
-    const isSelected =
-      !!selectedCommentId && commentIds.includes(selectedCommentId);
-    const isHovered =
-      !!hoveredCommentId && commentIds.includes(hoveredCommentId);
+    const isSelected = !!selectedCommentId && commentIds.includes(selectedCommentId);
+    const isHovered = !!hoveredCommentId && commentIds.includes(hoveredCommentId);
     const classNames = ["comment-decoration"];
 
     if (isSelected) {
@@ -486,19 +444,14 @@ function createCommentHighlightDecorations(
       classNames.push("comment-decoration-hovered");
     }
 
-    if (
-      changeMarkType &&
-      node.marks.some((mark) => mark.type === changeMarkType)
-    ) {
+    if (changeMarkType && node.marks.some((mark) => mark.type === changeMarkType)) {
       classNames.push("comment-decoration-on-critic-change");
     }
 
     decorations.push(
       Decoration.inline(pos, pos + node.nodeSize, {
         class: classNames.join(" "),
-        "data-testid": classNames.includes(
-          "comment-decoration-on-critic-change",
-        )
+        "data-testid": classNames.includes("comment-decoration-on-critic-change")
           ? "comment-decoration-on-critic-change"
           : "comment-decoration",
       }),
@@ -519,29 +472,19 @@ const CommentHighlight = Extension.create({
           init: (_, state) => ({
             selectedCommentId: null,
             hoveredCommentId: null,
-            decorations: createCommentHighlightDecorations(
-              state.doc,
-              null,
-              null,
-            ),
+            decorations: createCommentHighlightDecorations(state.doc, null, null),
           }),
           apply: (tr, pluginState) => {
-            const meta = tr.getMeta(commentHighlightPluginKey) as
-              | CommentHighlightMeta
-              | undefined;
+            const meta = tr.getMeta(commentHighlightPluginKey) as CommentHighlightMeta | undefined;
 
             if (!meta && !tr.docChanged) {
               return pluginState;
             }
 
             const selectedCommentId =
-              meta !== undefined
-                ? meta.selectedCommentId
-                : pluginState.selectedCommentId;
+              meta !== undefined ? meta.selectedCommentId : pluginState.selectedCommentId;
             const hoveredCommentId =
-              meta !== undefined
-                ? meta.hoveredCommentId
-                : pluginState.hoveredCommentId;
+              meta !== undefined ? meta.hoveredCommentId : pluginState.hoveredCommentId;
 
             return {
               selectedCommentId,
@@ -555,8 +498,7 @@ const CommentHighlight = Extension.create({
           },
         },
         props: {
-          decorations: (state) =>
-            commentHighlightPluginKey.getState(state)?.decorations ?? null,
+          decorations: (state) => commentHighlightPluginKey.getState(state)?.decorations ?? null,
         },
       }),
     ];
@@ -581,8 +523,7 @@ function createCriticChangeHighlightDecorations(
     const changeIds = [
       ...new Set(
         node.marks.flatMap((mark: ProseMirrorMark) =>
-          mark.type === changeMarkType &&
-          typeof mark.attrs.changeId === "string"
+          mark.type === changeMarkType && typeof mark.attrs.changeId === "string"
             ? [mark.attrs.changeId]
             : [],
         ),
@@ -591,8 +532,7 @@ function createCriticChangeHighlightDecorations(
 
     if (changeIds.length === 0) return;
 
-    const isSelected =
-      !!selectedChangeId && changeIds.includes(selectedChangeId);
+    const isSelected = !!selectedChangeId && changeIds.includes(selectedChangeId);
     const isHovered = !!hoveredChangeId && changeIds.includes(hoveredChangeId);
 
     if (!isSelected && !isHovered) return;
@@ -610,9 +550,7 @@ function createCriticChangeHighlightDecorations(
           ? "critic-change-decoration-active"
           : "critic-change-decoration-hovered",
         class: [
-          isSelected
-            ? "critic-change-decoration-active"
-            : "critic-change-decoration-hovered",
+          isSelected ? "critic-change-decoration-active" : "critic-change-decoration-hovered",
           changeKind ? `critic-change-decoration-${changeKind}` : null,
         ]
           .filter(Boolean)
@@ -635,11 +573,7 @@ const CriticChangeHighlight = Extension.create({
           init: (_, state) => ({
             selectedChangeId: null,
             hoveredChangeId: null,
-            decorations: createCriticChangeHighlightDecorations(
-              state.doc,
-              null,
-              null,
-            ),
+            decorations: createCriticChangeHighlightDecorations(state.doc, null, null),
           }),
           apply: (tr, pluginState) => {
             const meta = tr.getMeta(criticChangeHighlightPluginKey) as
@@ -651,13 +585,9 @@ const CriticChangeHighlight = Extension.create({
             }
 
             const selectedChangeId =
-              meta !== undefined
-                ? meta.selectedChangeId
-                : pluginState.selectedChangeId;
+              meta !== undefined ? meta.selectedChangeId : pluginState.selectedChangeId;
             const hoveredChangeId =
-              meta !== undefined
-                ? meta.hoveredChangeId
-                : pluginState.hoveredChangeId;
+              meta !== undefined ? meta.hoveredChangeId : pluginState.hoveredChangeId;
 
             return {
               selectedChangeId,
@@ -686,16 +616,13 @@ const MarkdownLink = Link.extend({
       title: {
         default: null,
         parseHTML: (element) => element.getAttribute("title"),
-        renderHTML: (attributes) =>
-          attributes.title ? { title: attributes.title } : {},
+        renderHTML: (attributes) => (attributes.title ? { title: attributes.title } : {}),
       },
       dataMarkdownSrc: {
         default: null,
         parseHTML: (element) => element.getAttribute("data-markdown-src"),
         renderHTML: (attributes) =>
-          attributes.dataMarkdownSrc
-            ? { "data-markdown-src": attributes.dataMarkdownSrc }
-            : {},
+          attributes.dataMarkdownSrc ? { "data-markdown-src": attributes.dataMarkdownSrc } : {},
       },
       dataMarkdownAutolink: {
         default: null,
@@ -724,16 +651,13 @@ const MarkdownImage = Image.extend({
       title: {
         default: null,
         parseHTML: (element) => element.getAttribute("title"),
-        renderHTML: (attributes) =>
-          attributes.title ? { title: attributes.title } : {},
+        renderHTML: (attributes) => (attributes.title ? { title: attributes.title } : {}),
       },
       dataMarkdownSrc: {
         default: null,
         parseHTML: (element) => element.getAttribute("data-markdown-src"),
         renderHTML: (attributes) =>
-          attributes.dataMarkdownSrc
-            ? { "data-markdown-src": attributes.dataMarkdownSrc }
-            : {},
+          attributes.dataMarkdownSrc ? { "data-markdown-src": attributes.dataMarkdownSrc } : {},
       },
     };
   },
@@ -749,8 +673,7 @@ const RawMarkdownBlock = Node.create({
     return {
       rawMarkdown: {
         default: "",
-        parseHTML: (element) =>
-          element.getAttribute(rawMarkdownBlockAttribute) ?? "",
+        parseHTML: (element) => element.getAttribute(rawMarkdownBlockAttribute) ?? "",
         renderHTML: (attributes) => ({
           [rawMarkdownBlockAttribute]: attributes.rawMarkdown ?? "",
         }),

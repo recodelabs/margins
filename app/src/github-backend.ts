@@ -1,9 +1,9 @@
 import {
-  type StorageBackend,
   type BackendInfo,
-  type Page,
-  type StoredAsset,
   MarkdownFileConflictError,
+  type Page,
+  type StorageBackend,
+  type StoredAsset,
 } from "./storage";
 
 export interface GitHubBackendConfig {
@@ -30,7 +30,9 @@ function decodeBase64(b64: string): string {
 function encodeBase64(text: string): string {
   const bytes = new TextEncoder().encode(text);
   let bin = "";
-  bytes.forEach((byte) => { bin += String.fromCharCode(byte); });
+  bytes.forEach((byte) => {
+    bin += String.fromCharCode(byte);
+  });
   return btoa(bin);
 }
 
@@ -128,10 +130,9 @@ export class GitHubBackend implements StorageBackend {
 
   async listMarkdownPaths(): Promise<string[]> {
     const { owner, repo, branch } = this.cfg;
-    const res = await fetch(
-      `${API}/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`,
-      { headers: this.headers() },
-    );
+    const res = await fetch(`${API}/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`, {
+      headers: this.headers(),
+    });
     if (!res.ok) throw new Error(`GitHub tree failed (${res.status})`);
     const json = (await res.json()) as {
       tree: Array<{ path: string; type: string }>;
@@ -140,9 +141,7 @@ export class GitHubBackend implements StorageBackend {
     if (json.truncated) {
       throw new Error("GitHub tree listing was truncated (repo too large to list recursively)");
     }
-    return json.tree
-      .filter((e) => e.type === "blob" && /\.md$/i.test(e.path))
-      .map((e) => e.path);
+    return json.tree.filter((e) => e.type === "blob" && /\.md$/i.test(e.path)).map((e) => e.path);
   }
 
   saveAsset(_file: File): Promise<StoredAsset> {

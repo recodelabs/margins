@@ -1,5 +1,5 @@
-import { defineConfig } from "vitest/config";
 import { fileURLToPath, URL } from "node:url";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
@@ -16,13 +16,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reportsDirectory: "../../coverage/app",
-      exclude: [
-        "dist/**",
-        "test/**",
-        "src/**/*.test.ts",
-        "src/**/*.test.tsx",
-        "src/types.d.ts",
-      ],
+      exclude: ["dist/**", "test/**", "src/**/*.test.ts", "src/**/*.test.tsx", "src/types.d.ts"],
       thresholds: {
         lines: 60,
         functions: 60,

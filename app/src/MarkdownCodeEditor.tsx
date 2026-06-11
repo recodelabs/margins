@@ -1,8 +1,8 @@
-import { basicSetup } from "codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { yamlFrontmatter } from "@codemirror/lang-yaml";
 import { EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
 import { cn } from "./lib/utils";
 
@@ -152,10 +152,6 @@ export function MarkdownCodeEditor({
   }, [value]);
 
   return (
-    <div
-      ref={hostRef}
-      className={cn("markdown-code-editor", className)}
-      data-testid={testId}
-    />
+    <div ref={hostRef} className={cn("markdown-code-editor", className)} data-testid={testId} />
   );
 }

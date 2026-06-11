@@ -1,4 +1,4 @@
-import { CloudOff, Cloud } from "lucide-react";
+import { Cloud, CloudOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { RemoteBackend, type RemoteSessionStatus } from "../remote-backend";
 import type { StorageBackend } from "../storage";
@@ -45,9 +45,7 @@ export function RemoteSessionBanner({ backend }: RemoteSessionBannerProps) {
         aria-hidden="true"
       />
       <div className="min-w-0">
-        <div className="text-sm font-semibold leading-5">
-          Remote session disconnected
-        </div>
+        <div className="text-sm font-semibold leading-5">Remote session disconnected</div>
         <div className="mt-0.5 text-xs leading-5 text-amber-900 dark:text-amber-200">
           The CLI on the source machine is no longer connected. Reopen
           <span className="font-mono"> roughdraft open </span>

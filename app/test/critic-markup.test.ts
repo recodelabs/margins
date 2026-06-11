@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
 import { Editor } from "@tiptap/core";
+import { describe, expect, it } from "vitest";
 import {
   createCriticChange,
   createNextChangeId,
@@ -16,10 +16,7 @@ import { createEditorExtensions } from "../src/editor-extensions";
 
 function readMarkdownFixture(name: string): string {
   return `${fs
-    .readFileSync(
-      path.join(process.cwd(), "test", "fixtures", "markdown", name),
-      "utf8",
-    )
+    .readFileSync(path.join(process.cwd(), "test", "fixtures", "markdown", name), "utf8")
     .trimEnd()}\n`;
 }
 
@@ -78,9 +75,7 @@ describe("CriticMarkup comments", () => {
         'This is {==anchored text==}{>>a threaded comment<<}{id="c1" by="user" at="2026-04-23T18:00:00.000Z"}.\n',
       ),
     ).toBe(true);
-    expect(criticMarkdownHasReviewRail("This is {++inserted++} text.\n")).toBe(
-      true,
-    );
+    expect(criticMarkdownHasReviewRail("This is {++inserted++} text.\n")).toBe(true);
   });
 
   it("round-trips a highlighted comment anchor", () => {
@@ -307,8 +302,7 @@ describe("CriticMarkup comments", () => {
 
     expect(comments.get("c3")).toMatchObject({
       id: "c3",
-      content:
-        "Consider whether this belongs in the executive summary instead.",
+      content: "Consider whether this belongs in the executive summary instead.",
       authorType: "user",
       createdAt: "2026-05-24T17:00:00.000Z",
     });
@@ -383,8 +377,7 @@ describe("CriticMarkup comments", () => {
 
     expect(comments.get("c3")).toMatchObject({
       id: "c3",
-      content:
-        "Consider whether this belongs in the executive summary instead.",
+      content: "Consider whether this belongs in the executive summary instead.",
       parentCommentId: null,
     });
     expect(createNextCommentId(comments.values())).toBe("c4");
@@ -415,8 +408,7 @@ describe("CriticMarkup comments", () => {
 
     expect(comments.get("c3")).toMatchObject({
       id: "c3",
-      content:
-        "Consider whether this belongs in the executive summary instead.",
+      content: "Consider whether this belongs in the executive summary instead.",
       parentCommentId: null,
     });
     expect(output).toContain(
@@ -489,11 +481,7 @@ describe("CriticMarkup comments", () => {
     });
 
     try {
-      const text = editor.state.doc.textBetween(
-        0,
-        editor.state.doc.content.size,
-        "\n",
-      );
+      const text = editor.state.doc.textBetween(0, editor.state.doc.content.size, "\n");
       const start = text.indexOf("its own server state under");
       const end = text.indexOf(" by default") + " by default".length;
 
@@ -598,11 +586,7 @@ const command = "roughdraft open";
     });
 
     try {
-      const text = editor.state.doc.textBetween(
-        0,
-        editor.state.doc.content.size,
-        "\n",
-      );
+      const text = editor.state.doc.textBetween(0, editor.state.doc.content.size, "\n");
       const start = text.indexOf("roughdraft open");
       const end = start + "roughdraft open".length;
 
@@ -761,9 +745,7 @@ const command = "{==roughdraft open==}{>>test<<}{id="c1" by="user" at="2026-04-2
     const input = readMarkdownFixture(fixtureName);
     const { doc, comments, frontmatter } = criticMarkdownToEditorState(input);
 
-    expect(editorStateToCriticMarkdown(doc, comments, { frontmatter })).toBe(
-      input,
-    );
+    expect(editorStateToCriticMarkdown(doc, comments, { frontmatter })).toBe(input);
   });
 
   it("keeps unanchored CriticMarkup examples literal in code spans and fenced code", () => {
@@ -771,30 +753,21 @@ const command = "{==roughdraft open==}{>>test<<}{id="c1" by="user" at="2026-04-2
     const { doc, comments, frontmatter } = criticMarkdownToEditorState(input);
 
     expect(comments.size).toBe(0);
-    expect(editorStateToCriticMarkdown(doc, comments, { frontmatter })).toBe(
-      input,
-    );
+    expect(editorStateToCriticMarkdown(doc, comments, { frontmatter })).toBe(input);
   });
 
   it("allocates simple document-local ids", () => {
-    expect(
-      createNextCommentId([{ id: "c2" }, { id: "note-1" }, { id: "c7" }]),
-    ).toBe("c8");
+    expect(createNextCommentId([{ id: "c2" }, { id: "note-1" }, { id: "c7" }])).toBe("c8");
   });
 
   it("allocates simple document-local suggestion ids", () => {
     expect(
-      createNextChangeId([
-        { changeId: "s2" },
-        { changeId: "suggestion-1" },
-        { changeId: "s7" },
-      ]),
+      createNextChangeId([{ changeId: "s2" }, { changeId: "suggestion-1" }, { changeId: "s7" }]),
     ).toBe("s8");
   });
 
   it("round-trips an insertion suggestion with metadata", () => {
-    const input =
-      'Add {++new text++}{id="s1" by="user" at="2024-01-15T10:30:00.000Z"} here.\n';
+    const input = 'Add {++new text++}{id="s1" by="user" at="2024-01-15T10:30:00.000Z"} here.\n';
 
     const { doc, comments } = criticMarkdownToEditorState(input);
 
@@ -802,8 +775,7 @@ const command = "{==roughdraft open==}{>>test<<}{id="c1" by="user" at="2026-04-2
   });
 
   it("round-trips a deletion suggestion with metadata", () => {
-    const input =
-      'Remove {--old text--}{id="s2" by="AI" at="2024-01-15T10:31:00.000Z"} here.\n';
+    const input = 'Remove {--old text--}{id="s2" by="AI" at="2024-01-15T10:31:00.000Z"} here.\n';
 
     const { doc, comments } = criticMarkdownToEditorState(input);
 
@@ -837,8 +809,7 @@ const command = "{==roughdraft open==}{>>test<<}{id="c1" by="user" at="2026-04-2
     const input =
       'Keep {==the launch date==}{>>Verify this.<<}{id="c1" by="user" at="2024-01-15T10:33:00.000Z"} and add {++the customer quote++}{id="s1" by="AI" at="2024-01-15T10:34:00.000Z"}.\n';
 
-    const { html, comments, changes, frontmatter } =
-      criticMarkdownToRenderedHtml(input);
+    const { html, comments, changes, frontmatter } = criticMarkdownToRenderedHtml(input);
 
     expect(frontmatter).toBeNull();
     expect(comments.get("c1")?.content).toBe("Verify this.");
@@ -852,9 +823,7 @@ const command = "{==roughdraft open==}{>>test<<}{id="c1" by="user" at="2026-04-2
   });
 
   it("imports suggestions without metadata and serializes generated metadata", () => {
-    const { doc, comments } = criticMarkdownToEditorState(
-      "Add {++new text++} here.\n",
-    );
+    const { doc, comments } = criticMarkdownToEditorState("Add {++new text++} here.\n");
 
     expect(editorStateToCriticMarkdown(doc, comments)).toMatch(
       /^Add \{\+\+new text\+\+\}\{id="s1" by="user" at="[^"]+"\} here\.\n$/,
@@ -921,8 +890,7 @@ const command = "{==roughdraft open==}{>>test<<}{id="c1" by="user" at="2026-04-2
   });
 
   it("accepts and rejects insertion suggestions", () => {
-    const input =
-      'Add {++new text++}{id="s1" by="user" at="2024-01-15T10:30:00.000Z"} here.\n';
+    const input = 'Add {++new text++}{id="s1" by="user" at="2024-01-15T10:30:00.000Z"} here.\n';
     const accepted = criticMarkdownToEditorState(input);
     const rejected = criticMarkdownToEditorState(input);
     const acceptEditor = new Editor({
@@ -938,12 +906,12 @@ const command = "{==roughdraft open==}{>>test<<}{id="c1" by="user" at="2026-04-2
       acceptEditor.commands.acceptCriticChange("s1");
       rejectEditor.commands.rejectCriticChange("s1");
 
-      expect(
-        editorStateToCriticMarkdown(acceptEditor.getJSON(), accepted.comments),
-      ).toBe("Add new text here.\n");
-      expect(
-        editorStateToCriticMarkdown(rejectEditor.getJSON(), rejected.comments),
-      ).toBe("Add here.\n");
+      expect(editorStateToCriticMarkdown(acceptEditor.getJSON(), accepted.comments)).toBe(
+        "Add new text here.\n",
+      );
+      expect(editorStateToCriticMarkdown(rejectEditor.getJSON(), rejected.comments)).toBe(
+        "Add here.\n",
+      );
     } finally {
       acceptEditor.destroy();
       rejectEditor.destroy();
@@ -951,8 +919,7 @@ const command = "{==roughdraft open==}{>>test<<}{id="c1" by="user" at="2026-04-2
   });
 
   it("accepts and rejects deletion suggestions", () => {
-    const input =
-      'Remove {--old text--}{id="s1" by="user" at="2024-01-15T10:30:00.000Z"} here.\n';
+    const input = 'Remove {--old text--}{id="s1" by="user" at="2024-01-15T10:30:00.000Z"} here.\n';
     const accepted = criticMarkdownToEditorState(input);
     const rejected = criticMarkdownToEditorState(input);
     const acceptEditor = new Editor({
@@ -968,12 +935,12 @@ const command = "{==roughdraft open==}{>>test<<}{id="c1" by="user" at="2026-04-2
       acceptEditor.commands.acceptCriticChange("s1");
       rejectEditor.commands.rejectCriticChange("s1");
 
-      expect(
-        editorStateToCriticMarkdown(acceptEditor.getJSON(), accepted.comments),
-      ).toBe("Remove here.\n");
-      expect(
-        editorStateToCriticMarkdown(rejectEditor.getJSON(), rejected.comments),
-      ).toBe("Remove old text here.\n");
+      expect(editorStateToCriticMarkdown(acceptEditor.getJSON(), accepted.comments)).toBe(
+        "Remove here.\n",
+      );
+      expect(editorStateToCriticMarkdown(rejectEditor.getJSON(), rejected.comments)).toBe(
+        "Remove old text here.\n",
+      );
     } finally {
       acceptEditor.destroy();
       rejectEditor.destroy();
@@ -981,8 +948,7 @@ const command = "{==roughdraft open==}{>>test<<}{id="c1" by="user" at="2026-04-2
   });
 
   it("accepts and rejects substitution suggestions", () => {
-    const input =
-      'Use {~~old~>new~~}{id="s1" by="user" at="2024-01-15T10:30:00.000Z"} here.\n';
+    const input = 'Use {~~old~>new~~}{id="s1" by="user" at="2024-01-15T10:30:00.000Z"} here.\n';
     const accepted = criticMarkdownToEditorState(input);
     const rejected = criticMarkdownToEditorState(input);
     const acceptEditor = new Editor({
@@ -998,12 +964,12 @@ const command = "{==roughdraft open==}{>>test<<}{id="c1" by="user" at="2026-04-2
       acceptEditor.commands.acceptCriticChange("s1");
       rejectEditor.commands.rejectCriticChange("s1");
 
-      expect(
-        editorStateToCriticMarkdown(acceptEditor.getJSON(), accepted.comments),
-      ).toBe("Use new here.\n");
-      expect(
-        editorStateToCriticMarkdown(rejectEditor.getJSON(), rejected.comments),
-      ).toBe("Use old here.\n");
+      expect(editorStateToCriticMarkdown(acceptEditor.getJSON(), accepted.comments)).toBe(
+        "Use new here.\n",
+      );
+      expect(editorStateToCriticMarkdown(rejectEditor.getJSON(), rejected.comments)).toBe(
+        "Use old here.\n",
+      );
     } finally {
       acceptEditor.destroy();
       rejectEditor.destroy();
@@ -1097,14 +1063,7 @@ describe("Markdown rich-text round-trip regressions", () => {
   });
 
   it("preserves source-only HTML comments", () => {
-    const input = [
-      "Before",
-      "",
-      "<!-- keep this source note -->",
-      "",
-      "After",
-      "",
-    ].join("\n");
+    const input = ["Before", "", "<!-- keep this source note -->", "", "After", ""].join("\n");
 
     expect(richTextRoundTrip(input)).toBe(input);
   });
@@ -1124,15 +1083,9 @@ describe("Markdown rich-text round-trip regressions", () => {
   });
 
   it("preserves multi-line indented code blocks after lists", () => {
-    const input = [
-      "- Item before",
-      "",
-      "    code block",
-      "    second line",
-      "",
-      "After",
-      "",
-    ].join("\n");
+    const input = ["- Item before", "", "    code block", "    second line", "", "After", ""].join(
+      "\n",
+    );
 
     expect(richTextRoundTrip(input)).toBe(input);
   });

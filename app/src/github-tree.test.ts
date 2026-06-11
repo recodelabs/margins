@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { getFolderContents, splitPath } from "./github-tree";
 
 describe("getFolderContents", () => {
@@ -50,7 +50,10 @@ describe("getFolderContents", () => {
   it("only shows folders containing .md files", () => {
     const entries = getFolderContents(paths, "");
     // There is no top-level folder without .md descendants
-    expect(entries.filter((e) => e.kind === "folder").map((e) => e.name)).toEqual(["docs", "notes"]);
+    expect(entries.filter((e) => e.kind === "folder").map((e) => e.name)).toEqual([
+      "docs",
+      "notes",
+    ]);
   });
 
   it("handles single file at root", () => {

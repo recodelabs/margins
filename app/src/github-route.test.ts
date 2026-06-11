@@ -7,11 +7,7 @@ describe("parseGitHubLocation", () => {
   });
 
   it("parses a deep file path with branch", () => {
-    window.history.replaceState(
-      null,
-      "",
-      "/mberg/cortex/notes/2026-01-03.md?branch=main",
-    );
+    window.history.replaceState(null, "", "/mberg/cortex/notes/2026-01-03.md?branch=main");
     expect(parseGitHubLocation()).toEqual({
       owner: "mberg",
       repo: "cortex",
@@ -51,11 +47,7 @@ describe("parseGitHubLocation", () => {
   });
 
   it("decodes percent-encoded path segments", () => {
-    window.history.replaceState(
-      null,
-      "",
-      "/mberg/cortex/notes%2Fdeep%20path/file.md?branch=main",
-    );
+    window.history.replaceState(null, "", "/mberg/cortex/notes%2Fdeep%20path/file.md?branch=main");
     // Each segment is individually decoded, so %2F in one segment becomes /
     const loc = parseGitHubLocation();
     expect(loc.owner).toBe("mberg");
@@ -86,27 +78,23 @@ describe("gitHubHref", () => {
   });
 
   it("treats an empty branch as main (no query)", () => {
-    expect(
-      gitHubHref({ owner: "o", repo: "r", branch: "", path: "x.md" }),
-    ).toBe("/o/r/x.md");
+    expect(gitHubHref({ owner: "o", repo: "r", branch: "", path: "x.md" })).toBe("/o/r/x.md");
   });
 
   it("includes ?branch= only for a non-default branch", () => {
-    expect(
-      gitHubHref({ owner: "o", repo: "r", path: "x.md", branch: "dev" }),
-    ).toBe("/o/r/x.md?branch=dev");
+    expect(gitHubHref({ owner: "o", repo: "r", path: "x.md", branch: "dev" })).toBe(
+      "/o/r/x.md?branch=dev",
+    );
   });
 
   it("encodes special characters in owner/repo/path segments", () => {
-    expect(
-      gitHubHref({ owner: "my org", repo: "my repo", path: "a b.md" }),
-    ).toBe("/my%20org/my%20repo/a%20b.md");
+    expect(gitHubHref({ owner: "my org", repo: "my repo", path: "a b.md" })).toBe(
+      "/my%20org/my%20repo/a%20b.md",
+    );
   });
 
   it("omits path segments when path is empty or undefined", () => {
-    expect(gitHubHref({ owner: "mberg", repo: "cortex", branch: "main" })).toBe(
-      "/mberg/cortex",
-    );
+    expect(gitHubHref({ owner: "mberg", repo: "cortex", branch: "main" })).toBe("/mberg/cortex");
   });
 });
 

@@ -1,10 +1,10 @@
-import type { StorageBackend } from "./storage";
 import { ApiBackend } from "./api-backend";
+import { captureTokenFromUrl, fetchLogin } from "./github-auth";
+import { GitHubBackend } from "./github-backend";
+import { parseGitHubLocation } from "./github-route";
 import { LocalStorageBackend } from "./local-storage-backend";
 import { RemoteBackend } from "./remote-backend";
-import { GitHubBackend } from "./github-backend";
-import { captureTokenFromUrl, fetchLogin } from "./github-auth";
-import { parseGitHubLocation } from "./github-route";
+import type { StorageBackend } from "./storage";
 
 interface StatusPayload {
   backend?: string;
@@ -62,9 +62,7 @@ export async function detectBackend(): Promise<StorageBackend> {
       return new ApiBackend({
         kind: "local-files",
         label: "Local files",
-        detail: statusPayload.stateless
-          ? "Open a markdown file"
-          : "Markdown file on disk",
+        detail: statusPayload.stateless ? "Open a markdown file" : "Markdown file on disk",
         projectPath: statusPayload.projectDir,
       });
     }

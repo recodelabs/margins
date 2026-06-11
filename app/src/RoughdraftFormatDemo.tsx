@@ -67,9 +67,7 @@ const demoBackend: StorageBackend = {
 };
 
 export function RoughdraftFormatDemo() {
-  const [selectedExampleId, setSelectedExampleId] = useState<string | null>(
-    FORMAT_EXAMPLES[0].id,
-  );
+  const [selectedExampleId, setSelectedExampleId] = useState<string | null>(FORMAT_EXAMPLES[0].id);
   const [source, setSource] = useState(FORMAT_EXAMPLES[0].markdown);
   const page: Page = useMemo(
     () => ({
@@ -132,8 +130,7 @@ export function RoughdraftFormatDemo() {
             >
               spec
             </a>
-            . We are working with other major Markdown apps to rally support for
-            this initiative.
+            . We are working with other major Markdown apps to rally support for this initiative.
           </p>
         </div>
       </div>

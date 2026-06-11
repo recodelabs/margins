@@ -1,11 +1,9 @@
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
-import type { ReactNode } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bold,
-  Code2,
   Check,
+  Code2,
   ExternalLink,
   Italic,
   Link2,
@@ -16,15 +14,10 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import {
-  getAddCommentShortcutLabel,
-  matchesAddCommentShortcut,
-} from "./comment-shortcuts";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "./components/ui/tooltip";
+import type { ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { getAddCommentShortcutLabel, matchesAddCommentShortcut } from "./comment-shortcuts";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./components/ui/tooltip";
 import { toHtml } from "./markdown";
 import type { StorageBackend } from "./storage";
 
@@ -65,9 +58,7 @@ function getNavigatorPlatform() {
     };
   };
 
-  return (
-    navigatorWithUserAgentData.userAgentData?.platform ?? navigator.platform
-  );
+  return navigatorWithUserAgentData.userAgentData?.platform ?? navigator.platform;
 }
 
 function isResolvedLinkTarget(value: string) {
@@ -123,10 +114,7 @@ function getContainedSelectionRange(container: HTMLElement) {
   return range;
 }
 
-function findActiveLinkAnchor(
-  editor: Editor,
-  container: HTMLElement,
-): HTMLAnchorElement | null {
+function findActiveLinkAnchor(editor: Editor, container: HTMLElement): HTMLAnchorElement | null {
   const candidates: Array<Element | null> = [];
   const selection = window.getSelection();
 
@@ -142,10 +130,7 @@ function findActiveLinkAnchor(
   const { from, to } = editor.state.selection;
   const startDom = editor.view.domAtPos(from);
   const endDom = editor.view.domAtPos(to);
-  candidates.push(
-    getElementFromDomNode(startDom.node),
-    getElementFromDomNode(endDom.node),
-  );
+  candidates.push(getElementFromDomNode(startDom.node), getElementFromDomNode(endDom.node));
 
   for (const candidate of candidates) {
     const anchor = candidate?.closest("a[href]");
@@ -196,9 +181,7 @@ function SelectionMenuButton({
   return (
     <Tooltip>
       <TooltipTrigger render={button} />
-      <TooltipContent data-testid="selection-menu-action-tooltip">
-        {label}
-      </TooltipContent>
+      <TooltipContent data-testid="selection-menu-action-tooltip">{label}</TooltipContent>
     </Tooltip>
   );
 }
@@ -216,8 +199,7 @@ export function EditorContextMenu({
   const [position, setPosition] = useState<MenuPosition | null>(null);
   const [selectionActionPosition, setSelectionActionPosition] =
     useState<SelectionActionPosition | null>(null);
-  const [linkPopoverState, setLinkPopoverState] =
-    useState<LinkPopoverState | null>(null);
+  const [linkPopoverState, setLinkPopoverState] = useState<LinkPopoverState | null>(null);
   const [linkDraft, setLinkDraft] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -235,21 +217,13 @@ export function EditorContextMenu({
       isBlockquoteActive: currentEditor?.isActive("blockquote") ?? false,
       isLinkActive: currentEditor?.isActive("link") ?? false,
       activeCriticChangeId:
-        (currentEditor?.getAttributes("criticChange").changeId as
-          | string
-          | null) ?? null,
-      canToggleBold:
-        currentEditor?.can().chain().focus().toggleBold().run() ?? false,
-      canToggleItalic:
-        currentEditor?.can().chain().focus().toggleItalic().run() ?? false,
-      canToggleCode:
-        currentEditor?.can().chain().focus().toggleCode().run() ?? false,
-      canToggleBulletList:
-        currentEditor?.can().chain().focus().toggleBulletList().run() ?? false,
-      canToggleOrderedList:
-        currentEditor?.can().chain().focus().toggleOrderedList().run() ?? false,
-      canToggleBlockquote:
-        currentEditor?.can().chain().focus().toggleBlockquote().run() ?? false,
+        (currentEditor?.getAttributes("criticChange").changeId as string | null) ?? null,
+      canToggleBold: currentEditor?.can().chain().focus().toggleBold().run() ?? false,
+      canToggleItalic: currentEditor?.can().chain().focus().toggleItalic().run() ?? false,
+      canToggleCode: currentEditor?.can().chain().focus().toggleCode().run() ?? false,
+      canToggleBulletList: currentEditor?.can().chain().focus().toggleBulletList().run() ?? false,
+      canToggleOrderedList: currentEditor?.can().chain().focus().toggleOrderedList().run() ?? false,
+      canToggleBlockquote: currentEditor?.can().chain().focus().toggleBlockquote().run() ?? false,
     }),
   }) ?? {
     isBoldActive: false,
@@ -277,10 +251,7 @@ export function EditorContextMenu({
   }, []);
 
   const updateSelectionActionPosition = useCallback(() => {
-    if (
-      !editor?.isFocused ||
-      (editor.state.selection.empty && !onSuggestInsertion)
-    ) {
+    if (!editor?.isFocused || (editor.state.selection.empty && !onSuggestInsertion)) {
       setSelectionActionPosition(null);
       return;
     }
@@ -305,8 +276,7 @@ export function EditorContextMenu({
     }
 
     const containerRect = container.getBoundingClientRect();
-    const nextLeft =
-      boundingRect.left + boundingRect.width / 2 - containerRect.left;
+    const nextLeft = boundingRect.left + boundingRect.width / 2 - containerRect.left;
     const nextTop = boundingRect.top - containerRect.top - 14;
 
     setSelectionActionPosition({
@@ -369,9 +339,7 @@ export function EditorContextMenu({
       if (firstChild) {
         try {
           const position = editor.view.posAtDOM(firstChild, 0);
-          editor.commands.setTextSelection(
-            anchor.textContent ? position + 1 : position,
-          );
+          editor.commands.setTextSelection(anchor.textContent ? position + 1 : position);
         } catch {
           // Fall back to the current editor selection if the DOM mapping changed.
         }
@@ -380,9 +348,7 @@ export function EditorContextMenu({
       const rect = anchor.getBoundingClientRect();
       if (rect.width === 0 && rect.height === 0) return;
 
-      const linkAttrs = editor.isActive("link")
-        ? editor.getAttributes("link")
-        : {};
+      const linkAttrs = editor.isActive("link") ? editor.getAttributes("link") : {};
       const rawHref =
         (linkAttrs.dataMarkdownSrc as string | null) ||
         anchor.getAttribute("data-markdown-src") ||
@@ -423,16 +389,10 @@ export function EditorContextMenu({
     const rect = range.getBoundingClientRect();
     if (rect.width === 0 && rect.height === 0) return;
 
-    const rawHref =
-      (editor.getAttributes("link").dataMarkdownSrc as string | null) || "";
+    const rawHref = (editor.getAttributes("link").dataMarkdownSrc as string | null) || "";
 
     setLinkPopoverState({
-      href: resolveEditableLinkTarget(
-        rawHref,
-        backend,
-        resolveLinkUrl,
-        rawHref || "https://",
-      ),
+      href: resolveEditableLinkTarget(rawHref, backend, resolveLinkUrl, rawHref || "https://"),
       rawHref,
       left: rect.left + rect.width / 2,
       top: rect.top - 12,
@@ -458,12 +418,7 @@ export function EditorContextMenu({
         .focus()
         .extendMarkRange("link")
         .setMark("link", {
-          href: resolveEditableLinkTarget(
-            nextHref,
-            backend,
-            resolveLinkUrl,
-            nextHref,
-          ),
+          href: resolveEditableLinkTarget(nextHref, backend, resolveLinkUrl, nextHref),
           dataMarkdownSrc: nextHref,
         })
         .run();
@@ -504,14 +459,7 @@ export function EditorContextMenu({
       document.removeEventListener("mousedown", handleMouseDown, true);
       document.removeEventListener("keydown", handleEscape);
     };
-  }, [
-    applyLink,
-    close,
-    closeLinkPopover,
-    linkDraft,
-    linkPopoverState,
-    position,
-  ]);
+  }, [applyLink, close, closeLinkPopover, linkDraft, linkPopoverState, position]);
 
   useEffect(() => {
     if (!editor) return;
@@ -632,10 +580,7 @@ export function EditorContextMenu({
         const candidate = getElementFromDomNode(target);
         const anchor = candidate?.closest("a[href]");
 
-        if (
-          !(anchor instanceof HTMLAnchorElement) ||
-          !containerRef.current.contains(anchor)
-        ) {
+        if (!(anchor instanceof HTMLAnchorElement) || !containerRef.current.contains(anchor)) {
           return;
         }
 
@@ -727,9 +672,7 @@ export function EditorContextMenu({
                     editor
                       ?.chain()
                       .focus()
-                      .acceptCriticChange(
-                        selectionMenuState.activeCriticChangeId,
-                      )
+                      .acceptCriticChange(selectionMenuState.activeCriticChangeId)
                       .run();
                   }
                   setSelectionActionPosition(null);
@@ -751,9 +694,7 @@ export function EditorContextMenu({
                     editor
                       ?.chain()
                       .focus()
-                      .rejectCriticChange(
-                        selectionMenuState.activeCriticChangeId,
-                      )
+                      .rejectCriticChange(selectionMenuState.activeCriticChangeId)
                       .run();
                   }
                   setSelectionActionPosition(null);
@@ -805,10 +746,7 @@ export function EditorContextMenu({
             onBlur={(event) => {
               const nextFocused = event.relatedTarget as Node | null;
 
-              if (
-                nextFocused &&
-                linkPopoverRef.current?.contains(nextFocused)
-              ) {
+              if (nextFocused && linkPopoverRef.current?.contains(nextFocused)) {
                 return;
               }
 
@@ -832,10 +770,7 @@ export function EditorContextMenu({
             aria-label="Link URL"
             data-testid="link-url-input"
           />
-          <div
-            className="mx-2 h-8 w-px bg-slate-200 dark:bg-slate-700"
-            aria-hidden="true"
-          />
+          <div className="mx-2 h-8 w-px bg-slate-200 dark:bg-slate-700" aria-hidden="true" />
           <button
             type="button"
             className="inline-flex size-9 items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 transition hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 dark:focus-visible:ring-slate-600"
@@ -843,11 +778,8 @@ export function EditorContextMenu({
             onClick={() => {
               applyLink(linkDraft);
               const target =
-                resolveEditableLinkTarget(
-                  linkDraft.trim(),
-                  backend,
-                  resolveLinkUrl,
-                ) || linkPopoverState.href;
+                resolveEditableLinkTarget(linkDraft.trim(), backend, resolveLinkUrl) ||
+                linkPopoverState.href;
 
               if (target) {
                 window.open(target, "_blank", "noopener,noreferrer");
@@ -935,10 +867,7 @@ export function EditorContextMenu({
           </button>
           {selectionMenuState.activeCriticChangeId ? (
             <>
-              <div
-                className="my-1 h-px bg-slate-100 dark:bg-slate-700"
-                aria-hidden="true"
-              />
+              <div className="my-1 h-px bg-slate-100 dark:bg-slate-700" aria-hidden="true" />
               <button
                 type="button"
                 data-testid="editor-context-menu-action-accept-suggestion"
@@ -948,9 +877,7 @@ export function EditorContextMenu({
                     editor
                       ?.chain()
                       .focus()
-                      .acceptCriticChange(
-                        selectionMenuState.activeCriticChangeId,
-                      )
+                      .acceptCriticChange(selectionMenuState.activeCriticChangeId)
                       .run();
                   }
                   close();
@@ -967,9 +894,7 @@ export function EditorContextMenu({
                     editor
                       ?.chain()
                       .focus()
-                      .rejectCriticChange(
-                        selectionMenuState.activeCriticChangeId,
-                      )
+                      .rejectCriticChange(selectionMenuState.activeCriticChangeId)
                       .run();
                   }
                   close();

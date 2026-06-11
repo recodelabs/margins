@@ -1,7 +1,7 @@
 import {
-  MarkdownFileConflictError,
   type BackendInfo,
   type MarkdownFileChangeEvent,
+  MarkdownFileConflictError,
   type Page,
   type StorageBackend,
   type StoredAsset,
@@ -32,22 +32,17 @@ export class RemoteBackend implements StorageBackend {
   }
 
   private authHeaders(): Record<string, string> {
-    return this.token.length > 0
-      ? { Authorization: `Bearer ${this.token}` }
-      : {};
+    return this.token.length > 0 ? { Authorization: `Bearer ${this.token}` } : {};
   }
 
   static async create(sessionId: string, token = ""): Promise<RemoteBackend> {
     const headers: Record<string, string> =
       token.length > 0 ? { Authorization: `Bearer ${token}` } : {};
-    const response = await fetch(
-      `/api/remote-document/${encodeURIComponent(sessionId)}`,
-      { headers },
-    );
+    const response = await fetch(`/api/remote-document/${encodeURIComponent(sessionId)}`, {
+      headers,
+    });
     if (!response.ok) {
-      throw new Error(
-        `Could not load remote document session ${sessionId}: ${response.status}`,
-      );
+      throw new Error(`Could not load remote document session ${sessionId}: ${response.status}`);
     }
     const bootstrap = (await response.json()) as RemoteDocumentPayload;
     const filename = bootstrap.originPath.split(/[\\/]/).pop() ?? "remote.md";
@@ -68,9 +63,7 @@ export class RemoteBackend implements StorageBackend {
     return this.bootstrap.originPath.split(/[\\/]/).pop() ?? "remote.md";
   }
 
-  onSessionStatusChange(
-    listener: (status: RemoteSessionStatus) => void,
-  ): () => void {
+  onSessionStatusChange(listener: (status: RemoteSessionStatus) => void): () => void {
     this.statusListeners.add(listener);
     listener(this.sessionStatus);
     return () => {
@@ -100,14 +93,11 @@ export class RemoteBackend implements StorageBackend {
     if (!sessionId) {
       throw new Error("Remote backend missing session id");
     }
-    const response = await fetch(
-      `/api/remote-document/${encodeURIComponent(sessionId)}`,
-      { headers: this.authHeaders() },
-    );
+    const response = await fetch(`/api/remote-document/${encodeURIComponent(sessionId)}`, {
+      headers: this.authHeaders(),
+    });
     if (!response.ok) {
-      throw new Error(
-        `Failed to load remote document: HTTP ${response.status}`,
-      );
+      throw new Error(`Failed to load remote document: HTTP ${response.status}`);
     }
     const payload = (await response.json()) as RemoteDocumentPayload;
     this.bootstrap = payload;
@@ -123,17 +113,14 @@ export class RemoteBackend implements StorageBackend {
     if (!sessionId) {
       throw new Error("Remote backend missing session id");
     }
-    const response = await fetch(
-      `/api/remote-document/${encodeURIComponent(sessionId)}`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          ...this.authHeaders(),
-        },
-        body: JSON.stringify({ content, expectedVersion }),
+    const response = await fetch(`/api/remote-document/${encodeURIComponent(sessionId)}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...this.authHeaders(),
       },
-    );
+      body: JSON.stringify({ content, expectedVersion }),
+    });
 
     if (response.status === 409) {
       const payload = (await response.json()) as {
@@ -146,9 +133,7 @@ export class RemoteBackend implements StorageBackend {
     }
 
     if (!response.ok) {
-      throw new Error(
-        `Failed to save remote document: HTTP ${response.status}`,
-      );
+      throw new Error(`Failed to save remote document: HTTP ${response.status}`);
     }
 
     const updated = (await response.json()) as { id: string; version: string };
@@ -190,10 +175,7 @@ export class RemoteBackend implements StorageBackend {
           content?: string;
           version?: string;
         };
-        if (
-          typeof payload.content === "string" &&
-          typeof payload.version === "string"
-        ) {
+        if (typeof payload.content === "string" && typeof payload.version === "string") {
           this.bootstrap = {
             ...this.bootstrap,
             content: payload.content,
@@ -225,9 +207,7 @@ export class RemoteBackend implements StorageBackend {
   }
 
   async saveAsset(_file: File): Promise<StoredAsset> {
-    throw new Error(
-      "Remote document sessions do not support asset uploads in this version.",
-    );
+    throw new Error("Remote document sessions do not support asset uploads in this version.");
   }
 
   resolveFileUrl(_path: string): string | null {
