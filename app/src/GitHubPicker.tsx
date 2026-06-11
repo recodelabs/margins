@@ -38,33 +38,35 @@ function RoughneckLogo() {
 // ---------------------------------------------------------------------------
 function LoginScreen() {
   return (
-    <div className="flex min-h-screen flex-col bg-[#FCFCFC] dark:bg-background px-6 pt-8 pb-12 text-slate-950 dark:text-slate-50">
-      <div className="font-die-grotesk-a mx-auto w-full max-w-[100rem] text-left">
-        <RoughneckLogo />
-        <div className="mt-20 sm:mt-28">
-          <h1 className="font-die-grotesk-b text-[clamp(2.875rem,14.2vw,5rem)] leading-[0.88] font-bold text-slate-950 dark:text-slate-50">
-            Review your repo's
-            <br />
-            markdown
-          </h1>
-          <p className="mt-5 max-w-5xl text-[clamp(1.25rem,0.9rem+1vw,1.75rem)] leading-none text-slate-950 dark:text-slate-50">
-            Browse, open, and annotate any{" "}
-            <span className="rounded-sm bg-[#fff5c7] px-1 text-slate-950 dark:bg-amber-500/35 dark:text-slate-50">
-              .md file
-            </span>{" "}
-            in a GitHub repository — right in your browser.
-          </p>
-          <div className="mt-7">
-            <Button
-              className="h-14 cursor-pointer gap-2 px-5 text-[clamp(1.25rem,1rem+0.6vw,1.5rem)]"
-              size="lg"
-              onClick={login}
-            >
-              <GitHubMark className="size-5" />
-              Continue with GitHub
-            </Button>
-          </div>
-        </div>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#FCFCFC] dark:bg-background px-6 py-12 text-center text-slate-950 dark:text-slate-50">
+      <div className="flex w-full max-w-xl flex-col items-center">
+        <img
+          src="/roughneck.svg"
+          alt="roughneck"
+          className="w-[clamp(14rem,44vw,23rem)] select-none dark:invert"
+          draggable={false}
+        />
+        <h1 className="font-die-grotesk-b mt-10 text-[clamp(2.5rem,3rem+1.5vw,4rem)] leading-[0.92] font-bold tracking-tight text-slate-950 dark:text-slate-50">
+          Review your repo's markdown
+        </h1>
+        <p className="mt-5 max-w-md text-[clamp(1.05rem,1rem+0.3vw,1.2rem)] leading-relaxed text-slate-600 dark:text-slate-400">
+          Browse, open, and annotate any{" "}
+          <span className="rounded-sm bg-[#fff5c7] px-1 font-medium text-slate-950 dark:bg-amber-500/35 dark:text-slate-50">
+            .md file
+          </span>{" "}
+          in a GitHub repository — right in your browser.
+        </p>
+        <Button
+          className="mt-9 h-14 cursor-pointer gap-2.5 rounded-xl px-7 text-lg shadow-[0_12px_32px_rgba(0,0,0,0.16)] transition-transform hover:-translate-y-0.5"
+          size="lg"
+          onClick={login}
+        >
+          <GitHubMark className="size-5" />
+          Continue with GitHub
+        </Button>
+        <p className="mt-10 text-xs font-medium tracking-wide text-stone-400 dark:text-stone-500">
+          Free &amp; open source · your edits commit straight to GitHub
+        </p>
       </div>
     </div>
   );
