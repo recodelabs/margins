@@ -23,7 +23,7 @@ import type { GitHubDocNav } from "./DocumentWorkspace";
 import { detectBackend, isGitHubMode } from "./detect-backend";
 import { createDocumentSessionStore } from "./document-session";
 import { GitHubPicker } from "./GitHubPicker";
-import { getStoredToken } from "./github-auth";
+import { completeLoginFromUrl, getStoredToken } from "./github-auth";
 import { isMarkdownPath, navigate, parseGitHubLocation } from "./github-route";
 import { Homepage, HomepageSubtitle } from "./Homepage";
 import type { DocumentSaveState } from "./PageCard";
@@ -206,6 +206,13 @@ export function App() {
     // file or going back is an in-app transition, not an app re-boot. With the
     // ETag cache, repeat tree/doc reads come back 304.
     const initializeGitHub = async () => {
+      // Complete the OAuth handshake first if the callback forwarded a `?code=`:
+      // this strips code/state from the URL and stores the token. It MUST run
+      // before the repo-less-root early-return below, otherwise login can never
+      // finish at the `/?code=…` URL we land on right after the GitHub callback.
+      await completeLoginFromUrl();
+      if (cancelled) return;
+
       const { owner, repo, branch, path } = githubLocation;
 
       // Folder / repo-root URL (or not enough info yet) → picker view. Clear any
