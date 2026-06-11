@@ -52,7 +52,7 @@ function LoginScreen() {
           draggable={false}
         />
         <h1 className="font-nanum-pen-script mt-6 text-[clamp(3.25rem,2.6rem+3vw,5rem)] leading-[0.95] text-[#1e3a6b] dark:text-[#a8c4ef]">
-          Review your repo's markdown
+          Collaborate with your AI in markdown
         </h1>
         <p className="mt-5 max-w-md text-[clamp(1.05rem,1rem+0.3vw,1.2rem)] leading-relaxed text-slate-600 dark:text-slate-400">
           Browse, open, and annotate any{" "}

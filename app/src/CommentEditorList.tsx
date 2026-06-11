@@ -704,9 +704,11 @@ function CommentThreadNode({
                     event.stopPropagation();
                   }}
                   onKeyDown={(event) => {
+                    // Enter saves & closes the comment; Shift+Enter inserts a
+                    // newline (Cmd/Ctrl+Enter also submits, for muscle memory).
                     if (
-                      (event.metaKey || event.ctrlKey) &&
-                      event.key.toLowerCase() === "enter"
+                      event.key.toLowerCase() === "enter" &&
+                      !event.shiftKey
                     ) {
                       event.preventDefault();
                       event.stopPropagation();

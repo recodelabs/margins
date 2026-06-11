@@ -613,6 +613,31 @@ export function DocumentWorkspace({
         </div>
       ) : null}
       <RemoteSessionBanner backend={backend} />
+      {/* Prominent, always-visible commit action so it isn't missed on scroll. */}
+      {manualCommit && saveState !== "saved" ? (
+        <Button
+          type="button"
+          data-testid="github-commit-button"
+          size="lg"
+          disabled={saveState === "saving"}
+          onClick={() => void saveControllerRef.current?.flushSave()}
+          className="fixed bottom-6 left-1/2 z-[80] h-12 -translate-x-1/2 gap-2 rounded-full border-0 bg-emerald-600 px-6 text-base font-semibold text-white shadow-[0_14px_36px_rgba(5,150,105,0.45)] hover:bg-emerald-700 focus-visible:ring-emerald-300/60"
+        >
+          {saveState === "saving" ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Committing…
+            </>
+          ) : (
+            <>
+              Commit changes
+              <kbd className="rounded bg-white/20 px-1.5 py-0.5 font-sans text-xs font-medium text-white/90">
+                {commitShortcutHint}
+              </kbd>
+            </>
+          )}
+        </Button>
+      ) : null}
       <div
         className={cn(
           "fixed right-3 z-[60] flex max-w-[min(16rem,calc(100vw-1rem))] flex-col items-end gap-1.5",
@@ -909,33 +934,7 @@ export function DocumentWorkspace({
                     diskChangeState={documentDiskChangeState}
                   />
                 )}
-                <div className="ml-auto inline-flex h-[1.5rem] shrink-0 items-center gap-2">
-                  {manualCommit && saveState !== "saved" ? (
-                    <Button
-                      type="button"
-                      data-testid="github-commit-button"
-                      size="sm"
-                      disabled={saveState === "saving"}
-                      onClick={() =>
-                        void saveControllerRef.current?.flushSave()
-                      }
-                      className="h-[1.6rem] gap-1.5 rounded-md border-0 bg-slate-900 px-2 text-[0.72rem] font-semibold leading-none text-white shadow-none hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
-                    >
-                      {saveState === "saving" ? (
-                        <>
-                          <Loader2 className="size-3 animate-spin" />
-                          Committing…
-                        </>
-                      ) : (
-                        <>
-                          Commit
-                          <kbd className="rounded bg-white/20 px-1 py-px font-sans text-[0.62rem] font-medium tracking-tight text-white/85 dark:bg-slate-900/15 dark:text-slate-900/80">
-                            {commitShortcutHint}
-                          </kbd>
-                        </>
-                      )}
-                    </Button>
-                  ) : null}
+                <div className="ml-auto inline-flex h-[1.5rem] shrink-0 items-center">
                   <Select<DocumentInteractionMode>
                     value={documentInteractionMode}
                     onValueChange={(value) => {
