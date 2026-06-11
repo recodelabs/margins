@@ -2,7 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
-@import "@fontsource/instrument-serif";
+@import "@fontsource/nanum-pen-script";
 
 @font-face {
   font-family: "Die Grotesk A";
@@ -604,7 +604,7 @@
   --font-die-grotesk-b: "Die Grotesk B", sans-serif;
   --font-die-grotesk-c: "Die Grotesk C", sans-serif;
   --font-die-grotesk-d: "Die Grotesk D", sans-serif;
-  --font-instrument-serif: "Instrument Serif", serif;
+  --font-nanum-pen-script: "Nanum Pen Script", cursive;
   --color-emerald-850: rgb(6 83 61);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
