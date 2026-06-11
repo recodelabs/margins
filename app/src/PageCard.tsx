@@ -6,6 +6,7 @@ import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CommentEditorList } from "./CommentEditorList";
+import { shouldShowReviewRail } from "./comment-visibility";
 import {
   type CriticChangeAttrs,
   type CriticComment,
@@ -59,6 +60,7 @@ interface PageCardProps {
   onSaveStateChange?: (state: DocumentSaveState) => void;
   editorViewMode?: EditorViewMode;
   interactionMode?: DocumentInteractionMode;
+  commentsHidden?: boolean;
   backend: StorageBackend;
   onEditorReady?: (editor: Editor | null) => void;
   onCommentRailPresenceChange?: (hasCommentRailSpace: boolean) => void;
@@ -80,6 +82,7 @@ interface PageCardEditorSurfaceProps {
   onSaveStateChange: (state: DocumentSaveState) => void;
   editorViewMode: EditorViewMode;
   interactionMode: DocumentInteractionMode;
+  commentsHidden: boolean;
   backend: StorageBackend;
   onEditorReady?: (editor: Editor | null) => void;
   onCommentRailPresenceChange?: (hasCommentRailSpace: boolean) => void;
@@ -100,6 +103,7 @@ interface RichTextEditorSurfaceProps {
   sourceMarkdown: string;
   onMarkdownChange: (markdown: string) => void;
   interactionMode: DocumentInteractionMode;
+  commentsHidden: boolean;
   backend: StorageBackend;
   onEditorReady?: (editor: Editor | null) => void;
   onCommentRailPresenceChange?: (hasCommentRailSpace: boolean) => void;
@@ -599,6 +603,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
   sourceMarkdown,
   onMarkdownChange,
   interactionMode,
+  commentsHidden,
   backend,
   onEditorReady,
   onCommentRailPresenceChange,
@@ -666,9 +671,14 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
 
   useEffect(() => {
     onCommentRailPresenceChange?.(
-      comments.size > 0 || criticChanges.length > 0,
+      shouldShowReviewRail(comments.size, criticChanges.length, commentsHidden),
     );
-  }, [comments.size, criticChanges.length, onCommentRailPresenceChange]);
+  }, [
+    commentsHidden,
+    comments.size,
+    criticChanges.length,
+    onCommentRailPresenceChange,
+  ]);
 
   const emitMarkdownChange = useCallback(
     (doc?: JSONContent, nextComments?: Map<string, CriticComment>) => {
@@ -1865,7 +1875,11 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     );
   }, []);
 
-  const hasReviewRail = comments.size > 0 || criticChanges.length > 0;
+  const hasReviewRail = shouldShowReviewRail(
+    comments.size,
+    criticChanges.length,
+    commentsHidden,
+  );
   const activeComments = activeCommentIds
     .map((commentId) => comments.get(commentId))
     .filter((comment): comment is CriticComment => Boolean(comment));
@@ -1880,6 +1894,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     layout !== "embedded-demo" &&
       !hasReviewRail &&
       "min-[1100px]:grid-cols-[minmax(0,56rem)] min-[1100px]:justify-center",
+    commentsHidden && "comments-hidden",
   );
   const documentMainClass = cn(
     "document-page-main w-full min-w-0",
@@ -1904,7 +1919,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     >
       <div data-testid="document-page-shell" className={documentShellClass}>
         <div className={documentMainClass}>
-          {activeComments.length > 0 ? (
+          {!commentsHidden && activeComments.length > 0 ? (
             <CommentEditorList
               comments={activeComments}
               className={fallbackClass}
@@ -1964,6 +1979,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
             </div>
           </div>
         </div>
+        {hasReviewRail ? (
         <DocumentReviewRail
           className={reviewRailClass}
           layout={layout === "embedded-demo" ? "flow" : "anchored"}
@@ -2009,6 +2025,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
           onCancelDraftSuggestion={() => setDraftSuggestion(null)}
           editor={editor}
         />
+        ) : null}
       </div>
     </div>
   );
@@ -2084,6 +2101,7 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
   onSaveStateChange,
   editorViewMode,
   interactionMode,
+  commentsHidden,
   backend,
   onEditorReady,
   onCommentRailPresenceChange,
@@ -2351,6 +2369,7 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
       sourceMarkdown={effectiveRichTextSourceMarkdown}
       onMarkdownChange={handleMarkdownChange}
       interactionMode={interactionMode}
+      commentsHidden={commentsHidden}
       onCommentRailPresenceChange={onCommentRailPresenceChange}
       backend={backend}
       onEditorReady={onEditorReady}
@@ -2368,6 +2387,7 @@ export function PageCard({
   onSaveStateChange,
   editorViewMode = "rich-text",
   interactionMode = "editing",
+  commentsHidden = false,
   backend,
   onEditorReady,
   onCommentRailPresenceChange,
@@ -2396,6 +2416,7 @@ export function PageCard({
         onSaveStateChange={setSaveState}
         editorViewMode={editorViewMode}
         interactionMode={interactionMode}
+        commentsHidden={commentsHidden}
         backend={backend}
         onEditorReady={onEditorReady}
         onCommentRailPresenceChange={onCommentRailPresenceChange}
