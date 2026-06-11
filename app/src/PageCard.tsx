@@ -372,29 +372,6 @@ function getReusableSuggestionInputMark(
   return $position.nodeAfter?.marks.find(isReusableSuggestionMark) ?? null;
 }
 
-function getReusableSuggestionDeletionMark(
-  editor: Editor,
-  from: number,
-  to: number,
-): ProseMirrorMark | null {
-  const markType = editor.state.schema.marks.criticChange;
-  if (!markType) return null;
-
-  const isReusableDeletionMark = (mark: ProseMirrorMark) =>
-    mark.type === markType && mark.attrs.kind === "deletion";
-  const beforeRange = editor.state.doc
-    .resolve(from)
-    .nodeBefore?.marks.find(isReusableDeletionMark);
-
-  if (beforeRange) return beforeRange;
-
-  return (
-    editor.state.doc
-      .resolve(to)
-      .nodeAfter?.marks.find(isReusableDeletionMark) ?? null
-  );
-}
-
 function getDocumentCriticChangeRailItems(
   editor: Editor | null,
   comments: ReadonlyMap<string, CriticComment>,
@@ -1060,55 +1037,15 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
             const selectedText = view.state.doc.textBetween(from, to);
             void navigator.clipboard.writeText(selectedText);
 
-            const criticMarkType = view.state.schema.marks.criticChange;
-            const isAdditionKind = (m: ProseMirrorMark) =>
-              m.type === criticMarkType &&
-              (m.attrs.kind === "addition" ||
-                m.attrs.kind === "substitution-new");
-
-            type Segment = {
-              from: number;
-              to: number;
-              isAddition: boolean;
-            };
-            const segments: Segment[] = [];
-            view.state.doc.nodesBetween(from, to, (node, pos) => {
-              if (!node.isText) return;
-              const segFrom = Math.max(pos, from);
-              const segTo = Math.min(pos + node.nodeSize, to);
-              if (segFrom >= segTo) return;
-              const isAdd = node.marks.some(isAdditionKind);
-              const prev = segments[segments.length - 1];
-              if (prev && prev.isAddition === isAdd && prev.to === segFrom) {
-                prev.to = segTo;
-              } else {
-                segments.push({
-                  from: segFrom,
-                  to: segTo,
-                  isAddition: isAdd,
-                });
-              }
-            });
-
-            const tr = view.state.tr;
-            for (const seg of [...segments].reverse()) {
-              if (seg.isAddition) {
-                tr.delete(seg.from, seg.to);
-              } else {
-                const deletionMark =
-                  getReusableSuggestionDeletionMark(
-                    currentEditor,
-                    seg.from,
-                    seg.to,
-                  ) ??
-                  view.state.schema.marks.criticChange.create(
-                    createCriticChange("deletion", { authorId }, {
-                      existingChanges: getDocumentCriticChanges(currentEditor),
-                    }),
-                  );
-                tr.addMark(seg.from, seg.to, deletionMark);
-              }
-            }
+            const tr = buildSuggestionDeleteTransaction(
+              view.state,
+              { from, to },
+              {
+                markType: view.state.schema.marks.criticChange,
+                changeAttrs: { authorId },
+                existingChanges: getDocumentCriticChanges(currentEditor),
+              },
+            );
             view.dispatch(tr.scrollIntoView());
             return true;
           }

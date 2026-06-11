@@ -126,57 +126,20 @@ function suggestingCtrlDelete(editor: Editor) {
 /**
  * Helper: simulate Cut (Ctrl+X) in suggesting mode.
  *
- * Mirrors the handleKeyDown logic from PageCard.tsx for cut.
- * Addition/substitution-new text is truly deleted; original text gets
- * a deletion mark.
+ * Drives the production `buildSuggestionDeleteTransaction` engine with no
+ * `selectionBasePos`, matching PageCard's cut handler: addition text is truly
+ * deleted, original text gets a deletion mark, and the selection is left alone.
  */
 function suggestingCut(editor: Editor) {
   const { state } = editor.view;
   const { selection } = state;
   if (selection.empty) return;
 
-  const criticMarkType = state.schema.marks.criticChange;
-  const from = selection.from;
-  const to = selection.to;
-
-  const isAdditionKind = (m: ProseMirrorMark) =>
-    m.type === criticMarkType &&
-    (m.attrs.kind === "addition" || m.attrs.kind === "substitution-new");
-
-  type Segment = { from: number; to: number; isAddition: boolean };
-  const segments: Segment[] = [];
-  state.doc.nodesBetween(from, to, (node, pos) => {
-    if (!node.isText) return;
-    const segFrom = Math.max(pos, from);
-    const segTo = Math.min(pos + node.nodeSize, to);
-    if (segFrom >= segTo) return;
-    const isAdd = node.marks.some(isAdditionKind);
-    const prev = segments[segments.length - 1];
-    if (prev && prev.isAddition === isAdd && prev.to === segFrom) {
-      prev.to = segTo;
-    } else {
-      segments.push({ from: segFrom, to: segTo, isAddition: isAdd });
-    }
-  });
-
-  const tr = state.tr;
-  for (const seg of [...segments].reverse()) {
-    if (seg.isAddition) {
-      tr.delete(seg.from, seg.to);
-    } else {
-      const isReusableDeletion = (m: ProseMirrorMark) =>
-        m.type === criticMarkType && m.attrs.kind === "deletion";
-      const deletionMark =
-        state.doc
-          .resolve(seg.from)
-          .nodeBefore?.marks.find(isReusableDeletion) ??
-        state.doc.resolve(seg.to).nodeAfter?.marks.find(isReusableDeletion) ??
-        criticMarkType.create(
-          createCriticChange("deletion", undefined, { existingChanges: [] }),
-        );
-      tr.addMark(seg.from, seg.to, deletionMark);
-    }
-  }
+  const tr = buildSuggestionDeleteTransaction(
+    state,
+    { from: selection.from, to: selection.to },
+    { markType: state.schema.marks.criticChange, existingChanges: [] },
+  );
   editor.view.dispatch(tr.scrollIntoView());
 }
 
