@@ -114,6 +114,9 @@ function getDirFromUrl(): string {
   return loc.path;
 }
 
+/** Wait this long after the last keystroke before fetching the repo tree. */
+const TREE_FETCH_DEBOUNCE_MS = 300;
+
 export function GitHubPicker() {
   const token = getStoredToken();
   const initialLoc = parseGitHubLocation();
@@ -143,7 +146,9 @@ export function GitHubPicker() {
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
-  // Fetch the flat path list whenever token+repo+ref changes
+  // Fetch the flat path list whenever token+repo+ref changes. Debounced so
+  // typing `owner/repo` (or a branch) fires a single recursive tree request
+  // after the user pauses, not one per keystroke.
   const fetchAbortRef = useRef<AbortController | null>(null);
   useEffect(() => {
     const [owner, name] = repo.split("/");
@@ -153,30 +158,33 @@ export function GitHubPicker() {
       return;
     }
 
-    fetchAbortRef.current?.abort();
-    const abortCtrl = new AbortController();
-    fetchAbortRef.current = abortCtrl;
+    const timer = window.setTimeout(() => {
+      fetchAbortRef.current?.abort();
+      const abortCtrl = new AbortController();
+      fetchAbortRef.current = abortCtrl;
 
-    setLoading(true);
-    setError(null);
-    setAllPaths(null);
+      setLoading(true);
+      setError(null);
+      setAllPaths(null);
 
-    const backend = new GitHubBackend({ token, owner, repo: name, branch: ref, login: "" });
-    backend
-      .listMarkdownPaths()
-      .then((p) => {
-        if (abortCtrl.signal.aborted) return;
-        setAllPaths(p);
-        setLoading(false);
-      })
-      .catch((e: unknown) => {
-        if (abortCtrl.signal.aborted) return;
-        setError(e instanceof Error ? e.message : String(e));
-        setLoading(false);
-      });
+      const backend = new GitHubBackend({ token, owner, repo: name, branch: ref, login: "" });
+      backend
+        .listMarkdownPaths()
+        .then((p) => {
+          if (abortCtrl.signal.aborted) return;
+          setAllPaths(p);
+          setLoading(false);
+        })
+        .catch((e: unknown) => {
+          if (abortCtrl.signal.aborted) return;
+          setError(e instanceof Error ? e.message : String(e));
+          setLoading(false);
+        });
+    }, TREE_FETCH_DEBOUNCE_MS);
 
     return () => {
-      abortCtrl.abort();
+      window.clearTimeout(timer);
+      fetchAbortRef.current?.abort();
     };
   }, [token, repo, ref]);
 

@@ -71,6 +71,11 @@ export interface DocumentSaveController {
   flushDraft: () => void;
 }
 
+// Stable fallback so `PageCardEditorSurface` (which requires `onSaveStateChange`)
+// can be rendered without a save-state consumer — e.g. the format demo — without
+// breaking the memoized surface on every render.
+const NOOP_SAVE_STATE_CHANGE = (): void => {};
+
 type EditorViewMode = "rich-text" | "code";
 export type DocumentInteractionMode = "viewing" | "suggesting" | "editing";
 
@@ -2177,12 +2182,6 @@ export function PageCard({
   forceResetKey,
   manualCommit,
 }: PageCardProps) {
-  const [saveState, setSaveState] = useState<DocumentSaveState>("saved");
-
-  useEffect(() => {
-    onSaveStateChange?.(saveState);
-  }, [onSaveStateChange, saveState]);
-
   return (
     <div className="w-full">
       <PageCardEditorSurface
@@ -2192,7 +2191,7 @@ export function PageCard({
         layout={layout}
         focusRequestKey={focusRequestKey}
         onSave={onSave}
-        onSaveStateChange={setSaveState}
+        onSaveStateChange={onSaveStateChange ?? NOOP_SAVE_STATE_CHANGE}
         editorViewMode={editorViewMode}
         interactionMode={interactionMode}
         backend={backend}

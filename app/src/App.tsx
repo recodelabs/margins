@@ -46,6 +46,7 @@ import {
   DialogTrigger,
 } from "./components/ui/dialog";
 import type { GitHubDocNav } from "./DocumentWorkspace";
+import { createDocumentSessionStore } from "./document-session";
 import { detectBackend, isGitHubMode } from "./detect-backend";
 import { GitHubPicker } from "./GitHubPicker";
 import { getStoredToken } from "./github-auth";
@@ -1433,7 +1434,7 @@ export function PreviewPage() {
   const [editorViewMode, setEditorViewMode] = useState<DocumentEditorViewMode>(
     () => getDocumentEditorViewModeFromLocation("rich-text"),
   );
-  const [, setSaveState] = useState<DocumentSaveState>("saved");
+  const [documentSession] = useState(() => createDocumentSessionStore());
 
   useEffect(() => () => backend.dispose(), [backend]);
 
@@ -1481,9 +1482,7 @@ export function PreviewPage() {
           documentEditorViewMode={editorViewMode}
           onDocumentEditorViewModeChange={setEditorViewMode}
           onSaveDocument={handleSaveDocument}
-          onDocumentSaveStateChange={setSaveState}
-          onDocumentDirtyStateChange={() => {}}
-          onDocumentLocalContentChange={() => {}}
+          documentSession={documentSession}
           documentDiskChangeState="clean"
           documentForceResetKey={previewForceResetKey}
           onReloadDocumentFromDisk={handleResetPreview}
@@ -1508,8 +1507,7 @@ export function App() {
   const [activeDocumentPath, setActiveDocumentPath] = useState<string | null>(
     initialRequestedPathState.documentPath,
   );
-  const [documentSaveState, setDocumentSaveState] =
-    useState<DocumentSaveState>("saved");
+  const [documentSession] = useState(() => createDocumentSessionStore());
   const [documentDiskChangeState, setDocumentDiskChangeState] =
     useState<DocumentDiskChangeState>("clean");
   const [documentForceResetKey, setDocumentForceResetKey] = useState<
@@ -1527,30 +1525,29 @@ export function App() {
   const backendRef = useRef<StorageBackend | null>(null);
   const documentPageRef = useRef<Page | null>(null);
   const activeDocumentPathRef = useRef<string | null>(activeDocumentPath);
-  const documentDirtyRef = useRef(false);
-  const documentSaveStateRef = useRef<DocumentSaveState>("saved");
-  const documentDraftContentRef = useRef<string | null>(null);
 
   backendRef.current = backend;
   documentPageRef.current = documentPage;
   activeDocumentPathRef.current = activeDocumentPath;
-  documentSaveStateRef.current = documentSaveState;
 
-  const applyDocumentPage = useCallback((nextDocument: Page) => {
-    setDocumentPage(nextDocument);
-    documentDraftContentRef.current = nextDocument.content;
-  }, []);
+  const applyDocumentPage = useCallback(
+    (nextDocument: Page) => {
+      setDocumentPage(nextDocument);
+      documentSession.setDraftContent(nextDocument.content);
+    },
+    [documentSession],
+  );
 
   const loadDocument = useCallback(
     async (nextBackend: StorageBackend, relativePath: string) => {
       const nextDocument = await nextBackend.getMarkdownFile(relativePath);
       applyDocumentPage(nextDocument);
       setActiveDocumentPath(relativePath);
-      documentDirtyRef.current = false;
+      documentSession.setDirty(false);
       setDocumentDiskChangeState("clean");
       return nextDocument;
     },
-    [applyDocumentPage],
+    [applyDocumentPage, documentSession],
   );
 
   useEffect(() => {
@@ -1741,35 +1738,20 @@ export function App() {
       };
 
       applyDocumentPage(nextDocument);
-      documentDirtyRef.current = false;
+      documentSession.setDirty(false);
       setDocumentDiskChangeState("clean");
     },
-    [activeDocumentPath, applyDocumentPage],
+    [activeDocumentPath, applyDocumentPage, documentSession],
   );
-
-  const handleDocumentDirtyStateChange = useCallback((isDirty: boolean) => {
-    documentDirtyRef.current = isDirty;
-  }, []);
-
-  const handleDocumentSaveStateChange = useCallback(
-    (state: DocumentSaveState) => {
-      documentSaveStateRef.current = state;
-      setDocumentSaveState(state);
-    },
-    [],
-  );
-
-  const handleDocumentLocalContentChange = useCallback((markdown: string) => {
-    documentDraftContentRef.current = markdown;
-  }, []);
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      const session = documentSession.getSnapshot();
       if (
         !shouldWarnBeforeUnload({
           activeDocumentPath: activeDocumentPathRef.current,
-          isDirty: documentDirtyRef.current,
-          saveState: documentSaveStateRef.current,
+          isDirty: session.dirty,
+          saveState: session.saveState,
           diskChangeState: documentDiskChangeState,
         })
       ) {
@@ -1782,7 +1764,7 @@ export function App() {
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [documentDiskChangeState]);
+  }, [documentDiskChangeState, documentSession]);
 
   const handleReloadDocumentFromDisk = useCallback(
     () =>
@@ -1795,7 +1777,7 @@ export function App() {
           setDocumentActionError(null);
           const nextDocument = await currentBackend.getMarkdownFile(currentPath);
           applyDocumentPage(nextDocument);
-          documentDirtyRef.current = false;
+          documentSession.setDirty(false);
           setDocumentDiskChangeState("clean");
           setDocumentForceResetKey(
             `${currentPath}:${nextDocument.version ?? Date.now()}`,
@@ -1804,7 +1786,7 @@ export function App() {
         setDocumentActionError,
         "Could not reload the file from disk.",
       ),
-    [applyDocumentPage],
+    [applyDocumentPage, documentSession],
   );
 
   const handleKeepEditingWithoutAutosave = useCallback(() => {
@@ -1822,7 +1804,8 @@ export function App() {
 
           setDocumentActionError(null);
           const content =
-            documentDraftContentRef.current ?? currentDocument.content;
+            documentSession.getSnapshot().draftContent ??
+            currentDocument.content;
           const firstLine = content.split("\n")[0] || "";
           const fallbackTitle =
             currentDocument.id.split("/").at(-1) || currentDocument.id;
@@ -1837,8 +1820,8 @@ export function App() {
           };
 
           applyDocumentPage(savedDocument);
-          documentDirtyRef.current = false;
-          handleDocumentSaveStateChange("saved");
+          documentSession.setDirty(false);
+          documentSession.setSaveState("saved");
           setDocumentDiskChangeState("clean");
           setDocumentForceResetKey(
             `${currentPath}:${savedDocument.version ?? Date.now()}:overwrite`,
@@ -1847,7 +1830,7 @@ export function App() {
         setDocumentActionError,
         "Could not overwrite the file on disk.",
       ),
-    [applyDocumentPage, handleDocumentSaveStateChange],
+    [applyDocumentPage, documentSession],
   );
 
   const handleCompleteReview = useCallback(
@@ -1860,7 +1843,7 @@ export function App() {
       }
 
       const content =
-        documentDraftContentRef.current ?? currentDocument.content;
+        documentSession.getSnapshot().draftContent ?? currentDocument.content;
       const expectedVersion = currentDocument.version;
       const firstLine = content.split("\n")[0] || "";
       const fallbackTitle =
@@ -1878,14 +1861,14 @@ export function App() {
       };
 
       applyDocumentPage(savedDocument);
-      documentDirtyRef.current = false;
+      documentSession.setDirty(false);
       setDocumentDiskChangeState("clean");
 
       return currentBackend.completeReview
         ? currentBackend.completeReview(currentPath, options)
         : { delivered: false };
     },
-    [applyDocumentPage],
+    [applyDocumentPage, documentSession],
   );
 
   useEffect(() => {
@@ -1911,7 +1894,7 @@ export function App() {
           return;
         }
 
-        if (documentDirtyRef.current) {
+        if (documentSession.getSnapshot().dirty) {
           setDocumentDiskChangeState("changed");
           return;
         }
@@ -1938,7 +1921,13 @@ export function App() {
       disposed = true;
       stopWatching();
     };
-  }, [activeDocumentPath, applyDocumentPage, backend, documentDiskChangeState]);
+  }, [
+    activeDocumentPath,
+    applyDocumentPage,
+    backend,
+    documentDiskChangeState,
+    documentSession,
+  ]);
 
   const handleDocumentEditorViewModeChange = useCallback(
     (nextMode: DocumentEditorViewMode) => {
@@ -2021,9 +2010,7 @@ export function App() {
           documentEditorViewMode={documentEditorViewMode}
           onDocumentEditorViewModeChange={handleDocumentEditorViewModeChange}
           onSaveDocument={handleSaveDocument}
-          onDocumentSaveStateChange={handleDocumentSaveStateChange}
-          onDocumentDirtyStateChange={handleDocumentDirtyStateChange}
-          onDocumentLocalContentChange={handleDocumentLocalContentChange}
+          documentSession={documentSession}
           documentDiskChangeState={documentDiskChangeState}
           documentForceResetKey={documentForceResetKey}
           documentActionError={documentActionError}
