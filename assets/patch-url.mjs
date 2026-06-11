@@ -27,5 +27,5 @@ for (const f of process.argv.slice(2)) {
   for (const [O, N] of reps) {
     if (s.includes(O)) { s = s.split(O).join(N); changed = true; }
   }
-  if (changed) { fs.writeFileSync(f, s); console.log('roughneck: normalized URL handling in ' + f.split('/').pop()); }
+  if (changed) { fs.writeFileSync(f, s); console.log('margins: normalized URL handling in ' + f.split('/').pop()); }
 }

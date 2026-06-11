@@ -316,7 +316,7 @@ describe("GitHubBackend", () => {
       const fetchMock = vi.fn();
       global.fetch = fetchMock as unknown as typeof fetch;
       await expect(backend().getMarkdownFile("data.csv")).rejects.toThrow(
-        "Only markdown (.md) files can be opened in roughneck",
+        "Only markdown (.md) files can be opened in margins",
       );
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -325,7 +325,7 @@ describe("GitHubBackend", () => {
       const fetchMock = vi.fn();
       global.fetch = fetchMock as unknown as typeof fetch;
       await expect(backend().saveMarkdownFile("config.json", "{}")).rejects.toThrow(
-        "Only markdown (.md) files can be opened in roughneck",
+        "Only markdown (.md) files can be opened in margins",
       );
       expect(fetchMock).not.toHaveBeenCalled();
     });

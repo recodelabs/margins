@@ -16,7 +16,7 @@ function setCallbackUrl(query: string) {
 
 describe("github-auth code exchange", () => {
   it("exchanges the code for a token when the returned state matches", async () => {
-    sessionStorage.setItem("roughneck.gh.state", "st-1");
+    sessionStorage.setItem("margins.gh.state", "st-1");
     setCallbackUrl("?code=oauthcode&state=st-1");
     const fetchMock = vi.fn(async () => new Response(
       JSON.stringify({ access_token: "gho_abc" }),
@@ -35,11 +35,11 @@ describe("github-auth code exchange", () => {
     // code/state stripped from the URL, and the token never appears in it
     expect(window.location.search).toBe("");
     expect(window.location.href).not.toContain("gho_abc");
-    expect(sessionStorage.getItem("roughneck.gh.state")).toBeNull(); // consumed
+    expect(sessionStorage.getItem("margins.gh.state")).toBeNull(); // consumed
   });
 
   it("rejects the callback (no exchange) when state does not match (CSRF guard)", async () => {
-    sessionStorage.setItem("roughneck.gh.state", "st-1");
+    sessionStorage.setItem("margins.gh.state", "st-1");
     setCallbackUrl("?code=evilcode&state=wrong");
     const fetchMock = vi.fn();
     global.fetch = fetchMock as unknown as typeof fetch;
@@ -53,7 +53,7 @@ describe("github-auth code exchange", () => {
   });
 
   it("returns the stored token without exchanging when no code is present", async () => {
-    sessionStorage.setItem("roughneck.gh.token", "gho_stored");
+    sessionStorage.setItem("margins.gh.token", "gho_stored");
     const fetchMock = vi.fn();
     global.fetch = fetchMock as unknown as typeof fetch;
 
@@ -62,8 +62,8 @@ describe("github-auth code exchange", () => {
   });
 
   it("falls back to the stored token if the token endpoint fails", async () => {
-    sessionStorage.setItem("roughneck.gh.state", "st-1");
-    sessionStorage.setItem("roughneck.gh.token", "gho_old");
+    sessionStorage.setItem("margins.gh.state", "st-1");
+    sessionStorage.setItem("margins.gh.token", "gho_old");
     setCallbackUrl("?code=oauthcode&state=st-1");
     global.fetch = vi.fn(async () => new Response("nope", { status: 500 })) as unknown as typeof fetch;
 
@@ -71,7 +71,7 @@ describe("github-auth code exchange", () => {
   });
 
   it("clearToken removes it", () => {
-    sessionStorage.setItem("roughneck.gh.token", "x");
+    sessionStorage.setItem("margins.gh.token", "x");
     clearToken();
     expect(getStoredToken()).toBeNull();
   });

@@ -46,7 +46,7 @@ describe("homepage metadata", () => {
       previewImageUrl,
     );
     expect(metaContent(document, 'meta[property="og:image:alt"]')).toBe(
-      "Roughdraft markdown review workspace",
+      "margins markdown review workspace",
     );
     expect(metaContent(document, 'meta[property="og:image:width"]')).toBe(
       "3456",
@@ -66,7 +66,7 @@ describe("homepage metadata", () => {
       previewImageUrl,
     );
     expect(metaContent(document, 'meta[name="twitter:image:alt"]')).toBe(
-      "Roughdraft markdown review workspace",
+      "margins markdown review workspace",
     );
   });
 });

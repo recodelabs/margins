@@ -1,5 +1,5 @@
-const TOKEN_KEY = "roughneck.gh.token";
-const STATE_KEY = "roughneck.gh.state";
+const TOKEN_KEY = "margins.gh.token";
+const STATE_KEY = "margins.gh.state";
 
 /**
  * Complete the OAuth round-trip if the callback forwarded a single-use `code`

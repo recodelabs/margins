@@ -1,4 +1,4 @@
-# roughneck — GitHub-backed markdown reviewer
+# margins — GitHub-backed markdown reviewer
 
 A browser-only fork of the [Roughdraft](https://www.roughdraft.md) CriticMarkup editor
 with a GitHub data layer. Log in with GitHub, point it at a repo and branch, browse its
@@ -15,7 +15,7 @@ hosted.
 You need a GitHub App for the OAuth flow. Do this once before running locally or hosting.
 
 1. Go to **GitHub → Settings → Developer settings → GitHub Apps → New GitHub App**.
-2. Set a name (e.g. `roughneck-local`).
+2. Set a name (e.g. `margins-local`).
 3. **Callback URL:** `http://localhost:5173/api/auth/callback`
    _(Add your production URL later when hosting, e.g. `https://<your-domain>/api/auth/callback`.)_
 4. Under **Permissions → Repository**:

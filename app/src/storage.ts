@@ -26,7 +26,7 @@ export class FileTooLargeError extends Error {
   size?: number;
 
   constructor(path: string, size?: number) {
-    super("This file is too large to open in roughneck (over 1 MB).");
+    super("This file is too large to open in margins (over 1 MB).");
     this.name = "FileTooLargeError";
     this.path = path;
     this.size = size;
