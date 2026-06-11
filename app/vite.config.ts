@@ -21,7 +21,7 @@ function readJsonBody(req: ReadableReq): Promise<unknown> {
 
 function authDevPlugin(env: Record<string, string>) {
   return {
-    name: "roughneck-auth-dev",
+    name: "margins-auth-dev",
     configureServer(server: import("vite").ViteDevServer) {
       server.middlewares.use(async (req, res, next) => {
         const host = (req.headers && (req.headers as Record<string, string>)["host"]) || "localhost";

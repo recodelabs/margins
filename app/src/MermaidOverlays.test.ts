@@ -6,7 +6,7 @@
  * Mermaid run its own DOMPurify over diagram labels, so a malicious node label
  * like `<img src=x onerror=...>` is rendered inert (the `onerror` handler is
  * stripped) before the SVG is assigned via innerHTML — closing the path that
- * read the repo-write token from sessionStorage["roughneck.gh.token"].
+ * read the repo-write token from sessionStorage["margins.gh.token"].
  *
  * Why this is a static guard and not a behavioral "render the malicious diagram"
  * test: Mermaid needs a layout engine (getBBox + more) that jsdom doesn't
@@ -34,8 +34,8 @@ describe("Mermaid render-path hardening (REC-380)", () => {
     expect(src).not.toMatch(/securityLevel:\s*"loose"/);
   });
 
-  it("legacy (assets/roughneck-enhance.js) initializes Mermaid with strict, never loose", () => {
-    const src = repoFile("../assets/roughneck-enhance.js");
+  it("legacy (assets/margins-enhance.js) initializes Mermaid with strict, never loose", () => {
+    const src = repoFile("../assets/margins-enhance.js");
     expect(src).toMatch(/securityLevel:\s*'strict'/);
     expect(src).not.toMatch(/securityLevel:\s*'loose'/);
   });

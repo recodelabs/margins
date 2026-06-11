@@ -1,4 +1,4 @@
-/* roughneck-enhance.js — loaded with `defer`, never blocks Roughdraft.
+/* margins-enhance.js — loaded with `defer`, never blocks Roughdraft.
  *   1. Wider content column.
  *   2. Light/Auto theme toggle (defaults to Light).
  *   3. Mermaid diagrams as click-to-zoom overlays.
@@ -9,8 +9,8 @@
  * Clicking a diagram opens a full-screen pan/zoom modal.
  */
 (function () {
-  if (window.__roughneckEnhance) return;
-  window.__roughneckEnhance = true;
+  if (window.__marginsEnhance) return;
+  window.__marginsEnhance = true;
 
   var style = document.createElement('style');
   style.textContent =
@@ -258,12 +258,12 @@
     }, true);
   })();
 
-  /* 5. roughneck — a repo browser for Roughdraft (lives at the root URL). */
+  /* 5. margins — a repo browser for Roughdraft (lives at the root URL). */
   (async function () {
     var onDoc = !!new URLSearchParams(window.location.search).get('path') || (window.location.pathname !== '/' && window.location.pathname !== '');
-    if (onDoc) {                                  // doc open: subtle "roughneck" header link back to the browser
+    if (onDoc) {                                  // doc open: subtle "margins" header link back to the browser
       var fb = document.createElement('button');
-      fb.textContent = '⬡ roughneck'; fb.title = 'Browse repo — roughneck, a browser for Roughdraft';
+      fb.textContent = '⬡ margins'; fb.title = 'Browse repo — margins, a browser for Roughdraft';
       fb.style.cssText = 'position:fixed;top:10px;left:12px;z-index:9998;font:11px ui-monospace,monospace;letter-spacing:.02em;padding:3px 8px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;color:#6b7280;cursor:pointer;opacity:.6;';
       fb.onmouseenter = function () { fb.style.opacity = '1'; fb.style.color = '#111'; }; fb.onmouseleave = function () { fb.style.opacity = '.6'; fb.style.color = '#6b7280'; };
       fb.onclick = function () { window.location.assign('/'); };
@@ -318,7 +318,7 @@
     ov.style.cssText = 'position:fixed;inset:0;z-index:90000;overflow:auto;background:' + (d2 ? '#0b0b0c' : '#f8f8f7') + ';';
     var card = document.createElement('div');
     card.style.cssText = 'max-width:60rem;margin:48px auto;padding:28px 32px;background:' + (d2 ? '#111114' : '#fff') + ';border:1px solid ' + (d2 ? '#27272a' : '#e9e9e8') + ';border-radius:12px;box-shadow:0 18px 44px rgba(57,47,38,0.08);font:14px system-ui,sans-serif;color:' + (d2 ? '#e5e7eb' : '#111') + ';';
-    var brand = document.createElement('div'); brand.textContent = '⬡ roughneck — a browser for Roughdraft';
+    var brand = document.createElement('div'); brand.textContent = '⬡ margins — a browser for Roughdraft';
     brand.style.cssText = 'font:11px ui-monospace,monospace;letter-spacing:.03em;color:' + (d2 ? '#64748b' : '#9ca3af') + ';margin-bottom:4px;';
     var h = document.createElement('div'); h.textContent = (projectDir.split('/').pop() || 'project');
     h.style.cssText = 'font-size:18px;font-weight:700;margin-bottom:16px;';

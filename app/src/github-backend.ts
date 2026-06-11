@@ -93,7 +93,7 @@ export class GitHubBackend implements StorageBackend {
 
   async getMarkdownFile(relativePath: string): Promise<Page> {
     if (!/\.md$/i.test(relativePath)) {
-      throw new Error("Only markdown (.md) files can be opened in roughneck");
+      throw new Error("Only markdown (.md) files can be opened in margins");
     }
     return this.readFile(relativePath);
   }
@@ -104,7 +104,7 @@ export class GitHubBackend implements StorageBackend {
     expectedVersion?: string,
   ): Promise<Page | undefined> {
     if (!/\.md$/i.test(relativePath)) {
-      throw new Error("Only markdown (.md) files can be opened in roughneck");
+      throw new Error("Only markdown (.md) files can be opened in margins");
     }
     const { owner, repo, branch } = this.cfg;
     const res = await githubFetch(`${API}/repos/${owner}/${repo}/contents/${relativePath}`, {

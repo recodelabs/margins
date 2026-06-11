@@ -4,7 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { GitHubPicker } from "./GitHubPicker";
 import { clearGitHubCache } from "./github-cache";
 
-const TOKEN_KEY = "roughneck.gh.token";
+const TOKEN_KEY = "margins.gh.token";
 const originalFetch = global.fetch;
 
 let container: HTMLDivElement;
