@@ -38,6 +38,7 @@ import {
 import { criticMarkdownHasReviewRail } from "./critic-markup";
 import { cn } from "./lib/utils";
 import { toHtml } from "./markdown";
+import { MermaidOverlays } from "./MermaidOverlays";
 import {
   type DocumentInteractionMode,
   type DocumentSaveController,
@@ -975,26 +976,31 @@ export function DocumentWorkspace({
         ) : null}
         {documentPage ? (
           backend ? (
-            <PageCard
-              key={`${documentPage.id}:${activeDocumentPath ?? ""}`}
-              page={documentPage}
-              activeDocumentPath={activeDocumentPath}
-              selected
-              onSave={onSaveDocument}
-              onSaveStateChange={handleSaveStateChange}
-              editorViewMode={documentEditorViewMode}
-              interactionMode={documentInteractionMode}
-              backend={backend}
-              onCommentRailPresenceChange={setDocumentHasComments}
-              onDirtyStateChange={onDocumentDirtyStateChange}
-              onLocalContentChange={onDocumentLocalContentChange}
-              onSaveControllerChange={(controller) => {
-                saveControllerRef.current = controller;
-              }}
-              saveBlocked={documentDiskChangeState !== "clean"}
-              forceResetKey={documentForceResetKey}
-              manualCommit={manualCommit}
-            />
+            <>
+              <PageCard
+                key={`${documentPage.id}:${activeDocumentPath ?? ""}`}
+                page={documentPage}
+                activeDocumentPath={activeDocumentPath}
+                selected
+                onSave={onSaveDocument}
+                onSaveStateChange={handleSaveStateChange}
+                editorViewMode={documentEditorViewMode}
+                interactionMode={documentInteractionMode}
+                backend={backend}
+                onCommentRailPresenceChange={setDocumentHasComments}
+                onDirtyStateChange={onDocumentDirtyStateChange}
+                onLocalContentChange={onDocumentLocalContentChange}
+                onSaveControllerChange={(controller) => {
+                  saveControllerRef.current = controller;
+                }}
+                saveBlocked={documentDiskChangeState !== "clean"}
+                forceResetKey={documentForceResetKey}
+                manualCommit={manualCommit}
+              />
+              <MermaidOverlays
+                key={`mermaid:${documentPage.id}:${activeDocumentPath ?? ""}`}
+              />
+            </>
           ) : null
         ) : (
           <div className="flex min-h-[50vh] items-center justify-center text-sm text-slate-500 dark:text-slate-400">
