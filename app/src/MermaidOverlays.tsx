@@ -7,14 +7,18 @@
  *   2. Render each diagram to SVG and append it as an absolutely-positioned
  *      overlay into the editor's scroll container (so it scrolls natively).
  *   3. Reposition overlays on mutation/resize/scroll.
- *   4. Click → full-screen pan/zoom modal (port of reference openModal).
+ *   4. Click → full-screen pan/zoom modal.
  *
- * Mermaid is lazy-loaded (dynamic import) so it stays out of the main bundle.
+ * Mermaid is lazy-loaded (dynamic import) the first time a diagram actually
+ * appears, so it stays out of the main bundle. The observers + retry scans are
+ * always set up, because the document loads asynchronously and the mermaid
+ * code blocks land in the DOM well after this component mounts.
  */
 
 import { useEffect } from "react";
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Mermaid = any;
 
 function natSize(svg: string): { w: number; h: number } {
   const m = svg.match(/viewBox="[\d.\-]+ [\d.\-]+ ([\d.\-]+) ([\d.\-]+)"/);
@@ -104,11 +108,7 @@ function openModal(svg: string) {
     (e) => {
       e.preventDefault();
       const r = vp.getBoundingClientRect();
-      zoomAt(
-        e.clientX - r.left,
-        e.clientY - r.top,
-        e.deltaY < 0 ? 1.12 : 1 / 1.12,
-      );
+      zoomAt(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.12 : 1 / 1.12);
     },
     { passive: false },
   );
@@ -162,73 +162,75 @@ function openModal(svg: string) {
   fit();
 }
 
-// ── main effect ──────────────────────────────────────────────────────────────
-
-async function runMermaidOverlays(
-  signal: AbortSignal,
-): Promise<(() => void) | undefined> {
-  // Only load mermaid if there is at least one block to render.
-  if (!document.querySelector("pre > code.language-mermaid")) return;
-
-  // Lazy-load mermaid — Vite will code-split this into a separate chunk.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let mermaid: any;
-  try {
-    const mod = await import("mermaid");
-    mermaid = mod.default ?? mod;
-  } catch (e) {
-    console.warn("[MermaidOverlays] failed to load mermaid:", e);
-    return;
-  }
-
-  if (signal.aborted) return;
-
+function runMermaidOverlays(signal: AbortSignal): () => void {
   const dark = document.documentElement.classList.contains("dark");
   const theme = dark
     ? { bg: "#0b0b0c", bd: "#27272a" }
     : { bg: "#ffffff", bd: "#e5e7eb" };
 
-  try {
-    mermaid.initialize({
-      startOnLoad: false,
-      securityLevel: "loose",
-      theme: dark ? "dark" : "default",
-    });
-  } catch {}
+  // ── lazy mermaid loader (only fires once a real block exists) ──
+  let mermaid: Mermaid = null;
+  let mermaidPromise: Promise<Mermaid> | null = null;
+  function ensureMermaid(): Promise<Mermaid> {
+    if (mermaid) return Promise.resolve(mermaid);
+    if (!mermaidPromise) {
+      mermaidPromise = import("mermaid")
+        .then((mod) => {
+          mermaid = mod.default ?? mod;
+          try {
+            mermaid.initialize({
+              startOnLoad: false,
+              securityLevel: "loose",
+              theme: dark ? "dark" : "default",
+            });
+          } catch {}
+          return mermaid;
+        })
+        .catch((e) => {
+          console.warn("[MermaidOverlays] failed to load mermaid:", e);
+          return null;
+        });
+    }
+    return mermaidPromise;
+  }
 
-  // ── detect scroll container (same logic as reference) ──
+  // ── scroll container (detected once the first block appears) ──
   let scrollerEl: Element = document.body;
   let scrollerWin = true;
-
-  const firstCode = document.querySelector(
-    "pre > code.language-mermaid",
-  ) as HTMLElement | null;
-  let el: Element | null = firstCode?.parentElement ?? null;
-  while (el && el !== document.body && el !== document.documentElement) {
-    const s = getComputedStyle(el);
-    if (
-      /(auto|scroll)/.test(s.overflowY) &&
-      (el as HTMLElement).scrollHeight > (el as HTMLElement).clientHeight + 4
-    ) {
-      scrollerEl = el;
-      scrollerWin = false;
-      break;
+  let scrollerDetected = false;
+  let scrollListenerEl: Element | null = null;
+  function detectScroller() {
+    if (scrollerDetected) return;
+    const firstCode = document.querySelector("pre > code.language-mermaid");
+    if (!firstCode) return;
+    scrollerDetected = true;
+    let el: Element | null = firstCode.parentElement;
+    while (el && el !== document.body && el !== document.documentElement) {
+      const s = getComputedStyle(el);
+      if (
+        /(auto|scroll)/.test(s.overflowY) &&
+        (el as HTMLElement).scrollHeight > (el as HTMLElement).clientHeight + 4
+      ) {
+        scrollerEl = el;
+        scrollerWin = false;
+        break;
+      }
+      el = el.parentElement;
     }
-    el = el.parentElement;
-  }
-  if (
-    !scrollerWin &&
-    getComputedStyle(scrollerEl).position === "static"
-  ) {
-    (scrollerEl as HTMLElement).style.position = "relative";
+    if (!scrollerWin && getComputedStyle(scrollerEl).position === "static") {
+      (scrollerEl as HTMLElement).style.position = "relative";
+    }
+    if (!scrollerWin) {
+      scrollerEl.addEventListener("scroll", reposition);
+      scrollListenerEl = scrollerEl;
+    }
   }
 
-  // ── per-diagram height stylesheet (nth-child, PM-safe) ──
+  // ── injected stylesheets (harmless when no blocks) ──
   const sizeSheet = document.createElement("style");
   sizeSheet.dataset.mermaidSizes = "true";
   (document.head || document.documentElement).appendChild(sizeSheet);
 
-  // ── hide-code + placeholder stylesheet ──
   const hideSheet = document.createElement("style");
   hideSheet.dataset.mermaidHide = "true";
   hideSheet.textContent =
@@ -237,7 +239,6 @@ async function runMermaidOverlays(
   (document.head || document.documentElement).appendChild(hideSheet);
 
   type BoxEntry = { box: HTMLElement; pre: HTMLElement; aspect: number };
-
   const done = new WeakSet<HTMLElement>();
   const boxes: BoxEntry[] = [];
   let idc = 0;
@@ -246,12 +247,10 @@ async function runMermaidOverlays(
   function renderDiagram(def: string): Promise<string> {
     const cached = cache.get(def);
     if (cached) return Promise.resolve(cached);
-    return mermaid
-      .render(`rn-m-${idc++}`, def)
-      .then((r: { svg: string }) => {
-        cache.set(def, r.svg);
-        return r.svg;
-      });
+    return mermaid.render(`rn-m-${idc++}`, def).then((r: { svg: string }) => {
+      cache.set(def, r.svg);
+      return r.svg;
+    });
   }
 
   function applySizes() {
@@ -305,63 +304,79 @@ async function runMermaidOverlays(
   function applyBlock(pre: HTMLElement) {
     if (done.has(pre)) return;
     done.add(pre);
-
     const code = pre.firstElementChild as HTMLElement | null;
-    if (!code) return;
-
-    renderDiagram(code.textContent ?? "")
-      .then((svg) => {
-        if (signal.aborted) return;
-        const n = natSize(svg);
-        const aspect = n.w > 0 ? n.h / n.w : 0.5;
-        const box = document.createElement("div");
-        box.style.cssText = `position:absolute;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:12px;background:${theme.bg};border:1px solid ${theme.bd};border-radius:8px;overflow:hidden;cursor:zoom-in;`;
-        box.title = "Click to zoom";
-        box.innerHTML = svg;
-
-        const sv = box.querySelector("svg");
-        if (sv) {
-          sv.style.maxWidth = "100%";
-          sv.style.maxHeight = "100%";
-          sv.style.height = "auto";
-          sv.style.pointerEvents = "none";
-          sv.removeAttribute("height");
+    if (!code) {
+      done.delete(pre);
+      return;
+    }
+    const def = code.textContent ?? "";
+    ensureMermaid()
+      .then((m) => {
+        if (!m || signal.aborted) {
+          done.delete(pre);
+          return;
         }
-
-        box.onclick = () => openModal(svg);
-        scrollerEl.appendChild(box);
-        boxes.push({ box, pre, aspect });
-        reposition();
+        detectScroller();
+        return renderDiagram(def).then((svg) => {
+          if (signal.aborted) return;
+          const n = natSize(svg);
+          const aspect = n.w > 0 ? n.h / n.w : 0.5;
+          const box = document.createElement("div");
+          box.style.cssText = `position:absolute;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:12px;background:${theme.bg};border:1px solid ${theme.bd};border-radius:8px;overflow:hidden;cursor:zoom-in;`;
+          box.title = "Click to zoom";
+          box.innerHTML = svg;
+          const sv = box.querySelector("svg");
+          if (sv) {
+            sv.style.maxWidth = "100%";
+            sv.style.maxHeight = "100%";
+            sv.style.height = "auto";
+            sv.style.pointerEvents = "none";
+            sv.removeAttribute("height");
+          }
+          box.onclick = () => openModal(svg);
+          scrollerEl.appendChild(box);
+          boxes.push({ box, pre, aspect });
+          reposition();
+        });
       })
       .catch((e) => {
-        // Leave raw code visible on parse failure; remove from done so it
-        // doesn't block a retry if the content changes.
         done.delete(pre);
         console.warn("[MermaidOverlays] render failed:", e);
       });
   }
 
   function scan() {
-    document
-      .querySelectorAll<HTMLElement>("pre > code.language-mermaid")
-      .forEach((c) => applyBlock(c.parentElement as HTMLElement));
+    const blocks = document.querySelectorAll<HTMLElement>(
+      "pre > code.language-mermaid",
+    );
+    if (blocks.length) detectScroller();
+    blocks.forEach((c) => applyBlock(c.parentElement as HTMLElement));
     reposition();
   }
 
-  // Debounced MutationObserver on the ProseMirror/tiptap container.
+  // Debounced MutationObserver — the doc content arrives after mount.
   let debTimer: ReturnType<typeof setTimeout> | null = null;
   const mutObs = new MutationObserver(() => {
     if (debTimer) clearTimeout(debTimer);
     debTimer = setTimeout(scan, 150);
   });
-
   const editorRoot =
     document.querySelector(".ProseMirror") ??
     document.querySelector(".tiptap") ??
     document.body;
   mutObs.observe(editorRoot, { childList: true, subtree: true });
+  // Also observe body in case the editor root itself mounts later.
+  const bodyObs = new MutationObserver(() => {
+    if (debTimer) clearTimeout(debTimer);
+    debTimer = setTimeout(scan, 150);
+  });
+  if (editorRoot === document.body) {
+    // editorRoot already body; the single observer covers it.
+    bodyObs.disconnect();
+  } else {
+    bodyObs.observe(document.body, { childList: true, subtree: true });
+  }
 
-  // ResizeObserver on the editor root.
   let resObs: ResizeObserver | null = null;
   if (typeof ResizeObserver !== "undefined") {
     try {
@@ -372,57 +387,34 @@ async function runMermaidOverlays(
 
   window.addEventListener("resize", reposition);
 
-  // Also listen for scroll on the scroller element (if not window).
-  if (!scrollerWin) {
-    scrollerEl.addEventListener("scroll", reposition);
-  }
+  // Retry scans — editor lays out async after the doc loads.
+  const timers = [0, 300, 800, 1500, 2500, 4000].map((t) =>
+    setTimeout(scan, t),
+  );
 
-  // Initial scans — editor lays out async, so retry a few times.
-  [0, 400, 1200, 2500].forEach((t) => setTimeout(scan, t));
-
-  // Return cleanup.
   return () => {
     mutObs.disconnect();
+    bodyObs.disconnect();
     resObs?.disconnect();
     window.removeEventListener("resize", reposition);
-    if (!scrollerWin) {
-      scrollerEl.removeEventListener("scroll", reposition);
-    }
+    if (scrollListenerEl) scrollListenerEl.removeEventListener("scroll", reposition);
     if (debTimer) clearTimeout(debTimer);
-
-    // Remove all overlay boxes.
-    for (const entry of boxes) {
-      entry.box.remove();
-    }
+    timers.forEach((t) => clearTimeout(t));
+    for (const entry of boxes) entry.box.remove();
     boxes.length = 0;
-
-    // Remove injected stylesheets.
     sizeSheet.remove();
     hideSheet.remove();
   };
 }
 
-// ── React component ───────────────────────────────────────────────────────────
-
 export function MermaidOverlays() {
   useEffect(() => {
     const controller = new AbortController();
-    let cleanup: (() => void) | undefined;
-
-    runMermaidOverlays(controller.signal)
-      .then((fn) => {
-        cleanup = fn;
-      })
-      .catch((e) => {
-        console.warn("[MermaidOverlays] unexpected error:", e);
-      });
-
+    const cleanup = runMermaidOverlays(controller.signal);
     return () => {
       controller.abort();
-      cleanup?.();
+      cleanup();
     };
   }, []);
-
-  // Renders nothing — pure DOM side-effect component.
   return null;
 }
