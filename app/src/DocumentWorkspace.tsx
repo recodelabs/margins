@@ -824,7 +824,12 @@ export function DocumentWorkspace({
               variant="ghost"
               size="sm"
               className="h-8 rounded-[7px] bg-amber-900 dark:bg-amber-600 px-2 text-xs text-white hover:bg-amber-800 dark:hover:bg-amber-500"
-              onClick={() => void onOverwriteDocumentOnDisk()}
+              onClick={() => {
+                // Persist any debounced serialization into the draft before
+                // overwrite reads it, so we push the latest edits to disk.
+                saveControllerRef.current?.flushDraft();
+                void onOverwriteDocumentOnDisk();
+              }}
             >
               <Upload className="size-3.5" />
               Overwrite disk file
@@ -912,13 +917,19 @@ export function DocumentWorkspace({
                       </button>
                     }
                     aria-label={editorViewModeToggleLabel}
-                    onClick={() =>
+                    onClick={() => {
+                      // Leaving the rich-text editor: serialize the latest
+                      // edits into the draft so the code view opens with them
+                      // (rich-text serialization is otherwise deferred to save).
+                      if (documentEditorViewMode === "rich-text") {
+                        saveControllerRef.current?.flushDraft();
+                      }
                       onDocumentEditorViewModeChange(
                         documentEditorViewMode === "rich-text"
                           ? "code"
                           : "rich-text",
-                      )
-                    }
+                      );
+                    }}
                   />
                   <TooltipContent>{editorViewModeToggleLabel}</TooltipContent>
                 </Tooltip>

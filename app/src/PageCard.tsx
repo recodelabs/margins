@@ -64,6 +64,11 @@ export type ManualSaveResult =
 
 export interface DocumentSaveController {
   flushSave: () => Promise<ManualSaveResult>;
+  // Serialize the live editor content into the pending draft (and notify via
+  // onLocalContentChange) without triggering a network save. Used before reads
+  // that persist the draft directly — e.g. overwrite-on-disk — so a debounced
+  // serialization can't leak stale content.
+  flushDraft: () => void;
 }
 
 type EditorViewMode = "rich-text" | "code";
@@ -2002,10 +2007,14 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
     return await performSave(pendingMarkdownRef.current);
   }, [commitSerializedFromEditor, onSaveStateChange, performSave]);
 
+  const flushDraft = useCallback(() => {
+    commitSerializedFromEditor();
+  }, [commitSerializedFromEditor]);
+
   useEffect(() => {
-    onSaveControllerChange?.({ flushSave });
+    onSaveControllerChange?.({ flushSave, flushDraft });
     return () => onSaveControllerChange?.(null);
-  }, [flushSave, onSaveControllerChange]);
+  }, [flushDraft, flushSave, onSaveControllerChange]);
 
   const handleMarkdownChange = useCallback(
     (nextMarkdown: string) => {
