@@ -33,6 +33,49 @@ export class FileTooLargeError extends Error {
   }
 }
 
+export interface GitHubRateLimitInfo {
+  /** HTTP status that signalled the limit (403 primary, 429 secondary). */
+  status: number;
+  /** Server-suggested wait, from a `Retry-After` header, in seconds. */
+  retryAfterSeconds?: number;
+  /** When the primary rate limit resets, from `x-ratelimit-reset`. */
+  resetAt?: Date;
+}
+
+function pluralize(count: number, unit: string): string {
+  return `${count} ${unit}${count === 1 ? "" : "s"}`;
+}
+
+/** Turn rate-limit metadata into a message a user can actually act on. */
+export function formatRateLimitMessage(info: GitHubRateLimitInfo): string {
+  const base = "GitHub's API rate limit has been reached.";
+  if (info.retryAfterSeconds != null && info.retryAfterSeconds > 0) {
+    const wait =
+      info.retryAfterSeconds >= 60
+        ? pluralize(Math.ceil(info.retryAfterSeconds / 60), "minute")
+        : pluralize(info.retryAfterSeconds, "second");
+    return `${base} Please wait ${wait} and try again.`;
+  }
+  if (info.resetAt) {
+    return `${base} It resets at ${info.resetAt.toLocaleTimeString()}.`;
+  }
+  return `${base} Please wait a moment and try again.`;
+}
+
+export class GitHubRateLimitError extends Error {
+  status: number;
+  retryAfterSeconds?: number;
+  resetAt?: Date;
+
+  constructor(info: GitHubRateLimitInfo) {
+    super(formatRateLimitMessage(info));
+    this.name = "GitHubRateLimitError";
+    this.status = info.status;
+    this.retryAfterSeconds = info.retryAfterSeconds;
+    this.resetAt = info.resetAt;
+  }
+}
+
 export interface StoredAsset {
   markdownPath: string;
   previewUrl: string;
