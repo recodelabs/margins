@@ -14,7 +14,11 @@ export async function completeLoginFromUrl(): Promise<string | null> {
   const returnedState = params.get("state");
   const expectedState = sessionStorage.getItem(STATE_KEY);
   // Strip the code/state from the URL regardless, so they don't linger.
-  history.replaceState(null, "", window.location.pathname + window.location.hash);
+  history.replaceState(
+    null,
+    "",
+    window.location.pathname + window.location.hash,
+  );
   if (!expectedState || returnedState !== expectedState) {
     return getStoredToken(); // reject unverified callback; fall back to any existing session token
   }
@@ -50,7 +54,10 @@ export function login(): void {
 /** Fetch the authenticated user's login for comment attribution. */
 export async function fetchLogin(token: string): Promise<string> {
   const res = await fetch("https://api.github.com/user", {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+    },
   });
   if (!res.ok) throw new Error(`GitHub /user failed (${res.status})`);
   const json = (await res.json()) as { login: string };

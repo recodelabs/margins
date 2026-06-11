@@ -28,10 +28,7 @@ export function DocumentLoadError({ message }: { message: string }) {
         </div>
         <div className="flex items-center gap-3">
           <Button onClick={() => window.location.reload()}>Retry</Button>
-          <Button
-            variant="outline"
-            onClick={() => window.location.assign("/")}
-          >
+          <Button variant="outline" onClick={() => window.location.assign("/")}>
             {githubMode ? "Back to picker" : "Back to home"}
           </Button>
         </div>

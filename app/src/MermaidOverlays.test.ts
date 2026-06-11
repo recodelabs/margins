@@ -20,12 +20,14 @@
  * evaluated and rejected — it strips Mermaid's <foreignObject> HTML labels,
  * blanking every flowchart/subgraph node.
  */
-import { describe, it, expect } from "vitest";
+
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
 
 // Tests run with cwd = app/ (the vitest project root).
-const repoFile = (rel: string) => readFileSync(resolve(process.cwd(), rel), "utf8");
+const repoFile = (rel: string) =>
+  readFileSync(resolve(process.cwd(), rel), "utf8");
 
 describe("Mermaid render-path hardening (REC-380)", () => {
   it("SPA (MermaidOverlays.tsx) initializes Mermaid with strict, never loose", () => {

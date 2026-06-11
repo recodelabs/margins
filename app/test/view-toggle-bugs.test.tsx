@@ -6,12 +6,12 @@ import {
   type DocumentEditorViewMode,
   getDocumentEditorViewModeFromLocation,
 } from "../src/app-navigation";
-import { createDocumentSessionStore } from "../src/document-session";
 import {
   DocumentSaveStatusIndicator,
   DocumentWorkspace,
   isReviewHandoffDisabled,
 } from "../src/DocumentWorkspace";
+import { createDocumentSessionStore } from "../src/document-session";
 import type { DocumentSaveState } from "../src/PageCard";
 import type {
   CompleteReviewOptions,
@@ -1023,8 +1023,8 @@ describe("document session store wiring", () => {
     await renderWorkspaceWithStore(documentSession);
 
     expect(documentSession.getSnapshot().saveController).not.toBeNull();
-    expect(
-      typeof documentSession.getSnapshot().saveController?.flushSave,
-    ).toBe("function");
+    expect(typeof documentSession.getSnapshot().saveController?.flushSave).toBe(
+      "function",
+    );
   });
 });

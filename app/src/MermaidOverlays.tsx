@@ -21,7 +21,7 @@ import { useEffect } from "react";
 type Mermaid = any;
 
 function natSize(svg: string): { w: number; h: number } {
-  const m = svg.match(/viewBox="[\d.\-]+ [\d.\-]+ ([\d.\-]+) ([\d.\-]+)"/);
+  const m = svg.match(/viewBox="[\d.-]+ [\d.-]+ ([\d.-]+) ([\d.-]+)"/);
   if (m && +m[1] > 0) return { w: +m[1], h: +m[2] };
   const w = svg.match(/width="([\d.]+)/);
   const h = svg.match(/height="([\d.]+)/);
@@ -112,7 +112,11 @@ function openModal(svg: string) {
     (e) => {
       e.preventDefault();
       const r = vp.getBoundingClientRect();
-      zoomAt(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.12 : 1 / 1.12);
+      zoomAt(
+        e.clientX - r.left,
+        e.clientY - r.top,
+        e.deltaY < 0 ? 1.12 : 1 / 1.12,
+      );
     },
     { passive: false },
   );

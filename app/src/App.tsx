@@ -1,4 +1,11 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   buildLocationForDocumentEditorViewMode,
   type DocumentEditorViewMode,
@@ -13,16 +20,12 @@ import {
 } from "./app-navigation";
 import { DocumentLoadError } from "./DocumentLoadError";
 import type { GitHubDocNav } from "./DocumentWorkspace";
-import { createDocumentSessionStore } from "./document-session";
 import { detectBackend, isGitHubMode } from "./detect-backend";
+import { createDocumentSessionStore } from "./document-session";
 import { GitHubPicker } from "./GitHubPicker";
-import { Homepage, HomepageSubtitle } from "./Homepage";
 import { getStoredToken } from "./github-auth";
-import {
-  isMarkdownPath,
-  navigate,
-  parseGitHubLocation,
-} from "./github-route";
+import { isMarkdownPath, navigate, parseGitHubLocation } from "./github-route";
+import { Homepage, HomepageSubtitle } from "./Homepage";
 import type { DocumentSaveState } from "./PageCard";
 import { PreviewPage } from "./PreviewPage";
 import { RoughdraftFlavoredMarkdownPage } from "./RoughdraftFlavoredMarkdownPage";
@@ -231,10 +234,7 @@ export function App() {
 
       // Already showing this exact document (e.g. a redundant popstate) — skip
       // the refetch entirely.
-      if (
-        activeDocumentPathRef.current === path &&
-        documentPageRef.current
-      ) {
+      if (activeDocumentPathRef.current === path && documentPageRef.current) {
         setLoading(false);
         return;
       }
@@ -412,7 +412,8 @@ export function App() {
           if (!currentBackend || !currentPath) return;
 
           setDocumentActionError(null);
-          const nextDocument = await currentBackend.getMarkdownFile(currentPath);
+          const nextDocument =
+            await currentBackend.getMarkdownFile(currentPath);
           applyDocumentPage(nextDocument);
           documentSession.setDirty(false);
           setDocumentDiskChangeState("clean");
@@ -637,7 +638,12 @@ export function App() {
     if (!isGitHubMode()) return null;
     const loc = githubLocation;
     if (!loc.owner || !loc.repo || !isMarkdownPath(loc.path)) return null;
-    return { owner: loc.owner, repo: loc.repo, branch: loc.branch, path: loc.path };
+    return {
+      owner: loc.owner,
+      repo: loc.repo,
+      branch: loc.branch,
+      path: loc.path,
+    };
   })();
 
   return (

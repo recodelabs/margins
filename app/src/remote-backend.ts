@@ -1,9 +1,9 @@
 import { titleFromContent } from "./markdown";
 import {
-  MarkdownFileConflictError,
   type BackendCapabilities,
   type BackendInfo,
   type MarkdownFileChangeEvent,
+  MarkdownFileConflictError,
   type Page,
   type RemoteSessionStatus,
   type StorageBackend,

@@ -1,4 +1,11 @@
-import { Check, CodeXml, Eye, FileText, PencilLine, Terminal } from "lucide-react";
+import {
+  Check,
+  CodeXml,
+  Eye,
+  FileText,
+  PencilLine,
+  Terminal,
+} from "lucide-react";
 import {
   type Ref,
   useCallback,
@@ -39,7 +46,6 @@ const HOMEPAGE_WORKFLOW_REVIEW_ITEMS = [
     replies: [],
   },
 ] as const;
-
 
 function getHomepageWorkflowDocumentScale(element: HTMLElement | null) {
   const scaleElement = element?.closest<HTMLElement>(
@@ -87,7 +93,6 @@ export function HomepageWorkflowScene({
   );
 }
 
-
 export function HomepageWorkflowComposite({
   terminalRef,
   workflowStage,
@@ -102,7 +107,6 @@ export function HomepageWorkflowComposite({
     </div>
   );
 }
-
 
 function AgentChatMock({
   terminalRef,
@@ -236,7 +240,6 @@ function AgentChatMock({
     </div>
   );
 }
-
 
 function RoughdraftPopupMock({ workflowStage }: { workflowStage: number }) {
   const visible = workflowStage >= 3;

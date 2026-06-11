@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { getFolderContents, splitPath } from "./github-tree";
 
 describe("getFolderContents", () => {
@@ -28,7 +28,11 @@ describe("getFolderContents", () => {
   it("drills into a subfolder", () => {
     const entries = getFolderContents(paths, "docs");
     // subfolders: archive, design; file: intro.md
-    expect(entries.map((e) => e.name)).toEqual(["archive", "design", "intro.md"]);
+    expect(entries.map((e) => e.name)).toEqual([
+      "archive",
+      "design",
+      "intro.md",
+    ]);
     expect(entries[0].kind).toBe("folder");
     expect(entries[0].path).toBe("docs/archive");
     expect(entries[2].kind).toBe("file");
@@ -50,12 +54,16 @@ describe("getFolderContents", () => {
   it("only shows folders containing .md files", () => {
     const entries = getFolderContents(paths, "");
     // There is no top-level folder without .md descendants
-    expect(entries.filter((e) => e.kind === "folder").map((e) => e.name)).toEqual(["docs", "notes"]);
+    expect(
+      entries.filter((e) => e.kind === "folder").map((e) => e.name),
+    ).toEqual(["docs", "notes"]);
   });
 
   it("handles single file at root", () => {
     const entries = getFolderContents(["only.md"], "");
-    expect(entries).toEqual([{ kind: "file", name: "only.md", path: "only.md" }]);
+    expect(entries).toEqual([
+      { kind: "file", name: "only.md", path: "only.md" },
+    ]);
   });
 
   it("handles empty path list", () => {

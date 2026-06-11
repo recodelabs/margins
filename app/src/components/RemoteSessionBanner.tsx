@@ -1,4 +1,4 @@
-import { CloudOff, Cloud } from "lucide-react";
+import { Cloud, CloudOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { RemoteSessionStatus, StorageBackend } from "../storage";
 
