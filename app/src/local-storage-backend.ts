@@ -157,6 +157,7 @@ export class LocalStorageBackend implements StorageBackend {
     documentPath: false,
     manualCommit: false,
     remoteSession: false,
+    createFile: false,
   };
   canManageProjects = false;
 
@@ -195,6 +196,12 @@ export class LocalStorageBackend implements StorageBackend {
     _options?: { overallComment?: string },
   ): Promise<{ delivered: boolean }> {
     return { delivered: false };
+  }
+
+  createMarkdownFile(_relativePath: string, _content: string): Promise<Page> {
+    return Promise.reject(
+      new Error("Creating new files is not supported in this backend"),
+    );
   }
 
   async saveAsset(file: File): Promise<StoredAsset> {

@@ -4,9 +4,17 @@ import {
   FileText,
   Folder,
   Loader2,
+  Plus,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "./components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./components/ui/dialog";
 import { clearToken, getStoredToken, login } from "./github-auth";
 import { GitHubBackend } from "./github-backend";
 import {
@@ -17,6 +25,7 @@ import {
 } from "./github-route";
 import { getFolderContents, splitPath } from "./github-tree";
 import { cn } from "./lib/utils";
+import { validateNewFileName } from "./new-file-name";
 
 // ---------------------------------------------------------------------------
 // GitHub mark SVG (inline, no external dependency)
@@ -143,6 +152,10 @@ export function GitHubPicker() {
   const [allPaths, setAllPaths] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showNewFile, setShowNewFile] = useState(false);
+  const [newFileName, setNewFileName] = useState("untitled.md");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   // Listen for browser Back/Forward so path-based dir stays in sync
   useEffect(() => {
@@ -253,6 +266,48 @@ export function GitHubPicker() {
 
   // Compute folder contents for the current view
   const entries = allPaths ? getFolderContents(allPaths, currentDir) : [];
+  const existingFileNames = entries
+    .filter((e) => e.kind === "file")
+    .map((e) => e.name);
+  const nameCheck = validateNewFileName(newFileName, existingFileNames);
+
+  const openNewFileDialog = () => {
+    setNewFileName("untitled.md");
+    setCreateError(null);
+    setShowNewFile(true);
+  };
+
+  const handleCreateFile = async () => {
+    const check = validateNewFileName(newFileName, existingFileNames);
+    if (!check.ok) {
+      setCreateError(check.error);
+      return;
+    }
+    const [owner, name] = repo.split("/");
+    if (!token || !owner || !name) return;
+    setCreating(true);
+    setCreateError(null);
+    const backend = new GitHubBackend({
+      token,
+      owner,
+      repo: name,
+      branch: ref,
+      login: "",
+    });
+    const newPath = currentDir
+      ? `${currentDir}/${newFileName.trim()}`
+      : newFileName.trim();
+    try {
+      await backend.createMarkdownFile(newPath, "# Untitled\n");
+      setCreating(false);
+      setShowNewFile(false);
+      openFile(newPath);
+    } catch (e) {
+      setCreating(false);
+      setCreateError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   const owner = repoOwner ?? "";
   const displayRepoName = repoName ?? repo;
 
@@ -331,6 +386,15 @@ export function GitHubPicker() {
               <span className="inline-flex items-center rounded-full border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[0.72rem] font-medium text-stone-500 dark:text-stone-400">
                 {ref}
               </span>
+              <button
+                type="button"
+                onClick={openNewFileDialog}
+                disabled={loading || !allPaths}
+                className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Plus className="size-3.5" aria-hidden="true" />
+                New file
+              </button>
             </div>
 
             {/* Breadcrumb of current folder path */}
@@ -463,6 +527,73 @@ export function GitHubPicker() {
           </div>
         ) : null}
       </div>
+
+      <Dialog
+        open={showNewFile}
+        onOpenChange={(open) => {
+          if (!open) setCreating(false);
+          setShowNewFile(open);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New markdown file</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor="new-file-name-input"
+              className="text-xs font-medium text-stone-500 dark:text-stone-400"
+            >
+              File name {currentDir ? `in ${currentDir}/` : "in repo root"}
+            </label>
+            <input
+              id="new-file-name-input"
+              value={newFileName}
+              onChange={(e) => {
+                setNewFileName(e.target.value);
+                setCreateError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && nameCheck.ok && !creating) {
+                  void handleCreateFile();
+                }
+              }}
+              placeholder="untitled.md"
+              className="h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-950 dark:text-slate-50 outline-none focus:ring-2 focus:ring-slate-300/70 dark:focus:ring-slate-600/70 placeholder:text-stone-400"
+              spellCheck={false}
+              autoCapitalize="none"
+              autoFocus
+            />
+            {!nameCheck.ok && newFileName.trim() ? (
+              <p className="text-xs text-rose-600 dark:text-rose-400">
+                {nameCheck.error}
+              </p>
+            ) : null}
+            {createError ? (
+              <p className="text-xs text-rose-600 dark:text-rose-400">
+                {createError}
+              </p>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowNewFile(false)}
+              disabled={creating}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleCreateFile}
+              disabled={!nameCheck.ok || creating}
+            >
+              {creating ? "Creating…" : "Create file"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

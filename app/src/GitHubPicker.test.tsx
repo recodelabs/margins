@@ -127,3 +127,79 @@ describe("GitHubPicker file open", () => {
     pushSpy.mockRestore();
   });
 });
+
+describe("GitHubPicker new-file creation", () => {
+  async function loadRepo(treePaths: string[]) {
+    const treeMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            tree: treePaths.map((p) => ({ path: p, type: "blob" })),
+          }),
+          { status: 200 },
+        ),
+    );
+    global.fetch = treeMock as unknown as typeof fetch;
+
+    vi.useFakeTimers();
+    await act(async () => {
+      root.render(<GitHubPicker />);
+    });
+    const input = container.querySelector<HTMLInputElement>("#gh-repo-input");
+    if (!input) throw new Error("repo input not found");
+    await act(async () => {
+      typeInto(input, "own/repo");
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    vi.useRealTimers();
+  }
+
+  function findButtonByText(text: string): HTMLButtonElement | null {
+    const all = Array.from(document.querySelectorAll("button"));
+    return (all.find((b) => b.textContent?.includes(text)) ??
+      null) as HTMLButtonElement | null;
+  }
+
+  it("shows a New file button once a repo is loaded and creates a file via PUT", async () => {
+    await loadRepo(["docs/existing.md"]);
+
+    const newFileBtn = findButtonByText("New file");
+    expect(newFileBtn).not.toBeNull();
+
+    await act(async () => {
+      newFileBtn?.click();
+    });
+
+    const nameInput = document.body.querySelector<HTMLInputElement>(
+      "#new-file-name-input",
+    );
+    if (!nameInput) throw new Error("new-file name input not found");
+    expect(nameInput.value).toBe("untitled.md");
+
+    const putMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ content: { sha: "created1" } }), {
+          status: 201,
+        }),
+    );
+    global.fetch = putMock as unknown as typeof fetch;
+
+    await act(async () => {
+      typeInto(nameInput, "my-notes.md");
+    });
+    const createBtn = findButtonByText("Create file");
+    await act(async () => {
+      createBtn?.click();
+    });
+
+    expect(putMock).toHaveBeenCalledWith(
+      "https://api.github.com/repos/own/repo/contents/my-notes.md",
+      expect.objectContaining({ method: "PUT" }),
+    );
+    const body = JSON.parse(
+      (putMock.mock.calls[0][1] as RequestInit).body as string,
+    );
+    expect(body.sha).toBeUndefined();
+    expect(body.message).toBe("Create my-notes.md");
+  });
+});

@@ -462,6 +462,84 @@ describe("GitHubBackend", () => {
     });
   });
 
+  describe("createMarkdownFile", () => {
+    it("PUTs base64 content with NO sha and a Create message", async () => {
+      const fetchMock = vi.fn(
+        async () =>
+          new Response(JSON.stringify({ content: { sha: "new1" } }), {
+            status: 201,
+          }),
+      );
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const page = await backend().createMarkdownFile(
+        "docs/new.md",
+        "# Untitled\n",
+      );
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://api.github.com/repos/o/r/contents/docs/new.md",
+        {
+          method: "PUT",
+          headers: {
+            Authorization: "Bearer tok",
+            Accept: "application/vnd.github+json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: "Create docs/new.md",
+            content: b64("# Untitled\n"),
+            branch: "main",
+          }),
+        },
+      );
+      expect(page?.version).toBe("new1");
+      expect(page?.content).toBe("# Untitled\n");
+    });
+
+    it("maps a sha-collision 422 to an already-exists error", async () => {
+      global.fetch = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              message: 'Invalid request.\n\n"sha" wasn\'t supplied.',
+            }),
+            { status: 422 },
+          ),
+      ) as unknown as typeof fetch;
+
+      await expect(
+        backend().createMarkdownFile("docs/dup.md", "# x\n"),
+      ).rejects.toThrow(/already exists/);
+    });
+
+    it("surfaces a non-collision 422 as a generic create error", async () => {
+      global.fetch = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ message: "path contains a malformed segment" }),
+            {
+              status: 422,
+            },
+          ),
+      ) as unknown as typeof fetch;
+
+      const promise = backend().createMarkdownFile("docs/weird.md", "# x\n");
+      await expect(promise).rejects.toThrow(/malformed segment/);
+      await expect(promise).rejects.not.toThrow(/already exists/);
+    });
+
+    it("rejects a non-.md path without calling fetch", async () => {
+      const fetchMock = vi.fn();
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      await expect(
+        backend().createMarkdownFile("notes.txt", "x"),
+      ).rejects.toThrow(/markdown/);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
+
   describe("markdown-only guard", () => {
     it("getMarkdownFile rejects a non-.md path without calling fetch", async () => {
       const fetchMock = vi.fn();

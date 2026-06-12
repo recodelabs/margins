@@ -45,6 +45,7 @@ export class GitHubBackend implements StorageBackend {
     documentPath: false,
     manualCommit: true,
     remoteSession: false,
+    createFile: true,
   };
   canManageProjects = false;
   private cfg: GitHubBackendConfig;
@@ -161,6 +162,56 @@ export class GitHubBackend implements StorageBackend {
     const json = (await res.json()) as { content: { sha: string } };
     // The file changed on the server — drop any cached read so the next open
     // re-fetches (and re-conditionalises) instead of serving stale content.
+    invalidateCachedUrl(this.contentsUrl(relativePath));
+    return {
+      id: pageId(relativePath),
+      title: titleFromContent(
+        content,
+        relativePath.split("/").at(-1) || relativePath,
+      ),
+      content,
+      version: json.content.sha,
+    };
+  }
+
+  async createMarkdownFile(
+    relativePath: string,
+    content: string,
+  ): Promise<Page> {
+    if (!/\.md$/i.test(relativePath)) {
+      throw new Error("Only markdown (.md) files can be created in margins");
+    }
+    const { owner, repo, branch } = this.cfg;
+    const res = await githubFetch(
+      `${API}/repos/${owner}/${repo}/contents/${relativePath}`,
+      {
+        method: "PUT",
+        headers: this.headers({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          message: `Create ${relativePath}`,
+          content: encodeBase64(content),
+          branch,
+        }),
+      },
+    );
+    // A no-sha PUT to an existing path 422s with a message about the missing
+    // sha — surface that as a friendly collision error. Other 422s are real
+    // validation failures, so pass GitHub's message through instead of
+    // mislabeling them as collisions (mirrors saveMarkdownFile's 422 handling).
+    if (res.status === 422) {
+      const errBody = (await res.json().catch(() => ({}))) as {
+        message?: string;
+      };
+      const msg = errBody.message ?? "";
+      if (/sha.*supplied|already exists/i.test(msg)) {
+        throw new Error(`A file named "${relativePath}" already exists`);
+      }
+      throw new Error(
+        `GitHub create failed (422): ${msg || "validation error"}`,
+      );
+    }
+    if (!res.ok) throw new Error(`GitHub create failed (${res.status})`);
+    const json = (await res.json()) as { content: { sha: string } };
     invalidateCachedUrl(this.contentsUrl(relativePath));
     return {
       id: pageId(relativePath),

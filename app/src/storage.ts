@@ -118,6 +118,8 @@ export interface BackendCapabilities {
   manualCommit: boolean;
   /** Tracks a live remote session and notifies via `onSessionStatusChange`. */
   remoteSession: boolean;
+  /** Supports creating a brand-new markdown file via `createMarkdownFile`. */
+  createFile: boolean;
 }
 
 export interface StorageBackend {
@@ -130,6 +132,13 @@ export interface StorageBackend {
     content: string,
     expectedVersion?: string,
   ): Promise<Page>;
+  /**
+   * Creates a new markdown file at `relativePath` with the given content and
+   * commits it. Rejects if the path already exists. Required (not optional) so
+   * every backend provides an explicit path — like `saveMarkdownFile`/`saveAsset`,
+   * unsupported backends reject. Callers gate on `capabilities.createFile`.
+   */
+  createMarkdownFile(relativePath: string, content: string): Promise<Page>;
   /** Path/filename of the open document; present when `capabilities.documentPath`. */
   documentPath?(): string;
   /** Subscribe to session status; present when `capabilities.remoteSession`. */
