@@ -45,6 +45,7 @@ export class GitHubBackend implements StorageBackend {
     documentPath: false,
     manualCommit: true,
     remoteSession: false,
+    createFile: true,
   };
   canManageProjects = false;
   private cfg: GitHubBackendConfig;
@@ -161,6 +162,45 @@ export class GitHubBackend implements StorageBackend {
     const json = (await res.json()) as { content: { sha: string } };
     // The file changed on the server — drop any cached read so the next open
     // re-fetches (and re-conditionalises) instead of serving stale content.
+    invalidateCachedUrl(this.contentsUrl(relativePath));
+    return {
+      id: pageId(relativePath),
+      title: titleFromContent(
+        content,
+        relativePath.split("/").at(-1) || relativePath,
+      ),
+      content,
+      version: json.content.sha,
+    };
+  }
+
+  async createMarkdownFile(
+    relativePath: string,
+    content: string,
+  ): Promise<Page> {
+    if (!/\.md$/i.test(relativePath)) {
+      throw new Error("Only markdown (.md) files can be created in margins");
+    }
+    const { owner, repo, branch } = this.cfg;
+    const res = await githubFetch(
+      `${API}/repos/${owner}/${repo}/contents/${relativePath}`,
+      {
+        method: "PUT",
+        headers: this.headers({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          message: `Create ${relativePath}`,
+          content: encodeBase64(content),
+          branch,
+        }),
+      },
+    );
+    // GitHub returns 422 when the path already exists (no sha supplied for an
+    // existing file) — surface that as a friendly collision error.
+    if (res.status === 422) {
+      throw new Error(`A file named "${relativePath}" already exists`);
+    }
+    if (!res.ok) throw new Error(`GitHub create failed (${res.status})`);
+    const json = (await res.json()) as { content: { sha: string } };
     invalidateCachedUrl(this.contentsUrl(relativePath));
     return {
       id: pageId(relativePath),
