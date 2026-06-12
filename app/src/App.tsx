@@ -38,6 +38,7 @@ import {
   type Page,
   type StorageBackend,
 } from "./storage";
+import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
 import { UpdateNotice } from "./UpdateNotice";
 import { fetchUpdateStatus, type UpdateStatus } from "./update-status";
 
@@ -103,6 +104,9 @@ export function App() {
   );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [pendingNavHref, setPendingNavHref] = useState<string | null>(null);
+  const [committingBeforeLeave, setCommittingBeforeLeave] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
   const [documentEditorViewMode, setDocumentEditorViewMode] = useState(() =>
     getDocumentEditorViewModeFromLocation("rich-text"),
@@ -597,17 +601,58 @@ export function App() {
           isDirty: session.dirty,
           saveState: session.saveState,
           diskChangeState: documentDiskChangeState,
-        }) &&
-        !window.confirm(
-          "You have unsaved changes that will be lost. Leave this document?",
-        )
+        })
       ) {
+        setLeaveError(null);
+        setPendingNavHref(href);
         return;
       }
       navigate(href);
     },
     [documentSession, documentDiskChangeState],
   );
+
+  const handleStayOnDocument = useCallback(() => {
+    setPendingNavHref(null);
+    setLeaveError(null);
+    setCommittingBeforeLeave(false);
+  }, []);
+
+  const handleLeaveWithoutSaving = useCallback(() => {
+    const href = pendingNavHref;
+    setPendingNavHref(null);
+    setLeaveError(null);
+    setCommittingBeforeLeave(false);
+    if (href) navigate(href);
+  }, [pendingNavHref]);
+
+  const handleCommitAndLeave = useCallback(async () => {
+    const href = pendingNavHref;
+    if (!href) return;
+    const controller = documentSession.getSnapshot().saveController;
+    if (!controller) {
+      // No editor controller to commit through — just leave.
+      handleLeaveWithoutSaving();
+      return;
+    }
+    setCommittingBeforeLeave(true);
+    setLeaveError(null);
+    const result = await controller.flushSave();
+    if (result.status === "saved") {
+      setCommittingBeforeLeave(false);
+      setPendingNavHref(null);
+      navigate(href);
+      return;
+    }
+    setCommittingBeforeLeave(false);
+    setLeaveError(
+      result.status === "blocked"
+        ? "This file changed on disk — resolve the conflict before committing."
+        : result.error instanceof Error
+          ? result.error.message
+          : "Could not commit your changes.",
+    );
+  }, [pendingNavHref, documentSession, handleLeaveWithoutSaving]);
 
   const view = resolveAppView({
     loading,
@@ -707,6 +752,15 @@ export function App() {
           onNavigate={handleNavigateAway}
         />
       </Suspense>
+      <UnsavedChangesDialog
+        open={pendingNavHref !== null}
+        manualCommit={backend?.capabilities.manualCommit ?? false}
+        committing={committingBeforeLeave}
+        error={leaveError}
+        onCommitAndLeave={handleCommitAndLeave}
+        onLeaveWithoutSaving={handleLeaveWithoutSaving}
+        onStay={handleStayOnDocument}
+      />
     </main>
   );
 }
