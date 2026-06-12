@@ -134,8 +134,9 @@ export interface StorageBackend {
   ): Promise<Page>;
   /**
    * Creates a new markdown file at `relativePath` with the given content and
-   * commits it. Rejects if the path already exists. Present when
-   * `capabilities.createFile`.
+   * commits it. Rejects if the path already exists. Required (not optional) so
+   * every backend provides an explicit path — like `saveMarkdownFile`/`saveAsset`,
+   * unsupported backends reject. Callers gate on `capabilities.createFile`.
    */
   createMarkdownFile(relativePath: string, content: string): Promise<Page>;
   /** Path/filename of the open document; present when `capabilities.documentPath`. */
