@@ -25,6 +25,7 @@ export class RemoteBackend implements StorageBackend {
     documentPath: true,
     manualCommit: false,
     remoteSession: true,
+    createFile: false,
   };
   canManageProjects = false;
   sessionStatus: RemoteSessionStatus = "disconnected";
@@ -230,6 +231,12 @@ export class RemoteBackend implements StorageBackend {
       source.close();
       this.setSessionStatus("disconnected");
     };
+  }
+
+  createMarkdownFile(_relativePath: string, _content: string): Promise<Page> {
+    return Promise.reject(
+      new Error("Creating new files is not supported in this backend"),
+    );
   }
 
   async saveAsset(_file: File): Promise<StoredAsset> {

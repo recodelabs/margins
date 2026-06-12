@@ -17,6 +17,7 @@ export class ApiBackend implements StorageBackend {
     documentPath: false,
     manualCommit: false,
     remoteSession: false,
+    createFile: false,
   };
   canManageProjects = true;
 
@@ -165,6 +166,12 @@ export class ApiBackend implements StorageBackend {
       watcherCount:
         typeof payload.watcherCount === "number" ? payload.watcherCount : 0,
     };
+  }
+
+  createMarkdownFile(_relativePath: string, _content: string): Promise<Page> {
+    return Promise.reject(
+      new Error("Creating new files is not supported in this backend"),
+    );
   }
 
   async saveAsset(file: File): Promise<StoredAsset> {
