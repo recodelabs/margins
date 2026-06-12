@@ -133,6 +133,24 @@ export function getRootThreadIdForCommentId(
   return comments.has(commentId) ? commentId : null;
 }
 
+/**
+ * The element whose top is the measurement origin for comment anchors: the
+ * shared `.document-page-shell` grid that the editor column and the comment rail
+ * both align to. Comment cards are absolutely positioned inside the rail
+ * container (which starts at the shell top), so measuring anchor offsets from
+ * the shell — not the editor (which sits lower by the document card's padding) —
+ * makes each card line up with its highlighted text. Falls back to the editor
+ * element when no shell ancestor exists.
+ */
+export function resolveAnchorReferenceElement(
+  editorElement: HTMLElement,
+): HTMLElement {
+  return (
+    (editorElement.closest(".document-page-shell") as HTMLElement | null) ??
+    editorElement
+  );
+}
+
 export function getCommentAnchorMeasurements(
   anchorElements: Iterable<CommentAnchorElementLike>,
   containerTop: number,

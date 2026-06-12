@@ -4,6 +4,7 @@ import {
   type CommentGroupAnchor,
   getCommentAnchorMeasurements,
   groupCommentAnchorMeasurements,
+  resolveAnchorReferenceElement,
 } from "./document-comments";
 
 interface CommentAnchorLayoutState {
@@ -49,12 +50,15 @@ export function useCommentAnchorLayout(editor: Editor | null, enabled = true) {
       }
 
       const editorRect = editorElement.getBoundingClientRect();
+      const referenceTop =
+        resolveAnchorReferenceElement(editorElement).getBoundingClientRect()
+          .top;
       const anchorElements = editorElement.querySelectorAll<HTMLElement>(
         ".comment-anchor[data-comment-ids]",
       );
       const measurements = getCommentAnchorMeasurements(
         anchorElements,
-        editorRect.top,
+        referenceTop,
         1,
       );
 
