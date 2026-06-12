@@ -389,7 +389,8 @@ export function GitHubPicker() {
               <button
                 type="button"
                 onClick={openNewFileDialog}
-                className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] cursor-pointer"
+                disabled={loading || !allPaths}
+                className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Plus className="size-3.5" aria-hidden="true" />
                 New file
@@ -527,7 +528,13 @@ export function GitHubPicker() {
         ) : null}
       </div>
 
-      <Dialog open={showNewFile} onOpenChange={setShowNewFile}>
+      <Dialog
+        open={showNewFile}
+        onOpenChange={(open) => {
+          if (!open) setCreating(false);
+          setShowNewFile(open);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>New markdown file</DialogTitle>
@@ -569,6 +576,14 @@ export function GitHubPicker() {
             ) : null}
           </div>
           <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowNewFile(false)}
+              disabled={creating}
+            >
+              Cancel
+            </Button>
             <Button
               type="button"
               onClick={handleCreateFile}
