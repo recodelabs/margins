@@ -194,10 +194,21 @@ export class GitHubBackend implements StorageBackend {
         }),
       },
     );
-    // GitHub returns 422 when the path already exists (no sha supplied for an
-    // existing file) — surface that as a friendly collision error.
+    // A no-sha PUT to an existing path 422s with a message about the missing
+    // sha — surface that as a friendly collision error. Other 422s are real
+    // validation failures, so pass GitHub's message through instead of
+    // mislabeling them as collisions (mirrors saveMarkdownFile's 422 handling).
     if (res.status === 422) {
-      throw new Error(`A file named "${relativePath}" already exists`);
+      const errBody = (await res.json().catch(() => ({}))) as {
+        message?: string;
+      };
+      const msg = errBody.message ?? "";
+      if (/sha.*supplied|already exists/i.test(msg)) {
+        throw new Error(`A file named "${relativePath}" already exists`);
+      }
+      throw new Error(
+        `GitHub create failed (422): ${msg || "validation error"}`,
+      );
     }
     if (!res.ok) throw new Error(`GitHub create failed (${res.status})`);
     const json = (await res.json()) as { content: { sha: string } };

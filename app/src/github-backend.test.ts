@@ -497,17 +497,36 @@ describe("GitHubBackend", () => {
       expect(page?.content).toBe("# Untitled\n");
     });
 
-    it("maps 422 to an already-exists error", async () => {
+    it("maps a sha-collision 422 to an already-exists error", async () => {
       global.fetch = vi.fn(
         async () =>
-          new Response(JSON.stringify({ message: "Invalid request" }), {
-            status: 422,
-          }),
+          new Response(
+            JSON.stringify({
+              message: 'Invalid request.\n\n"sha" wasn\'t supplied.',
+            }),
+            { status: 422 },
+          ),
       ) as unknown as typeof fetch;
 
       await expect(
         backend().createMarkdownFile("docs/dup.md", "# x\n"),
       ).rejects.toThrow(/already exists/);
+    });
+
+    it("surfaces a non-collision 422 as a generic create error", async () => {
+      global.fetch = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ message: "path contains a malformed segment" }),
+            {
+              status: 422,
+            },
+          ),
+      ) as unknown as typeof fetch;
+
+      const promise = backend().createMarkdownFile("docs/weird.md", "# x\n");
+      await expect(promise).rejects.toThrow(/malformed segment/);
+      await expect(promise).rejects.not.toThrow(/already exists/);
     });
 
     it("rejects a non-.md path without calling fetch", async () => {
