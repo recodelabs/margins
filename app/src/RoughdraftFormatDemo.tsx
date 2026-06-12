@@ -42,6 +42,7 @@ const demoBackend: StorageBackend = {
     documentPath: false,
     manualCommit: false,
     remoteSession: false,
+    createFile: false,
   },
   canManageProjects: false,
   async getMarkdownFile() {
@@ -52,6 +53,13 @@ const demoBackend: StorageBackend = {
     };
   },
   async saveMarkdownFile(_relativePath, content) {
+    return {
+      id: "homepage-format-preview",
+      title: "homepage-format-preview.md",
+      content,
+    };
+  },
+  async createMarkdownFile(_relativePath, content) {
     return {
       id: "homepage-format-preview",
       title: "homepage-format-preview.md",
