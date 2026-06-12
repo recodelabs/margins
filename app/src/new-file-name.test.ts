@@ -7,8 +7,10 @@ describe("validateNewFileName", () => {
   });
 
   it("rejects an empty name", () => {
-    const r = validateNewFileName("   ", []);
-    expect(r.ok).toBe(false);
+    expect(validateNewFileName("   ", [])).toEqual({
+      ok: false,
+      error: "Enter a file name",
+    });
   });
 
   it("rejects a name without a .md extension", () => {
