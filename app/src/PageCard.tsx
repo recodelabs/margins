@@ -14,6 +14,7 @@ import {
 } from "react";
 import { buildLocationForLinkedMarkdownDocument } from "./app-navigation";
 import { CommentEditorList } from "./CommentEditorList";
+import { scrollCommentAnchorIntoView } from "./comment-scroll";
 import { shouldShowReviewRail } from "./comment-visibility";
 import {
   type CriticChangeAttrs,
@@ -250,6 +251,13 @@ function getPreferredCriticChangeId(
   }
 
   return changeIds[0] ?? null;
+}
+
+function prefersReducedMotion(): boolean {
+  return Boolean(
+    typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+  );
 }
 
 function findCommentRange(editor: Editor | null, commentId: string) {
@@ -1250,8 +1258,13 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
 
     setSelectedCommentId(comment.id);
     setPendingFocusCommentId(comment.id);
+    const newCommentId = comment.id;
     requestAnimationFrame(() => {
       measureLayout();
+      scrollCommentAnchorIntoView(
+        findCommentAnchorElement(editorRef.current, newCommentId),
+        prefersReducedMotion(),
+      );
     });
   }, [measureLayout]);
 
@@ -1606,12 +1619,20 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
           TextSelection.create(currentEditor.state.doc, range.from, range.to),
         ),
       );
+      scrollCommentAnchorIntoView(
+        findCommentAnchorElement(currentEditor, commentId),
+        prefersReducedMotion(),
+      );
       return;
     }
 
     if (!findCommentAnchorElement(currentEditor, commentId)) return;
 
     currentEditor.commands.focus(undefined, { scrollIntoView: false });
+    scrollCommentAnchorIntoView(
+      findCommentAnchorElement(currentEditor, commentId),
+      prefersReducedMotion(),
+    );
   }, []);
 
   const focusSuggestion = useCallback((changeId: string) => {
