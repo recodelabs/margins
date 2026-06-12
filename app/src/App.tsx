@@ -18,6 +18,7 @@ import {
   ROUGHDRAFT_FLAVORED_MARKDOWN_PATH,
   syncRequestedPathInUrl,
 } from "./app-navigation";
+import { resolveAppView } from "./app-view";
 import { DocumentLoadError } from "./DocumentLoadError";
 import type { GitHubDocNav } from "./DocumentWorkspace";
 import { detectBackend, isGitHubMode } from "./detect-backend";
@@ -608,7 +609,18 @@ export function App() {
     [documentSession, documentDiskChangeState],
   );
 
-  if (loading) {
+  const view = resolveAppView({
+    loading,
+    isRoughdraftFlavoredMarkdownRoute,
+    isPreviewRoute,
+    gitHubMode: isGitHubMode(),
+    hasToken: !!getStoredToken(),
+    githubLocation,
+    loadError,
+    rawPath: requestedPathState.rawPath,
+  });
+
+  if (view === "loading") {
     return (
       <div
         className="h-screen bg-[#FCFCFC] dark:bg-background"
@@ -617,27 +629,27 @@ export function App() {
     );
   }
 
-  if (isRoughdraftFlavoredMarkdownRoute) {
+  if (view === "roughdraft-flavored-markdown") {
     return <RoughdraftFlavoredMarkdownPage />;
   }
 
-  if (isPreviewRoute) {
+  if (view === "preview") {
     return <PreviewPage />;
   }
 
-  if (isGitHubMode()) {
-    const loc = githubLocation;
-    const hasToken = !!getStoredToken();
-    if (!hasToken || !loc.owner || !loc.repo || !isMarkdownPath(loc.path)) {
-      return <GitHubPicker />;
-    }
+  if (view === "github-picker") {
+    return <GitHubPicker />;
   }
 
-  if (loadError) {
-    return <DocumentLoadError message={loadError} />;
+  if (view === "load-error") {
+    return (
+      <DocumentLoadError
+        message={loadError ?? "Could not open that markdown file."}
+      />
+    );
   }
 
-  if (!requestedPathState.rawPath) {
+  if (view === "homepage") {
     return (
       <Homepage message={<HomepageSubtitle />} updateStatus={updateStatus} />
     );
