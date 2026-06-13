@@ -1,5 +1,15 @@
 import type { ActivityEntry, AgentReplyEntry } from "./activity-log";
 
+/** Merge two entry lists by id: `primary` wins, then any `extra` entries whose
+ * id isn't already present are appended (preserves order). */
+export function mergeById(
+  primary: ActivityEntry[],
+  extra: ActivityEntry[],
+): ActivityEntry[] {
+  const ids = new Set(primary.map((e) => e.id));
+  return [...primary, ...extra.filter((e) => !ids.has(e.id))];
+}
+
 /** Agent replies present in `next` but not in `prev` (matched by id). */
 export function findNewAgentReplies(
   prev: ActivityEntry[],

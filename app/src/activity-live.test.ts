@@ -3,6 +3,7 @@ import {
   editorBusy,
   findNewAgentReplies,
   liveUpdateActionFor,
+  mergeById,
   serializeForChangeCheck,
 } from "./activity-live";
 import type { ActivityEntry } from "./activity-log";
@@ -29,6 +30,33 @@ const agentEntry = (
   status,
   summary: "did it",
   ...(commit ? { commit } : {}),
+});
+
+describe("mergeById", () => {
+  it("primary wins on duplicate id", () => {
+    const primary = [{ ...userEntry("i1"), instruction: "primary" }];
+    const extra = [{ ...userEntry("i1"), instruction: "extra" }];
+    const result = mergeById(primary, extra);
+    expect(result).toHaveLength(1);
+    expect(result[0].instruction).toBe("primary");
+  });
+
+  it("extra-only entries are appended after primary", () => {
+    const primary = [userEntry("i1")];
+    const extra = [userEntry("i1"), userEntry("i2")];
+    const result = mergeById(primary, extra);
+    expect(result.map((e) => e.id)).toEqual(["i1", "i2"]);
+  });
+
+  it("empty primary returns extra", () => {
+    const extra = [userEntry("i1"), userEntry("i2")];
+    expect(mergeById([], extra).map((e) => e.id)).toEqual(["i1", "i2"]);
+  });
+
+  it("empty extra returns primary", () => {
+    const primary = [userEntry("i1")];
+    expect(mergeById(primary, []).map((e) => e.id)).toEqual(["i1"]);
+  });
 });
 
 describe("findNewAgentReplies", () => {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { mergeById } from "./activity-live";
 import {
   type ActivityEntry,
   buildConversation,
@@ -64,6 +65,7 @@ export function InstructionSender({
     };
     try {
       await appendActivityEntry(docPath, entry);
+      setEntries((prev) => [...prev, entry]);
       setInstruction("");
       setType("custom");
       reload();
@@ -74,7 +76,9 @@ export function InstructionSender({
     }
   };
 
-  const conversation = buildConversation(liveEntries ?? entries);
+  const conversation = buildConversation(
+    liveEntries ? mergeById(liveEntries, entries) : entries,
+  );
 
   return (
     <section className="flex flex-col gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">

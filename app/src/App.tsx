@@ -667,6 +667,8 @@ export function App() {
     };
   }, [activeDocumentPath, applyDocumentPage, backend, documentSession]);
 
+  const dismissToast = useCallback(() => setToast(null), []);
+
   const handleDocumentEditorViewModeChange = useCallback(
     (nextMode: DocumentEditorViewMode) => {
       setDocumentEditorViewMode((current) => {
@@ -820,7 +822,7 @@ export function App() {
         <Toast
           message={toast.message}
           commitUrl={toast.commitUrl}
-          onDismiss={() => setToast(null)}
+          onDismiss={dismissToast}
         />
       ) : null}
       {updateStatus ? (
