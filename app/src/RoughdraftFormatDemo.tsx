@@ -1,5 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+import type { ActivityEntry } from "./activity-log";
 import { Button } from "./components/ui/button";
 import { MarkdownCodeEditor } from "./MarkdownCodeEditor";
 import { PageCard } from "./PageCard";
@@ -43,6 +44,7 @@ const demoBackend: StorageBackend = {
     manualCommit: false,
     remoteSession: false,
     createFile: false,
+    activityLog: false,
   },
   canManageProjects: false,
   async getMarkdownFile() {
@@ -65,6 +67,15 @@ const demoBackend: StorageBackend = {
       title: "homepage-format-preview.md",
       content,
     };
+  },
+  async readActivityLog(_docPath: string): Promise<ActivityEntry[]> {
+    return [];
+  },
+  async appendActivityEntry(
+    _docPath: string,
+    _entry: ActivityEntry,
+  ): Promise<void> {
+    throw new Error("Activity log is not supported in this backend");
   },
   async saveAsset(file) {
     return {

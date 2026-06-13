@@ -4,7 +4,10 @@
  * container down. Used to line a comment up with its highlighted text (or vice
  * versa) by scrolling exactly one of the two independent panes.
  */
-export function scrollOffsetToAlign(moverTop: number, targetTop: number): number {
+export function scrollOffsetToAlign(
+  moverTop: number,
+  targetTop: number,
+): number {
   return moverTop - targetTop;
 }
 

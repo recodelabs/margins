@@ -1,3 +1,5 @@
+import type { ActivityEntry } from "./activity-log";
+
 export interface Page {
   id: string;
   title: string;
@@ -120,6 +122,8 @@ export interface BackendCapabilities {
   remoteSession: boolean;
   /** Supports creating a brand-new markdown file via `createMarkdownFile`. */
   createFile: boolean;
+  /** Supports reading/appending a per-file agent activity log. */
+  activityLog: boolean;
 }
 
 export interface StorageBackend {
@@ -139,6 +143,16 @@ export interface StorageBackend {
    * unsupported backends reject. Callers gate on `capabilities.createFile`.
    */
   createMarkdownFile(relativePath: string, content: string): Promise<Page>;
+  /**
+   * Reads the per-file agent activity log (empty when absent). Present when
+   * `capabilities.activityLog`.
+   */
+  readActivityLog(docPath: string): Promise<ActivityEntry[]>;
+  /**
+   * Appends one entry to the per-file activity log and commits it. Present when
+   * `capabilities.activityLog`.
+   */
+  appendActivityEntry(docPath: string, entry: ActivityEntry): Promise<void>;
   /** Path/filename of the open document; present when `capabilities.documentPath`. */
   documentPath?(): string;
   /** Subscribe to session status; present when `capabilities.remoteSession`. */

@@ -52,6 +52,7 @@ import {
   useDocumentSession,
 } from "./document-session";
 import { gitHubHref } from "./github-route";
+import { InstructionSender } from "./InstructionSender";
 import { cn } from "./lib/utils";
 import { MermaidOverlays } from "./MermaidOverlays";
 import { toHtml } from "./markdown";
@@ -1107,6 +1108,18 @@ export function DocumentWorkspace({
         {documentPage ? (
           backend ? (
             <>
+              {backend?.capabilities.activityLog && activeDocumentPath ? (
+                <div className="mb-4">
+                  <InstructionSender
+                    docPath={activeDocumentPath}
+                    author={backend.info.authorLabel ?? "you"}
+                    readActivityLog={(p) => backend.readActivityLog(p)}
+                    appendActivityEntry={(p, entry) =>
+                      backend.appendActivityEntry(p, entry)
+                    }
+                  />
+                </div>
+              ) : null}
               <PageCard
                 key={`${documentPage.id}:${activeDocumentPath ?? ""}`}
                 page={documentPage}

@@ -540,6 +540,217 @@ describe("GitHubBackend", () => {
     });
   });
 
+  describe("activity log", () => {
+    it("readActivityLog returns [] when the log file is absent (404)", async () => {
+      global.fetch = vi.fn(
+        async () => new Response("not found", { status: 404 }),
+      ) as unknown as typeof fetch;
+      await expect(backend().readActivityLog("docs/x.md")).resolves.toEqual([]);
+    });
+
+    it("readActivityLog parses the JSONL content", async () => {
+      const line = JSON.stringify({
+        id: "a1",
+        at: "2026-06-13T12:00:00.000Z",
+        by: "octocat",
+        role: "user",
+        type: "rewrite",
+        instruction: "tighten",
+      });
+      global.fetch = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              sha: "s1",
+              content: b64(`${line}\n`),
+              encoding: "base64",
+            }),
+            { status: 200 },
+          ),
+      ) as unknown as typeof fetch;
+      const entries = await backend().readActivityLog("docs/x.md");
+      expect(entries).toHaveLength(1);
+      expect(entries[0].id).toBe("a1");
+    });
+
+    it("appendActivityEntry reads, appends and PUTs with the prior sha", async () => {
+      const existing = JSON.stringify({
+        id: "a0",
+        at: "2026-06-13T11:00:00.000Z",
+        by: "octocat",
+        role: "user",
+        type: "comments",
+        instruction: "apply",
+      });
+      const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+        if (!init || init.method !== "PUT") {
+          return new Response(
+            JSON.stringify({
+              sha: "log-sha",
+              content: b64(`${existing}\n`),
+              encoding: "base64",
+            }),
+            { status: 200 },
+          );
+        }
+        return new Response(JSON.stringify({ content: { sha: "new" } }), {
+          status: 200,
+        });
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const entry = {
+        id: "a1",
+        at: "2026-06-13T12:00:00.000Z",
+        by: "octocat",
+        role: "user" as const,
+        type: "rewrite" as const,
+        instruction: "tighten",
+      };
+      await backend().appendActivityEntry("docs/x.md", entry);
+
+      const putCall = fetchMock.mock.calls.find(
+        (c) => (c[1] as RequestInit)?.method === "PUT",
+      );
+      expect(putCall?.[0]).toBe(
+        "https://api.github.com/repos/o/r/contents/.margins/docs/x.md.activity.jsonl",
+      );
+      const body = JSON.parse((putCall?.[1] as RequestInit).body as string);
+      expect(body.sha).toBe("log-sha");
+      const decoded = new TextDecoder().decode(
+        Uint8Array.from(atob(body.content), (c) => c.charCodeAt(0)),
+      );
+      expect(decoded).toBe(`${existing}\n${JSON.stringify(entry)}\n`);
+    });
+
+    it("readActivityLog throws rather than truncating when the log is too large to inline", async () => {
+      global.fetch = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              sha: "big",
+              content: "",
+              encoding: "none",
+              size: 2000000,
+            }),
+            { status: 200 },
+          ),
+      ) as unknown as typeof fetch;
+      await expect(backend().readActivityLog("docs/x.md")).rejects.toThrow();
+    });
+
+    it("retries the append once when the first PUT 422s on a stale sha", async () => {
+      let getCount = 0;
+      let putCount = 0;
+      const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+        if (init?.method === "PUT") {
+          putCount += 1;
+          if (putCount === 1) {
+            // stale sha — someone else appended first
+            return new Response(
+              JSON.stringify({ message: "is at abc but expected def" }),
+              { status: 422 },
+            );
+          }
+          return new Response(JSON.stringify({ content: { sha: "ok" } }), {
+            status: 200,
+          });
+        }
+        getCount += 1;
+        const sha = getCount === 1 ? "sha-1" : "sha-2";
+        return new Response(
+          JSON.stringify({ sha, content: b64("{}\n"), encoding: "base64" }),
+          { status: 200 },
+        );
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const entry = {
+        id: "a1",
+        at: "2026-06-13T12:00:00.000Z",
+        by: "octocat",
+        role: "user" as const,
+        type: "rewrite" as const,
+        instruction: "tighten",
+      };
+      await expect(
+        backend().appendActivityEntry("docs/x.md", entry),
+      ).resolves.toBeUndefined();
+
+      const putCalls = fetchMock.mock.calls.filter(
+        (c) => (c[1] as RequestInit)?.method === "PUT",
+      );
+      expect(putCalls).toHaveLength(2);
+      // the retry used the freshly re-read sha
+      const secondBody = JSON.parse(
+        (putCalls[1][1] as RequestInit).body as string,
+      );
+      expect(secondBody.sha).toBe("sha-2");
+    });
+
+    it("throws if the append still 422s after the retry", async () => {
+      const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+        if (init?.method === "PUT") {
+          return new Response(
+            JSON.stringify({ message: "is at abc but expected def" }),
+            { status: 422 },
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            sha: "s",
+            content: b64("{}\n"),
+            encoding: "base64",
+          }),
+          { status: 200 },
+        );
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+      await expect(
+        backend().appendActivityEntry("docs/x.md", {
+          id: "a1",
+          at: "t",
+          by: "octocat",
+          role: "user",
+          type: "rewrite",
+          instruction: "x",
+        }),
+      ).rejects.toThrow(/422/);
+    });
+
+    it("does not retry a non-sha-conflict 422 (throws immediately)", async () => {
+      let puts = 0;
+      const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+        if (init?.method === "PUT") {
+          puts += 1;
+          return new Response(JSON.stringify({ message: "path is invalid" }), {
+            status: 422,
+          });
+        }
+        return new Response(
+          JSON.stringify({
+            sha: "s",
+            content: b64("{}\n"),
+            encoding: "base64",
+          }),
+          { status: 200 },
+        );
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+      await expect(
+        backend().appendActivityEntry("docs/x.md", {
+          id: "a1",
+          at: "t",
+          by: "octocat",
+          role: "user",
+          type: "rewrite",
+          instruction: "x",
+        }),
+      ).rejects.toThrow(/422/);
+      expect(puts).toBe(1); // no retry
+    });
+  });
+
   describe("markdown-only guard", () => {
     it("getMarkdownFile rejects a non-.md path without calling fetch", async () => {
       const fetchMock = vi.fn();

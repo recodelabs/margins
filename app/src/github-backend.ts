@@ -1,3 +1,9 @@
+import {
+  type ActivityEntry,
+  activityLogPath,
+  appendActivityLine,
+  parseActivityLog,
+} from "./activity-log";
 import { invalidateCachedUrl } from "./github-cache";
 import { githubFetch, githubGet } from "./github-fetch";
 import { titleFromContent } from "./markdown";
@@ -46,6 +52,7 @@ export class GitHubBackend implements StorageBackend {
     manualCommit: true,
     remoteSession: false,
     createFile: true,
+    activityLog: true,
   };
   canManageProjects = false;
   private cfg: GitHubBackendConfig;
@@ -222,6 +229,78 @@ export class GitHubBackend implements StorageBackend {
       content,
       version: json.content.sha,
     };
+  }
+
+  private async readActivityRaw(
+    path: string,
+  ): Promise<{ text: string; sha: string } | null> {
+    const res = await githubFetch(this.contentsUrl(path), {
+      headers: this.headers(),
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`GitHub activity read failed (${res.status})`);
+    const json = (await res.json()) as {
+      sha: string;
+      content: string;
+      encoding?: string;
+      size?: number;
+    };
+    // The Contents API only inlines content for files ≤1 MB. For larger files it
+    // returns encoding:"none" with empty content but a real sha — decoding that
+    // would produce "" and a subsequent PUT would overwrite the entire history.
+    if (
+      json.encoding === "none" ||
+      (json.content === "" && (json.size ?? 0) > 0)
+    ) {
+      throw new FileTooLargeError(path, json.size);
+    }
+    return { text: decodeBase64(json.content), sha: json.sha };
+  }
+
+  async readActivityLog(docPath: string): Promise<ActivityEntry[]> {
+    const raw = await this.readActivityRaw(activityLogPath(docPath));
+    return raw ? parseActivityLog(raw.text) : [];
+  }
+
+  async appendActivityEntry(
+    docPath: string,
+    entry: ActivityEntry,
+  ): Promise<void> {
+    const { owner, repo, branch } = this.cfg;
+    const path = activityLogPath(docPath);
+
+    // GET the current sha then PUT with it. If another writer appended in
+    // between, GitHub 422s on the stale sha — re-read and retry once.
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const existing = await this.readActivityRaw(path);
+      const nextText = appendActivityLine(existing?.text ?? "", entry);
+      const res = await githubFetch(
+        `${API}/repos/${owner}/${repo}/contents/${path}`,
+        {
+          method: "PUT",
+          headers: this.headers({ "Content-Type": "application/json" }),
+          body: JSON.stringify({
+            message: `chore(margins): activity (${entry.role}) on ${docPath}`,
+            content: encodeBase64(nextText),
+            sha: existing?.sha,
+            branch,
+          }),
+        },
+      );
+      if (res.ok) {
+        invalidateCachedUrl(this.contentsUrl(path));
+        return;
+      }
+      const errBody = (await res.json().catch(() => ({}))) as {
+        message?: string;
+      };
+      const isStaleSha =
+        res.status === 422 && (errBody.message ?? "").includes("but expected");
+      if (isStaleSha && attempt === 0) continue;
+      throw new Error(
+        `GitHub activity append failed (${res.status}): ${errBody.message ?? "error"}`,
+      );
+    }
   }
 
   async listMarkdownPaths(): Promise<string[]> {

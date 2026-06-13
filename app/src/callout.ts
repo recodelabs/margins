@@ -1,9 +1,4 @@
-export type CalloutType =
-  | "note"
-  | "tip"
-  | "important"
-  | "warning"
-  | "caution";
+export type CalloutType = "note" | "tip" | "important" | "warning" | "caution";
 
 export interface CalloutMarker {
   type: CalloutType;
