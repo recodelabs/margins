@@ -1074,14 +1074,23 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     );
     if (!rootCommentId) return;
     const reduced = prefersReducedMotion();
-    requestAnimationFrame(() => {
-      alignElementToTarget(
-        getRailScroller(),
-        findCommentCardElement(rootCommentId),
-        findCommentAnchorElement(editorRef.current, selectedCommentId),
-        reduced,
-      );
-    });
+    // A brand-new comment's card renders a frame or two after selection (the
+    // rail re-renders, then measures heights, then positions it). Retry across
+    // a few frames until both the card and its highlight exist, then align once,
+    // so "add comment" scrolls to the new comment instead of no-op'ing early.
+    let attempts = 0;
+    let raf = 0;
+    const tryAlign = () => {
+      const card = findCommentCardElement(rootCommentId);
+      const anchor = findCommentAnchorElement(editorRef.current, selectedCommentId);
+      if (card && anchor) {
+        alignElementToTarget(getRailScroller(), card, anchor, reduced);
+        return;
+      }
+      if (attempts++ < 10) raf = requestAnimationFrame(tryAlign);
+    };
+    raf = requestAnimationFrame(tryAlign);
+    return () => cancelAnimationFrame(raf);
   }, [selectedCommentId]);
 
   useEffect(() => {
