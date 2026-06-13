@@ -127,6 +127,8 @@ class TestProcessOne(unittest.TestCase):
         self.assertEqual(reply["status"], "error")
         self.assertEqual(reply["error"], "ambiguous")
         self.assertNotIn("commit", reply)
+        self.assertTrue(state.cleared)
+        self.assertTrue(git.pushed)
 
     def test_timeout_appends_error_reply(self):
         git = FakeGit(self._logs_with_one_pending(), {"a.md": "# Title\n"})
@@ -135,4 +137,6 @@ class TestProcessOne(unittest.TestCase):
         from runner.margins_log import parse_activity_log
         reply = [e for e in parse_activity_log(git._logs[".margins/a.md.activity.jsonl"]) if e.get("role") == "agent"][0]
         self.assertEqual(reply["status"], "error")
+        self.assertEqual(reply["error"], "timeout")
         self.assertTrue(state.cleared)
+        self.assertTrue(git.pushed)
