@@ -26,7 +26,7 @@ export interface DocumentSessionStore {
   setDirty: (dirty: boolean) => void;
   setDraftContent: (content: string) => void;
   setController: (controller: DocumentSaveController | null) => void;
-  setComposingComment: (composing: boolean) => void;
+  setComposing: (id: string, composing: boolean) => void;
   /**
    * Reset save/dirty/draft to a freshly-loaded document. Leaves the active save
    * controller untouched — it tracks the editor's lifecycle, not the document.
@@ -44,6 +44,7 @@ export function createDocumentSessionStore(
     saveController: null,
     composingComment: false,
   };
+  const composingSources = new Set<string>();
   const listeners = new Set<() => void>();
 
   const emit = () => {
@@ -76,16 +77,25 @@ export function createDocumentSessionStore(
     },
     setSaveState: (saveState) => update({ saveState }),
     setDirty: (dirty) => update({ dirty }),
-    setComposingComment: (composingComment) => update({ composingComment }),
+    setComposing: (id, composing) => {
+      if (composing) {
+        composingSources.add(id);
+      } else {
+        composingSources.delete(id);
+      }
+      update({ composingComment: composingSources.size > 0 });
+    },
     setDraftContent: (draftContent) => update({ draftContent }),
     setController: (saveController) => update({ saveController }),
-    reset: (content) =>
+    reset: (content) => {
+      composingSources.clear();
       update({
         saveState: "saved",
         dirty: false,
         draftContent: content,
         composingComment: false,
-      }),
+      });
+    },
   };
 }
 

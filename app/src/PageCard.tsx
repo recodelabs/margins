@@ -100,7 +100,7 @@ interface PageCardProps {
   onEditorReady?: (editor: Editor | null) => void;
   onCommentRailPresenceChange?: (hasCommentRailSpace: boolean) => void;
   onDirtyStateChange?: (isDirty: boolean) => void;
-  onComposingCommentChange?: (composing: boolean) => void;
+  onComposingCommentChange?: (id: string, composing: boolean) => void;
   onLocalContentChange?: (markdown: string) => void;
   onSaveControllerChange?: (controller: DocumentSaveController | null) => void;
   saveBlocked?: boolean;
@@ -123,7 +123,7 @@ interface PageCardEditorSurfaceProps {
   onEditorReady?: (editor: Editor | null) => void;
   onCommentRailPresenceChange?: (hasCommentRailSpace: boolean) => void;
   onDirtyStateChange?: (isDirty: boolean) => void;
-  onComposingCommentChange?: (composing: boolean) => void;
+  onComposingCommentChange?: (id: string, composing: boolean) => void;
   onLocalContentChange?: (markdown: string) => void;
   onSaveControllerChange?: (controller: DocumentSaveController | null) => void;
   saveBlocked?: boolean;
@@ -144,7 +144,7 @@ interface RichTextEditorSurfaceProps {
   backend: StorageBackend;
   onEditorReady?: (editor: Editor | null) => void;
   onCommentRailPresenceChange?: (hasCommentRailSpace: boolean) => void;
-  onComposingCommentChange?: (composing: boolean) => void;
+  onComposingCommentChange?: (id: string, composing: boolean) => void;
   // Fired on every edit transaction — cheap signal that the document changed.
   onContentTouched?: () => void;
   // Registers a serializer the parent calls on demand (at save time) to get
@@ -1894,6 +1894,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
             onApplyDraftSuggestion={applyDraftSuggestion}
             onCancelDraftSuggestion={() => setDraftSuggestion(null)}
             editor={editor}
+            onComposingChange={onComposingCommentChange}
           />
         ) : null}
       </div>

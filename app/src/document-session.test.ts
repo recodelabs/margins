@@ -11,15 +11,39 @@ describe("document session: composingComment", () => {
     );
   });
 
-  it("setComposingComment updates the snapshot", () => {
+  it("setComposing(id, true) sets composingComment to true", () => {
     const store = createDocumentSessionStore();
-    store.setComposingComment(true);
+    store.setComposing("a", true);
     expect(store.getSnapshot().composingComment).toBe(true);
+  });
+
+  it("setComposing(id, false) sets composingComment to false when only source", () => {
+    const store = createDocumentSessionStore();
+    store.setComposing("a", true);
+    store.setComposing("a", false);
+    expect(store.getSnapshot().composingComment).toBe(false);
+  });
+
+  it("stays true while any source remains composing", () => {
+    const store = createDocumentSessionStore();
+    store.setComposing("a", true);
+    store.setComposing("b", true);
+    store.setComposing("a", false);
+    expect(store.getSnapshot().composingComment).toBe(true);
+  });
+
+  it("goes false when all sources report done", () => {
+    const store = createDocumentSessionStore();
+    store.setComposing("a", true);
+    store.setComposing("b", true);
+    store.setComposing("a", false);
+    store.setComposing("b", false);
+    expect(store.getSnapshot().composingComment).toBe(false);
   });
 
   it("reset clears composingComment", () => {
     const store = createDocumentSessionStore();
-    store.setComposingComment(true);
+    store.setComposing("a", true);
     store.reset("new content");
     expect(store.getSnapshot().composingComment).toBe(false);
   });
