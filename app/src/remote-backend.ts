@@ -1,3 +1,4 @@
+import type { ActivityEntry } from "./activity-log";
 import { titleFromContent } from "./markdown";
 import {
   type BackendCapabilities,
@@ -26,6 +27,7 @@ export class RemoteBackend implements StorageBackend {
     manualCommit: false,
     remoteSession: true,
     createFile: false,
+    activityLog: false,
   };
   canManageProjects = false;
   sessionStatus: RemoteSessionStatus = "disconnected";
@@ -236,6 +238,15 @@ export class RemoteBackend implements StorageBackend {
   createMarkdownFile(_relativePath: string, _content: string): Promise<Page> {
     return Promise.reject(
       new Error("Creating new files is not supported in this backend"),
+    );
+  }
+
+  readActivityLog(_docPath: string): Promise<ActivityEntry[]> {
+    return Promise.resolve([]);
+  }
+  appendActivityEntry(_docPath: string, _entry: ActivityEntry): Promise<void> {
+    return Promise.reject(
+      new Error("Activity log is not supported in this backend"),
     );
   }
 
