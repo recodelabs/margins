@@ -4,6 +4,27 @@ import {
   type DocumentSaveController,
 } from "./document-session";
 
+describe("document session: composingComment", () => {
+  it("defaults to false", () => {
+    expect(createDocumentSessionStore().getSnapshot().composingComment).toBe(
+      false,
+    );
+  });
+
+  it("setComposingComment updates the snapshot", () => {
+    const store = createDocumentSessionStore();
+    store.setComposingComment(true);
+    expect(store.getSnapshot().composingComment).toBe(true);
+  });
+
+  it("reset clears composingComment", () => {
+    const store = createDocumentSessionStore();
+    store.setComposingComment(true);
+    store.reset("new content");
+    expect(store.getSnapshot().composingComment).toBe(false);
+  });
+});
+
 const noopController: DocumentSaveController = {
   flushSave: async () => ({ status: "saved" }),
 };
@@ -16,6 +37,7 @@ describe("createDocumentSessionStore", () => {
       dirty: false,
       draftContent: null,
       saveController: null,
+      composingComment: false,
     });
   });
 
@@ -40,6 +62,7 @@ describe("createDocumentSessionStore", () => {
       dirty: true,
       draftContent: "draft",
       saveController: noopController,
+      composingComment: false,
     });
   });
 
@@ -93,6 +116,7 @@ describe("createDocumentSessionStore", () => {
       dirty: false,
       draftContent: "new",
       saveController: noopController,
+      composingComment: false,
     });
   });
 });
