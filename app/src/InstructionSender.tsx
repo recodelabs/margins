@@ -11,6 +11,7 @@ export interface InstructionSenderProps {
   author: string;
   readActivityLog: (docPath: string) => Promise<ActivityEntry[]>;
   appendActivityEntry: (docPath: string, entry: ActivityEntry) => Promise<void>;
+  liveEntries?: ActivityEntry[];
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -24,6 +25,7 @@ export function InstructionSender({
   author,
   readActivityLog,
   appendActivityEntry,
+  liveEntries,
 }: InstructionSenderProps) {
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
   const [type, setType] = useState<InstructionType>("custom");
@@ -72,7 +74,7 @@ export function InstructionSender({
     }
   };
 
-  const conversation = buildConversation(entries);
+  const conversation = buildConversation(liveEntries ?? entries);
 
   return (
     <section className="flex flex-col gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">

@@ -21,6 +21,7 @@ import {
   useRef,
   useState,
 } from "react";
+import type { ActivityEntry } from "./activity-log";
 import type { DocumentEditorViewMode } from "./app-navigation";
 import {
   readStoredCommentsHidden,
@@ -285,6 +286,7 @@ interface DocumentWorkspaceProps {
   backend: StorageBackend | null;
   manualCommit?: boolean;
   githubNav?: GitHubDocNav | null;
+  liveActivityEntries?: ActivityEntry[] | null;
   /**
    * SPA-navigate to `href` (breadcrumb back-to-picker / folder). App owns the
    * unsaved-changes guard, so this may be a no-op if the user cancels.
@@ -312,6 +314,7 @@ export function DocumentWorkspace({
   manualCommit = false,
   githubNav = null,
   onNavigate,
+  liveActivityEntries,
 }: DocumentWorkspaceProps) {
   const [documentInteractionMode, setDocumentInteractionMode] =
     useState<DocumentInteractionMode>("editing");
@@ -1117,6 +1120,7 @@ export function DocumentWorkspace({
                     appendActivityEntry={(p, entry) =>
                       backend.appendActivityEntry(p, entry)
                     }
+                    liveEntries={liveActivityEntries ?? undefined}
                   />
                 </div>
               ) : null}
