@@ -17,6 +17,7 @@ import type {
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import StarterKit from "@tiptap/starter-kit";
+import { parseCalloutMarker } from "./callout";
 import { rawMarkdownBlockAttribute } from "./markdown";
 
 declare module "@tiptap/core" {
@@ -795,6 +796,56 @@ const RawMarkdownBlock = Node.create({
   },
 });
 
+// Styles GitHub-style alert blockquotes (`> [!NOTE] …`) as callouts: a node
+// decoration carries the type class (CSS does the icon/label/colours) and an
+// inline decoration hides the literal `[!type]` marker. The blockquote node and
+// its text are untouched, so the document still serialises to `> [!note] …`.
+function createCalloutDecorations(doc: ProseMirrorNode): DecorationSet {
+  const decorations: Decoration[] = [];
+
+  doc.descendants((node: ProseMirrorNode, pos: number) => {
+    if (node.type.name !== "blockquote") return;
+
+    const firstChild = node.firstChild;
+    if (!firstChild || !firstChild.isTextblock) return;
+
+    const marker = parseCalloutMarker(firstChild.textContent);
+    if (!marker) return;
+
+    decorations.push(
+      Decoration.node(pos, pos + node.nodeSize, {
+        class: `callout callout-${marker.type}`,
+      }),
+    );
+
+    // The marker is the leading text of the first paragraph: blockquote at
+    // `pos`, its paragraph at `pos+1`, the paragraph's content at `pos+2`.
+    const markerFrom = pos + 2;
+    decorations.push(
+      Decoration.inline(markerFrom, markerFrom + marker.markerLength, {
+        class: "callout-marker",
+      }),
+    );
+  });
+
+  return DecorationSet.create(doc, decorations);
+}
+
+const Callout = Extension.create({
+  name: "callout",
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey("callout"),
+        props: {
+          decorations: (state) => createCalloutDecorations(state.doc),
+        },
+      }),
+    ];
+  },
+});
+
 export function createEditorExtensions(placeholder: string) {
   return [
     StarterKit.configure({
@@ -830,6 +881,7 @@ export function createEditorExtensions(placeholder: string) {
     MarkdownCodeBlock,
     CommentHighlight,
     CriticChangeHighlight,
+    Callout,
     MarkdownImage.configure({
       allowBase64: true,
       inline: false,
