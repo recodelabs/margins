@@ -29,8 +29,10 @@ import {
   type CriticChangeRailItem,
   DocumentReviewRail,
 } from "./DocumentReviewRail";
+import { alignElementToTarget } from "./comment-scroll";
 import {
   getPreferredCommentId,
+  getRootThreadIdForCommentId,
   parseCommentIds,
 } from "./document-comments";
 import { EditorContextMenu } from "./EditorContextMenu";
@@ -253,6 +255,31 @@ function getPreferredCriticChangeId(
   }
 
   return changeIds[0] ?? null;
+}
+
+function prefersReducedMotion(): boolean {
+  return Boolean(
+    typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+  );
+}
+
+/** The rail card element for a comment thread (tagged with its root id). */
+function findCommentCardElement(rootCommentId: string): HTMLElement | null {
+  if (typeof document === "undefined") return null;
+  return document.querySelector<HTMLElement>(
+    `[data-comment-root-id="${rootCommentId}"]`,
+  );
+}
+
+function getBodyScroller(): HTMLElement | null {
+  if (typeof document === "undefined") return null;
+  return document.querySelector<HTMLElement>("[data-document-scroller]");
+}
+
+function getRailScroller(): HTMLElement | null {
+  if (typeof document === "undefined") return null;
+  return document.querySelector<HTMLElement>("[data-comment-rail-scroller]");
 }
 
 function findCommentRange(editor: Editor | null, commentId: string) {
@@ -617,6 +644,10 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
   const lastFocusRequestKeyRef = useRef<string | null>(null);
   const selectedCommentIdRef = useRef<string | null>(null);
   const selectedChangeIdRef = useRef<string | null>(null);
+  // Set when a comment is selected by clicking its rail card: that gesture
+  // scrolls the BODY to line the text up with the (still) card, so the
+  // selection-driven effect below must NOT also scroll the rail.
+  const suppressRailAlignRef = useRef(false);
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(
     null,
   );
@@ -1026,6 +1057,32 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
       getPreferredCommentId(activeCommentIds, current),
     );
   }, [activeCommentIds]);
+
+  // Dual-scroll: when selection moves to a comment from the BODY (clicking a
+  // highlight, or adding a comment), scroll only the RAIL so the comment lines
+  // up with its text — the body stays put. Card-clicks set the suppress flag
+  // (they scroll the body instead), so this skips them.
+  useEffect(() => {
+    if (!selectedCommentId) return;
+    if (suppressRailAlignRef.current) {
+      suppressRailAlignRef.current = false;
+      return;
+    }
+    const rootCommentId = getRootThreadIdForCommentId(
+      selectedCommentId,
+      commentsRef.current,
+    );
+    if (!rootCommentId) return;
+    const reduced = prefersReducedMotion();
+    requestAnimationFrame(() => {
+      alignElementToTarget(
+        getRailScroller(),
+        findCommentCardElement(rootCommentId),
+        findCommentAnchorElement(editorRef.current, selectedCommentId),
+        reduced,
+      );
+    });
+  }, [selectedCommentId]);
 
   useEffect(() => {
     setSelectedChangeId((current) =>
@@ -1602,11 +1659,13 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     const currentEditor = editorRef.current;
     if (!currentEditor) return;
 
+    // Card-click: the card stays put; scroll the BODY so its highlighted text
+    // lines up with the card. Suppress the rail-align effect (it's for
+    // body-clicks). Setting the editor selection (below) drives that effect, so
+    // the flag must be set first.
+    suppressRailAlignRef.current = true;
     setSelectedCommentId(commentId);
 
-    // Clicking a comment card opens it in place — it must NOT scroll the page
-    // (the card would move out from under the cursor, forcing a re-find before
-    // you can reply).
     const range = findCommentRange(currentEditor, commentId);
     if (range) {
       currentEditor.commands.focus(undefined, { scrollIntoView: false });
@@ -1615,12 +1674,25 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
           TextSelection.create(currentEditor.state.doc, range.from, range.to),
         ),
       );
+    } else if (!findCommentAnchorElement(currentEditor, commentId)) {
       return;
+    } else {
+      currentEditor.commands.focus(undefined, { scrollIntoView: false });
     }
 
-    if (!findCommentAnchorElement(currentEditor, commentId)) return;
-
-    currentEditor.commands.focus(undefined, { scrollIntoView: false });
+    const reduced = prefersReducedMotion();
+    const rootCommentId = getRootThreadIdForCommentId(
+      commentId,
+      commentsRef.current,
+    );
+    requestAnimationFrame(() => {
+      alignElementToTarget(
+        getBodyScroller(),
+        findCommentAnchorElement(editorRef.current, commentId),
+        rootCommentId ? findCommentCardElement(rootCommentId) : null,
+        reduced,
+      );
+    });
   }, []);
 
   const focusSuggestion = useCallback((changeId: string) => {
@@ -1675,7 +1747,9 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     "document-comment-rail",
     layout === "embedded-demo"
       ? "block px-4 pb-4 min-[900px]:p-0"
-      : "hidden min-[1100px]:block",
+      : // The rail is its own scroll area (sticky), independent of the body, so
+        // clicking one side can line the other up without dragging it along.
+        "hidden min-[1100px]:block min-[1100px]:sticky min-[1100px]:top-2 min-[1100px]:max-h-[calc(100dvh-7rem)] min-[1100px]:overflow-y-auto",
   );
 
   return (

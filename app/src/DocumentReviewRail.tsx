@@ -398,7 +398,11 @@ export function DocumentReviewRail({
   }
 
   return (
-    <aside className={cn("min-w-0", className)} data-testid={testId}>
+    <aside
+      className={cn("min-w-0", className)}
+      data-testid={testId}
+      data-comment-rail-scroller
+    >
       <div
         className={cn(railLayout === "flow" ? "grid gap-3" : "relative")}
         style={railHeight ? { minHeight: railHeight } : undefined}
