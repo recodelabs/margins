@@ -540,6 +540,90 @@ describe("GitHubBackend", () => {
     });
   });
 
+  describe("activity log", () => {
+    it("readActivityLog returns [] when the log file is absent (404)", async () => {
+      global.fetch = vi.fn(
+        async () => new Response("not found", { status: 404 }),
+      ) as unknown as typeof fetch;
+      await expect(backend().readActivityLog("docs/x.md")).resolves.toEqual([]);
+    });
+
+    it("readActivityLog parses the JSONL content", async () => {
+      const line = JSON.stringify({
+        id: "a1",
+        at: "2026-06-13T12:00:00.000Z",
+        by: "octocat",
+        role: "user",
+        type: "rewrite",
+        instruction: "tighten",
+      });
+      global.fetch = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              sha: "s1",
+              content: b64(`${line}\n`),
+              encoding: "base64",
+            }),
+            { status: 200 },
+          ),
+      ) as unknown as typeof fetch;
+      const entries = await backend().readActivityLog("docs/x.md");
+      expect(entries).toHaveLength(1);
+      expect(entries[0].id).toBe("a1");
+    });
+
+    it("appendActivityEntry reads, appends and PUTs with the prior sha", async () => {
+      const existing = JSON.stringify({
+        id: "a0",
+        at: "2026-06-13T11:00:00.000Z",
+        by: "octocat",
+        role: "user",
+        type: "comments",
+        instruction: "apply",
+      });
+      const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+        if (!init || init.method !== "PUT") {
+          return new Response(
+            JSON.stringify({
+              sha: "log-sha",
+              content: b64(`${existing}\n`),
+              encoding: "base64",
+            }),
+            { status: 200 },
+          );
+        }
+        return new Response(JSON.stringify({ content: { sha: "new" } }), {
+          status: 200,
+        });
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const entry = {
+        id: "a1",
+        at: "2026-06-13T12:00:00.000Z",
+        by: "octocat",
+        role: "user" as const,
+        type: "rewrite" as const,
+        instruction: "tighten",
+      };
+      await backend().appendActivityEntry("docs/x.md", entry);
+
+      const putCall = fetchMock.mock.calls.find(
+        (c) => (c[1] as RequestInit)?.method === "PUT",
+      );
+      expect(putCall?.[0]).toBe(
+        "https://api.github.com/repos/o/r/contents/.margins/docs/x.md.activity.jsonl",
+      );
+      const body = JSON.parse((putCall?.[1] as RequestInit).body as string);
+      expect(body.sha).toBe("log-sha");
+      const decoded = new TextDecoder().decode(
+        Uint8Array.from(atob(body.content), (c) => c.charCodeAt(0)),
+      );
+      expect(decoded).toBe(`${existing}\n${JSON.stringify(entry)}\n`);
+    });
+  });
+
   describe("markdown-only guard", () => {
     it("getMarkdownFile rejects a non-.md path without calling fetch", async () => {
       const fetchMock = vi.fn();

@@ -1,3 +1,9 @@
+import {
+  type ActivityEntry,
+  activityLogPath,
+  appendActivityLine,
+  parseActivityLog,
+} from "./activity-log";
 import { invalidateCachedUrl } from "./github-cache";
 import { githubFetch, githubGet } from "./github-fetch";
 import { titleFromContent } from "./markdown";
@@ -46,6 +52,7 @@ export class GitHubBackend implements StorageBackend {
     manualCommit: true,
     remoteSession: false,
     createFile: true,
+    activityLog: true,
   };
   canManageProjects = false;
   private cfg: GitHubBackendConfig;
@@ -222,6 +229,50 @@ export class GitHubBackend implements StorageBackend {
       content,
       version: json.content.sha,
     };
+  }
+
+  private async readActivityRaw(
+    path: string,
+  ): Promise<{ text: string; sha: string } | null> {
+    const res = await githubFetch(this.contentsUrl(path), {
+      headers: this.headers(),
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`GitHub activity read failed (${res.status})`);
+    const json = (await res.json()) as { sha: string; content: string };
+    return { text: decodeBase64(json.content), sha: json.sha };
+  }
+
+  async readActivityLog(docPath: string): Promise<ActivityEntry[]> {
+    const raw = await this.readActivityRaw(activityLogPath(docPath));
+    return raw ? parseActivityLog(raw.text) : [];
+  }
+
+  async appendActivityEntry(
+    docPath: string,
+    entry: ActivityEntry,
+  ): Promise<void> {
+    const { owner, repo, branch } = this.cfg;
+    const path = activityLogPath(docPath);
+    const existing = await this.readActivityRaw(path);
+    const nextText = appendActivityLine(existing?.text ?? "", entry);
+    const res = await githubFetch(
+      `${API}/repos/${owner}/${repo}/contents/${path}`,
+      {
+        method: "PUT",
+        headers: this.headers({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          message: `chore(margins): activity (${entry.role}) on ${docPath}`,
+          content: encodeBase64(nextText),
+          sha: existing?.sha,
+          branch,
+        }),
+      },
+    );
+    if (!res.ok) {
+      throw new Error(`GitHub activity append failed (${res.status})`);
+    }
+    invalidateCachedUrl(this.contentsUrl(path));
   }
 
   async listMarkdownPaths(): Promise<string[]> {
