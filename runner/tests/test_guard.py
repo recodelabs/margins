@@ -1,4 +1,7 @@
+import json
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -74,3 +77,31 @@ class TestEnforce(unittest.TestCase):
     def test_unknown_tool_denied(self):
         decision, _ = self._enforce("SomethingElse", {})
         self.assertEqual(decision, "deny")
+
+    def test_bash_wait_with_surrounding_whitespace_allowed(self):
+        decision, _ = self._enforce("Bash", {"command": "  bash runner/wait-for-task.sh  "})
+        self.assertEqual(decision, "allow")
+
+    def test_main_denies_non_dict_tool_input_without_crashing(self):
+        proc = subprocess.run(
+            [sys.executable, "runner/guard.py"],
+            input='{"tool_name":"Read","tool_input":"file_path=/etc/passwd"}',
+            capture_output=True,
+            text=True,
+            cwd="/Users/claudius/github/roughneck",
+            env={**os.environ, "MARGINS_RUNNER_CLONE": self.clone, "MARGINS_RUNNER_STATE": self.state},
+        )
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn('"permissionDecision":"deny"', proc.stdout.replace(" ", ""))
+
+    def test_main_empty_stdin_exits_0_and_denies(self):
+        proc = subprocess.run(
+            [sys.executable, "runner/guard.py"],
+            input="",
+            capture_output=True,
+            text=True,
+            cwd="/Users/claudius/github/roughneck",
+            env={**os.environ, "MARGINS_RUNNER_CLONE": self.clone, "MARGINS_RUNNER_STATE": self.state},
+        )
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn('"permissionDecision":"deny"', proc.stdout.replace(" ", ""))

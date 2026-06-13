@@ -54,8 +54,12 @@ def main() -> int:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
         payload = {}
-    tool_name = payload.get("tool_name", "")
-    tool_input = payload.get("tool_input", {}) or {}
+    tool_name = payload.get("tool_name")
+    if not isinstance(tool_name, str):
+        tool_name = ""
+    tool_input = payload.get("tool_input")
+    if not isinstance(tool_input, dict):
+        tool_input = {}
     decision, reason = enforce(tool_name, tool_input, clone, state_dir)
     print(
         json.dumps(
