@@ -11,3 +11,6 @@ node_modules/
 
 # wrangler / cloudflare pages local state
 .wrangler/
+
+# margins runner local config (state lives outside the repo)
+runner/config.json
