@@ -1491,6 +1491,10 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
       nextComments.set(comment.id, comment);
       commentsRef.current = nextComments;
       setComments(nextComments);
+      // Replying opens the editor in place — the reply belongs to the thread
+      // that's already in view, so don't let the selection-driven rail align
+      // scroll it.
+      suppressRailAlignRef.current = true;
       setSelectedCommentId(comment.id);
       setHoveredCommentId(null);
       setPendingFocusCommentId(comment.id);
