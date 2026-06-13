@@ -1,3 +1,4 @@
+import { serializeForChangeCheck } from "./activity-live";
 import {
   type ActivityEntry,
   activityLogPath,
@@ -26,6 +27,7 @@ export interface GitHubBackendConfig {
 }
 
 const API = "https://api.github.com";
+const ACTIVITY_POLL_MS = 10_000;
 
 function pageId(relativePath: string): string {
   return relativePath.replace(/\.md$/i, "");
@@ -260,6 +262,43 @@ export class GitHubBackend implements StorageBackend {
   async readActivityLog(docPath: string): Promise<ActivityEntry[]> {
     const raw = await this.readActivityRaw(activityLogPath(docPath));
     return raw ? parseActivityLog(raw.text) : [];
+  }
+
+  watchActivityLog(
+    docPath: string,
+    onChange: (entries: ActivityEntry[]) => void,
+  ): () => void {
+    let disposed = false;
+    let lastSig: string | null = null;
+
+    const tick = async () => {
+      try {
+        const entries = await this.readActivityLog(docPath);
+        if (disposed) return;
+        const sig = serializeForChangeCheck(entries);
+        if (sig !== lastSig) {
+          lastSig = sig;
+          onChange(entries);
+        }
+      } catch (error) {
+        console.error("activity-log poll failed:", error);
+      }
+    };
+
+    void tick();
+    const timer = setInterval(() => {
+      void tick();
+    }, ACTIVITY_POLL_MS);
+
+    return () => {
+      disposed = true;
+      clearInterval(timer);
+    };
+  }
+
+  commitUrl(sha: string): string {
+    const { owner, repo } = this.cfg;
+    return `https://github.com/${owner}/${repo}/commit/${sha}`;
   }
 
   async appendActivityEntry(

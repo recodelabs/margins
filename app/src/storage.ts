@@ -163,6 +163,16 @@ export interface StorageBackend {
     relativePath: string,
     onChange: (event: MarkdownFileChangeEvent) => void,
   ): () => void;
+  /**
+   * Poll the doc's activity log; fire `onChange` with the parsed entries
+   * whenever the log changes. Present when `capabilities.activityLog`.
+   */
+  watchActivityLog?(
+    docPath: string,
+    onChange: (entries: ActivityEntry[]) => void,
+  ): () => void;
+  /** Absolute URL for a commit sha (for "view commit" links). */
+  commitUrl?(sha: string): string;
   completeReview?(
     relativePath: string,
     options?: CompleteReviewOptions,
