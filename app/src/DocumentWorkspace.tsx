@@ -1133,6 +1133,7 @@ export function DocumentWorkspace({
                 backend={backend}
                 onCommentRailPresenceChange={setDocumentHasComments}
                 onDirtyStateChange={documentSession.setDirty}
+                onComposingCommentChange={documentSession.setComposingComment}
                 onLocalContentChange={documentSession.setDraftContent}
                 onSaveControllerChange={documentSession.setController}
                 saveBlocked={documentDiskChangeState !== "clean"}

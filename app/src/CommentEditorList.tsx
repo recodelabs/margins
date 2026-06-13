@@ -43,6 +43,7 @@ interface CommentEditorListProps {
   getCommentActions?: (
     context: CommentActionsRenderContext,
   ) => CommentActionDefinition[];
+  onComposingChange?: (composing: boolean) => void;
 }
 
 export interface CommentActionDefinition {
@@ -66,6 +67,14 @@ export interface CommentActionsRenderContext {
   depth: number;
   isEditing: boolean;
   defaultActions: CommentActionDefinition[];
+}
+
+/** Notify a listener whether any comment is currently being composed/edited. */
+export function emitComposingState(
+  editingCommentIds: string[],
+  onComposingChange: ((composing: boolean) => void) | undefined,
+): void {
+  onComposingChange?.(editingCommentIds.length > 0);
 }
 
 function isEditableShortcutTarget(target: EventTarget | null) {
@@ -106,10 +115,14 @@ export function CommentEditorList({
   onAutoFocusComment,
   renderCommentContent,
   getCommentActions,
+  onComposingChange,
 }: CommentEditorListProps) {
   const textareaRefs = useRef(new Map<string, HTMLTextAreaElement>());
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [editingCommentIds, setEditingCommentIds] = useState<string[]>([]);
+  useEffect(() => {
+    emitComposingState(editingCommentIds, onComposingChange);
+  }, [editingCommentIds, onComposingChange]);
   const threads = useMemo(() => buildCommentThreads(comments), [comments]);
   const commentMap = useMemo(
     () => new Map(comments.map((comment) => [comment.id, comment])),
