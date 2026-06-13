@@ -300,38 +300,21 @@ export function DocumentReviewRail({
     };
   }, [draftSuggestion, draftAnchorTop]);
 
-  const activeSuggestionIdForComment = useMemo(
-    () =>
-      selectedCommentId
-        ? (suggestions.find((suggestion) =>
-            suggestion.commentIds.includes(selectedCommentId),
-          )?.changeId ?? null)
-        : null,
-    [selectedCommentId, suggestions],
-  );
-
   const layouts = useMemo(() => {
     const entries = [
       ...suggestionEntries,
       ...commentEntries,
       ...(draftEntry ? [draftEntry] : []),
     ].sort((left, right) => left.anchorTop - right.anchorTop);
-    const activeKey =
-      draftEntry?.key ??
-      selectedChangeId ??
-      activeSuggestionIdForComment ??
-      activeRootThreadId;
+    // Pivot the stack only on an in-progress draft, so a brand-new comment
+    // anchors to the text it's attached to. Selecting an existing comment or
+    // suggestion must NOT re-pivot the layout — that reshuffles the whole stack
+    // and moves cards around on a simple click. Stable top-down stacking
+    // (Google Docs behaviour) keeps selection from moving anything.
+    const activeKey = draftEntry?.key ?? null;
 
     return resolveAnchoredRailLayouts(entries, itemHeights, activeKey);
-  }, [
-    activeRootThreadId,
-    activeSuggestionIdForComment,
-    commentEntries,
-    draftEntry,
-    itemHeights,
-    selectedChangeId,
-    suggestionEntries,
-  ]);
+  }, [commentEntries, draftEntry, itemHeights, suggestionEntries]);
 
   const setItemRef = useCallback((key: string, node: HTMLDivElement | null) => {
     if (node) {
@@ -443,7 +426,6 @@ export function DocumentReviewRail({
                   isSelected
                     ? "border-[#DFDFDC] dark:border-slate-600 bg-white dark:bg-card shadow-[0_20px_48px_rgba(57,47,38,0.14)] dark:shadow-[0_20px_48px_rgba(0,0,0,0.4)]"
                     : "",
-                  isSelected && "-translate-x-2",
                   isExpanded ? "cursor-default" : "cursor-pointer",
                 )}
                 style={railLayoutItemStyle(railLayout, layout.railTop)}
