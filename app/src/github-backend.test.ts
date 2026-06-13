@@ -622,6 +622,84 @@ describe("GitHubBackend", () => {
       );
       expect(decoded).toBe(`${existing}\n${JSON.stringify(entry)}\n`);
     });
+
+    it("retries the append once when the first PUT 422s on a stale sha", async () => {
+      let getCount = 0;
+      let putCount = 0;
+      const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+        if (init?.method === "PUT") {
+          putCount += 1;
+          if (putCount === 1) {
+            // stale sha — someone else appended first
+            return new Response(
+              JSON.stringify({ message: "is at … but expected …" }),
+              { status: 422 },
+            );
+          }
+          return new Response(JSON.stringify({ content: { sha: "ok" } }), {
+            status: 200,
+          });
+        }
+        getCount += 1;
+        const sha = getCount === 1 ? "sha-1" : "sha-2";
+        return new Response(
+          JSON.stringify({ sha, content: b64("{}\n"), encoding: "base64" }),
+          { status: 200 },
+        );
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const entry = {
+        id: "a1",
+        at: "2026-06-13T12:00:00.000Z",
+        by: "octocat",
+        role: "user" as const,
+        type: "rewrite" as const,
+        instruction: "tighten",
+      };
+      await expect(
+        backend().appendActivityEntry("docs/x.md", entry),
+      ).resolves.toBeUndefined();
+
+      const putCalls = fetchMock.mock.calls.filter(
+        (c) => (c[1] as RequestInit)?.method === "PUT",
+      );
+      expect(putCalls).toHaveLength(2);
+      // the retry used the freshly re-read sha
+      const secondBody = JSON.parse(
+        (putCalls[1][1] as RequestInit).body as string,
+      );
+      expect(secondBody.sha).toBe("sha-2");
+    });
+
+    it("throws if the append still 422s after the retry", async () => {
+      const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+        if (init?.method === "PUT") {
+          return new Response(JSON.stringify({ message: "conflict" }), {
+            status: 422,
+          });
+        }
+        return new Response(
+          JSON.stringify({
+            sha: "s",
+            content: b64("{}\n"),
+            encoding: "base64",
+          }),
+          { status: 200 },
+        );
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+      await expect(
+        backend().appendActivityEntry("docs/x.md", {
+          id: "a1",
+          at: "t",
+          by: "octocat",
+          role: "user",
+          type: "rewrite",
+          instruction: "x",
+        }),
+      ).rejects.toThrow(/422/);
+    });
   });
 
   describe("markdown-only guard", () => {

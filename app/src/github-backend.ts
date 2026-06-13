@@ -254,25 +254,32 @@ export class GitHubBackend implements StorageBackend {
   ): Promise<void> {
     const { owner, repo, branch } = this.cfg;
     const path = activityLogPath(docPath);
-    const existing = await this.readActivityRaw(path);
-    const nextText = appendActivityLine(existing?.text ?? "", entry);
-    const res = await githubFetch(
-      `${API}/repos/${owner}/${repo}/contents/${path}`,
-      {
-        method: "PUT",
-        headers: this.headers({ "Content-Type": "application/json" }),
-        body: JSON.stringify({
-          message: `chore(margins): activity (${entry.role}) on ${docPath}`,
-          content: encodeBase64(nextText),
-          sha: existing?.sha,
-          branch,
-        }),
-      },
-    );
-    if (!res.ok) {
+
+    // GET the current sha then PUT with it. If another writer appended in
+    // between, GitHub 422s on the stale sha — re-read and retry once.
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const existing = await this.readActivityRaw(path);
+      const nextText = appendActivityLine(existing?.text ?? "", entry);
+      const res = await githubFetch(
+        `${API}/repos/${owner}/${repo}/contents/${path}`,
+        {
+          method: "PUT",
+          headers: this.headers({ "Content-Type": "application/json" }),
+          body: JSON.stringify({
+            message: `chore(margins): activity (${entry.role}) on ${docPath}`,
+            content: encodeBase64(nextText),
+            sha: existing?.sha,
+            branch,
+          }),
+        },
+      );
+      if (res.ok) {
+        invalidateCachedUrl(this.contentsUrl(path));
+        return;
+      }
+      if (res.status === 422 && attempt === 0) continue;
       throw new Error(`GitHub activity append failed (${res.status})`);
     }
-    invalidateCachedUrl(this.contentsUrl(path));
   }
 
   async listMarkdownPaths(): Promise<string[]> {
