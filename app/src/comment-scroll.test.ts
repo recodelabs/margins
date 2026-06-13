@@ -6,12 +6,12 @@ function fakeAnchor() {
 }
 
 describe("scrollCommentAnchorIntoView", () => {
-  it("smooth-centers the anchor when reduced motion is not preferred", () => {
+  it("scrolls the anchor into view only as needed (nearest), smoothly", () => {
     const anchor = fakeAnchor();
     scrollCommentAnchorIntoView(anchor, false);
     expect(anchor.scrollIntoView).toHaveBeenCalledWith({
       behavior: "smooth",
-      block: "center",
+      block: "nearest",
     });
   });
 
@@ -20,7 +20,7 @@ describe("scrollCommentAnchorIntoView", () => {
     scrollCommentAnchorIntoView(anchor, true);
     expect(anchor.scrollIntoView).toHaveBeenCalledWith({
       behavior: "auto",
-      block: "center",
+      block: "nearest",
     });
   });
 
