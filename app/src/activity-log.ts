@@ -40,7 +40,17 @@ function isEntry(value: unknown): value is ActivityEntry {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
   if (typeof v.id !== "string") return false;
-  return v.role === "user" || v.role === "agent";
+  if (v.role === "user") {
+    return typeof v.type === "string" && typeof v.instruction === "string";
+  }
+  if (v.role === "agent") {
+    return (
+      typeof v.replyTo === "string" &&
+      (v.status === "done" || v.status === "error") &&
+      typeof v.summary === "string"
+    );
+  }
+  return false;
 }
 
 /** Parse JSONL, skipping blank or malformed lines so one bad line can't break the log. */
@@ -80,7 +90,7 @@ export function buildConversation(
       return {
         instruction,
         reply,
-        status: reply ? reply.status : ("pending" as InstructionStatus),
+        status: reply ? reply.status : "pending",
       };
     });
 }
