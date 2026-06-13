@@ -28,6 +28,12 @@ class TestEnforce(unittest.TestCase):
         decision, _ = self._enforce("Read", {"file_path": self.doc})
         self.assertEqual(decision, "allow")
 
+    def test_empty_clone_and_state_env_fails_closed(self):
+        # If the env vars are unset (empty), the guard must deny — never fall
+        # back to cwd via realpath("").
+        decision, _ = enforce("Edit", {"file_path": self.doc}, "", "")
+        self.assertEqual(decision, "deny")
+
     def test_read_inbox_in_state_allowed(self):
         decision, _ = self._enforce("Read", {"file_path": os.path.join(self.state, "inbox.json")})
         self.assertEqual(decision, "allow")

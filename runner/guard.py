@@ -25,6 +25,10 @@ WAIT_COMMANDS = (
 
 
 def _within(path: str, base: str) -> bool:
+    # Fail closed: an empty base (unset env var) must never match — otherwise
+    # os.path.realpath("") would resolve to cwd and silently widen the sandbox.
+    if not base or not path:
+        return False
     real_base = os.path.realpath(base)
     real_path = os.path.realpath(path)
     return real_path == real_base or real_path.startswith(real_base + os.sep)
