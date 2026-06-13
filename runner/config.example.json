@@ -1,0 +1,8 @@
+{
+  "clonePath": "/absolute/path/to/your/repo/clone",
+  "stateDir": "/absolute/path/to/.margins-runner/state",
+  "branch": "main",
+  "pollSeconds": 120,
+  "agentBy": "agent",
+  "taskTimeoutSeconds": 600
+}
