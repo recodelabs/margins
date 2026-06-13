@@ -14,7 +14,6 @@ import {
 } from "react";
 import { buildLocationForLinkedMarkdownDocument } from "./app-navigation";
 import { CommentEditorList } from "./CommentEditorList";
-import { scrollCommentAnchorIntoView } from "./comment-scroll";
 import { shouldShowReviewRail } from "./comment-visibility";
 import {
   type CriticChangeAttrs,
@@ -32,7 +31,6 @@ import {
 } from "./DocumentReviewRail";
 import {
   getPreferredCommentId,
-  getRootThreadIdForCommentId,
   parseCommentIds,
 } from "./document-comments";
 import { EditorContextMenu } from "./EditorContextMenu";
@@ -255,21 +253,6 @@ function getPreferredCriticChangeId(
   }
 
   return changeIds[0] ?? null;
-}
-
-function prefersReducedMotion(): boolean {
-  return Boolean(
-    typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
-  );
-}
-
-/** The rail card element for a comment thread (tagged with its root id). */
-function findCommentCardElement(rootCommentId: string): HTMLElement | null {
-  if (typeof document === "undefined") return null;
-  return document.querySelector<HTMLElement>(
-    `[data-comment-root-id="${rootCommentId}"]`,
-  );
 }
 
 function findCommentRange(editor: Editor | null, commentId: string) {
@@ -634,10 +617,6 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
   const lastFocusRequestKeyRef = useRef<string | null>(null);
   const selectedCommentIdRef = useRef<string | null>(null);
   const selectedChangeIdRef = useRef<string | null>(null);
-  // Set when a comment is selected by clicking its rail card, so the
-  // selection-driven scroll-to-card below skips that case (card-clicks must not
-  // move the view). Body-highlight clicks and new comments leave it false.
-  const suppressNextSelectionScrollRef = useRef(false);
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(
     null,
   );
@@ -1047,31 +1026,6 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
       getPreferredCommentId(activeCommentIds, current),
     );
   }, [activeCommentIds]);
-
-  // Bring the selected comment's rail card into view (centered) when selection
-  // moves to a comment — e.g. clicking a highlight in the body, or adding a
-  // comment. Card-clicks set the suppress flag so they don't move the view (the
-  // stack no longer re-pivots on selection, so this scroll replaces that
-  // navigation). No-ops when the card is already visible enough.
-  useEffect(() => {
-    if (!selectedCommentId) return;
-    if (suppressNextSelectionScrollRef.current) {
-      suppressNextSelectionScrollRef.current = false;
-      return;
-    }
-    const rootCommentId = getRootThreadIdForCommentId(
-      selectedCommentId,
-      commentsRef.current,
-    );
-    if (!rootCommentId) return;
-    requestAnimationFrame(() => {
-      scrollCommentAnchorIntoView(
-        findCommentCardElement(rootCommentId),
-        prefersReducedMotion(),
-        "center",
-      );
-    });
-  }, [selectedCommentId]);
 
   useEffect(() => {
     setSelectedChangeId((current) =>
@@ -1636,9 +1590,6 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
   );
 
   const selectComment = useCallback((commentId: string) => {
-    if (selectedCommentIdRef.current !== commentId) {
-      suppressNextSelectionScrollRef.current = true;
-    }
     setSelectedCommentId(commentId);
   }, []);
 
@@ -1651,12 +1602,11 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     const currentEditor = editorRef.current;
     if (!currentEditor) return;
 
-    // A rail card-click: don't let the selection-driven scroll move the view.
-    if (selectedCommentIdRef.current !== commentId) {
-      suppressNextSelectionScrollRef.current = true;
-    }
     setSelectedCommentId(commentId);
 
+    // Clicking a comment card opens it in place — it must NOT scroll the page
+    // (the card would move out from under the cursor, forcing a re-find before
+    // you can reply).
     const range = findCommentRange(currentEditor, commentId);
     if (range) {
       currentEditor.commands.focus(undefined, { scrollIntoView: false });
@@ -1665,20 +1615,12 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
           TextSelection.create(currentEditor.state.doc, range.from, range.to),
         ),
       );
-      scrollCommentAnchorIntoView(
-        findCommentAnchorElement(currentEditor, commentId),
-        prefersReducedMotion(),
-      );
       return;
     }
 
     if (!findCommentAnchorElement(currentEditor, commentId)) return;
 
     currentEditor.commands.focus(undefined, { scrollIntoView: false });
-    scrollCommentAnchorIntoView(
-      findCommentAnchorElement(currentEditor, commentId),
-      prefersReducedMotion(),
-    );
   }, []);
 
   const focusSuggestion = useCallback((changeId: string) => {
