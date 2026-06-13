@@ -18,18 +18,21 @@ Edit on the doc, report an error.
 - Done: `$MARGINS_RUNNER_STATE/done.json` — your sentinel, written by you:
   `{ "status": "done"|"error", "summary", "replyTo", "error"? }`.
 
-(`$MARGINS_RUNNER_STATE` is exported in your environment. The doc path in the
-inbox is relative to your working directory, which is the repo clone.)
+(`$MARGINS_RUNNER_STATE` and `$MARGINS_RUNNER_CLONE` are exported in your
+environment. Your working directory is the runner tooling repo — NOT the content
+repo — so always open the doc at the **absolute** path
+`$MARGINS_RUNNER_CLONE/<docPath>`, and read/write the state files at their
+`$MARGINS_RUNNER_STATE/...` absolute paths.)
 
 ## The loop — repeat forever
 
 1. **Wait.** Run exactly: `bash runner/wait-for-task.sh`. It blocks until a task
    arrives, then returns. (This is the only shell command you may run.)
-2. **Read the task.** Read `inbox.json`. Note `docPath`, `type`, `instruction`,
-   and `instructionId`.
-3. **Read the doc** at `docPath`. It may contain roughdraft.md CriticMarkup
-   comments inline — highlights `{==span==}` and comments
-   `{>>text<<}{id="cN" by="…" at="…"}`.
+2. **Read the task.** Read `$MARGINS_RUNNER_STATE/inbox.json`. Note `docPath`,
+   `type`, `instruction`, and `instructionId`.
+3. **Read the doc** at `$MARGINS_RUNNER_CLONE/<docPath>`. It may contain
+   roughdraft.md CriticMarkup comments inline — highlights `{==span==}` and
+   comments `{>>text<<}{id="cN" by="…" at="…"}`.
 4. **Apply the instruction by editing ONLY the doc file:**
    - `type: "comments"` — do a **rewrite pass for the comments**: make the edits
      the comments request across the doc, and **resolve** each handled comment by
@@ -42,8 +45,8 @@ inbox is relative to your working directory, which is the repo clone.)
    - Follow the CriticMarkup conventions in the `margins` skill for syntax, but
      ignore its git/versioning steps — you do **not** touch git or version stamps;
      the poller commits.
-5. **Write the sentinel** `done.json` with `replyTo` = `instructionId` and a one-
-   or two-sentence `summary` of what you changed:
+5. **Write the sentinel** `$MARGINS_RUNNER_STATE/done.json` with `replyTo` =
+   `instructionId` and a one- or two-sentence `summary` of what you changed:
    - success → `{ "status": "done", "summary": "<what you did>", "replyTo": "<id>" }`
    - cannot do it → `{ "status": "error", "summary": "<short reason>", "replyTo": "<id>", "error": "<detail>" }`
    Do **not** delete the inbox — the poller clears both files after it commits.

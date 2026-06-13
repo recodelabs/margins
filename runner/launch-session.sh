@@ -12,15 +12,20 @@ CLONE="$(cd "$CLONE" && pwd -P)"
 mkdir -p "$STATE"
 STATE="$(cd "$STATE" && pwd -P)"
 RUNNER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+REPO_ROOT="$(cd "$RUNNER_DIR/.." && pwd -P)"
 
 export MARGINS_RUNNER_CLONE="$CLONE"
 export MARGINS_RUNNER_STATE="$STATE"
 export MARGINS_RUNNER_INBOX="$STATE/inbox.json"
 
-# Run from the clone so the skill's relative paths resolve there; point Claude at
-# this repo's settings (guard hook) and grant the state dir in addition to cwd.
-cd "$CLONE"
+# Run from THIS repo (where runner/ lives) so `runner/wait-for-task.sh` and the
+# guard hook ($CLAUDE_PROJECT_DIR/runner/guard.py) resolve, even when the watched
+# content clone is a different repo. The clone and the state dir are granted via
+# --add-dir; the guard confines every file edit to them by absolute path, so the
+# session still cannot touch this repo's own files.
+cd "$REPO_ROOT"
 exec claude \
   --settings "$RUNNER_DIR/settings.json" \
+  --add-dir "$CLONE" \
   --add-dir "$STATE" \
   "Use the margins-runner skill: enter the wait/apply loop now and keep running."
