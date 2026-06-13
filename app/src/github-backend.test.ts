@@ -623,6 +623,22 @@ describe("GitHubBackend", () => {
       expect(decoded).toBe(`${existing}\n${JSON.stringify(entry)}\n`);
     });
 
+    it("readActivityLog throws rather than truncating when the log is too large to inline", async () => {
+      global.fetch = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              sha: "big",
+              content: "",
+              encoding: "none",
+              size: 2000000,
+            }),
+            { status: 200 },
+          ),
+      ) as unknown as typeof fetch;
+      await expect(backend().readActivityLog("docs/x.md")).rejects.toThrow();
+    });
+
     it("retries the append once when the first PUT 422s on a stale sha", async () => {
       let getCount = 0;
       let putCount = 0;
@@ -632,7 +648,7 @@ describe("GitHubBackend", () => {
           if (putCount === 1) {
             // stale sha — someone else appended first
             return new Response(
-              JSON.stringify({ message: "is at … but expected …" }),
+              JSON.stringify({ message: "is at abc but expected def" }),
               { status: 422 },
             );
           }
@@ -675,7 +691,39 @@ describe("GitHubBackend", () => {
     it("throws if the append still 422s after the retry", async () => {
       const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
         if (init?.method === "PUT") {
-          return new Response(JSON.stringify({ message: "conflict" }), {
+          return new Response(
+            JSON.stringify({ message: "is at abc but expected def" }),
+            { status: 422 },
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            sha: "s",
+            content: b64("{}\n"),
+            encoding: "base64",
+          }),
+          { status: 200 },
+        );
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+      await expect(
+        backend().appendActivityEntry("docs/x.md", {
+          id: "a1",
+          at: "t",
+          by: "octocat",
+          role: "user",
+          type: "rewrite",
+          instruction: "x",
+        }),
+      ).rejects.toThrow(/422/);
+    });
+
+    it("does not retry a non-sha-conflict 422 (throws immediately)", async () => {
+      let puts = 0;
+      const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+        if (init?.method === "PUT") {
+          puts += 1;
+          return new Response(JSON.stringify({ message: "path is invalid" }), {
             status: 422,
           });
         }
@@ -699,6 +747,7 @@ describe("GitHubBackend", () => {
           instruction: "x",
         }),
       ).rejects.toThrow(/422/);
+      expect(puts).toBe(1); // no retry
     });
   });
 

@@ -239,7 +239,21 @@ export class GitHubBackend implements StorageBackend {
     });
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`GitHub activity read failed (${res.status})`);
-    const json = (await res.json()) as { sha: string; content: string };
+    const json = (await res.json()) as {
+      sha: string;
+      content: string;
+      encoding?: string;
+      size?: number;
+    };
+    // The Contents API only inlines content for files ≤1 MB. For larger files it
+    // returns encoding:"none" with empty content but a real sha — decoding that
+    // would produce "" and a subsequent PUT would overwrite the entire history.
+    if (
+      json.encoding === "none" ||
+      (json.content === "" && (json.size ?? 0) > 0)
+    ) {
+      throw new FileTooLargeError(path, json.size);
+    }
     return { text: decodeBase64(json.content), sha: json.sha };
   }
 
@@ -277,8 +291,15 @@ export class GitHubBackend implements StorageBackend {
         invalidateCachedUrl(this.contentsUrl(path));
         return;
       }
-      if (res.status === 422 && attempt === 0) continue;
-      throw new Error(`GitHub activity append failed (${res.status})`);
+      const errBody = (await res.json().catch(() => ({}))) as {
+        message?: string;
+      };
+      const isStaleSha =
+        res.status === 422 && (errBody.message ?? "").includes("but expected");
+      if (isStaleSha && attempt === 0) continue;
+      throw new Error(
+        `GitHub activity append failed (${res.status}): ${errBody.message ?? "error"}`,
+      );
     }
   }
 
