@@ -5,6 +5,7 @@ import {
   type MutableRefObject,
   type ReactNode,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -43,6 +44,7 @@ interface CommentEditorListProps {
   getCommentActions?: (
     context: CommentActionsRenderContext,
   ) => CommentActionDefinition[];
+  onComposingChange?: (id: string, composing: boolean) => void;
 }
 
 export interface CommentActionDefinition {
@@ -66,6 +68,15 @@ export interface CommentActionsRenderContext {
   depth: number;
   isEditing: boolean;
   defaultActions: CommentActionDefinition[];
+}
+
+/** Notify a listener whether any comment is currently being composed/edited. */
+export function emitComposingState(
+  id: string,
+  editingCommentIds: string[],
+  onComposingChange: ((id: string, composing: boolean) => void) | undefined,
+): void {
+  onComposingChange?.(id, editingCommentIds.length > 0);
 }
 
 function isEditableShortcutTarget(target: EventTarget | null) {
@@ -106,10 +117,19 @@ export function CommentEditorList({
   onAutoFocusComment,
   renderCommentContent,
   getCommentActions,
+  onComposingChange,
 }: CommentEditorListProps) {
+  const composingId = useId();
   const textareaRefs = useRef(new Map<string, HTMLTextAreaElement>());
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [editingCommentIds, setEditingCommentIds] = useState<string[]>([]);
+  useEffect(() => {
+    emitComposingState(composingId, editingCommentIds, onComposingChange);
+  }, [composingId, editingCommentIds, onComposingChange]);
+  useEffect(
+    () => () => onComposingChange?.(composingId, false),
+    [composingId, onComposingChange],
+  );
   const threads = useMemo(() => buildCommentThreads(comments), [comments]);
   const commentMap = useMemo(
     () => new Map(comments.map((comment) => [comment.id, comment])),

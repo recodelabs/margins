@@ -100,6 +100,7 @@ interface PageCardProps {
   onEditorReady?: (editor: Editor | null) => void;
   onCommentRailPresenceChange?: (hasCommentRailSpace: boolean) => void;
   onDirtyStateChange?: (isDirty: boolean) => void;
+  onComposingCommentChange?: (id: string, composing: boolean) => void;
   onLocalContentChange?: (markdown: string) => void;
   onSaveControllerChange?: (controller: DocumentSaveController | null) => void;
   saveBlocked?: boolean;
@@ -122,6 +123,7 @@ interface PageCardEditorSurfaceProps {
   onEditorReady?: (editor: Editor | null) => void;
   onCommentRailPresenceChange?: (hasCommentRailSpace: boolean) => void;
   onDirtyStateChange?: (isDirty: boolean) => void;
+  onComposingCommentChange?: (id: string, composing: boolean) => void;
   onLocalContentChange?: (markdown: string) => void;
   onSaveControllerChange?: (controller: DocumentSaveController | null) => void;
   saveBlocked?: boolean;
@@ -142,6 +144,7 @@ interface RichTextEditorSurfaceProps {
   backend: StorageBackend;
   onEditorReady?: (editor: Editor | null) => void;
   onCommentRailPresenceChange?: (hasCommentRailSpace: boolean) => void;
+  onComposingCommentChange?: (id: string, composing: boolean) => void;
   // Fired on every edit transaction — cheap signal that the document changed.
   onContentTouched?: () => void;
   // Registers a serializer the parent calls on demand (at save time) to get
@@ -629,6 +632,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
   backend,
   onEditorReady,
   onCommentRailPresenceChange,
+  onComposingCommentChange,
   onContentTouched,
   onSerializeReady,
 }: RichTextEditorSurfaceProps) {
@@ -1798,6 +1802,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
                   current === commentId ? null : current,
                 );
               }}
+              onComposingChange={onComposingCommentChange}
             />
           ) : null}
           <div className={contentInsetClass}>
@@ -1889,6 +1894,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
             onApplyDraftSuggestion={applyDraftSuggestion}
             onCancelDraftSuggestion={() => setDraftSuggestion(null)}
             editor={editor}
+            onComposingChange={onComposingCommentChange}
           />
         ) : null}
       </div>
@@ -1973,6 +1979,7 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
   onEditorReady,
   onCommentRailPresenceChange,
   onDirtyStateChange,
+  onComposingCommentChange,
   onLocalContentChange,
   onSaveControllerChange,
   saveBlocked = false,
@@ -2310,6 +2317,7 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
       interactionMode={interactionMode}
       commentsHidden={commentsHidden}
       onCommentRailPresenceChange={onCommentRailPresenceChange}
+      onComposingCommentChange={onComposingCommentChange}
       backend={backend}
       onEditorReady={onEditorReady}
       onContentTouched={handleContentTouched}
@@ -2333,6 +2341,7 @@ export function PageCard({
   onEditorReady,
   onCommentRailPresenceChange,
   onDirtyStateChange,
+  onComposingCommentChange,
   onLocalContentChange,
   onSaveControllerChange,
   saveBlocked,
@@ -2356,6 +2365,7 @@ export function PageCard({
         onEditorReady={onEditorReady}
         onCommentRailPresenceChange={onCommentRailPresenceChange}
         onDirtyStateChange={onDirtyStateChange}
+        onComposingCommentChange={onComposingCommentChange}
         onLocalContentChange={onLocalContentChange}
         onSaveControllerChange={onSaveControllerChange}
         saveBlocked={saveBlocked}

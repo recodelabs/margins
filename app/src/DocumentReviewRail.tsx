@@ -75,6 +75,7 @@ interface DocumentReviewRailProps {
   onApplyDraftSuggestion?: () => void;
   onCancelDraftSuggestion?: () => void;
   editor?: Editor | null;
+  onComposingChange?: (id: string, composing: boolean) => void;
 }
 
 function railLayoutItemClass(layout: "anchored" | "flow") {
@@ -204,6 +205,7 @@ export function DocumentReviewRail({
   onApplyDraftSuggestion,
   onCancelDraftSuggestion,
   editor = null,
+  onComposingChange,
 }: DocumentReviewRailProps) {
   const draftTextareaRef = useRef<HTMLTextAreaElement>(null);
   const itemRefs = useRef(new Map<string, HTMLDivElement>());
@@ -460,6 +462,7 @@ export function DocumentReviewRail({
                   onHoverComment={onHoverComment}
                   pendingFocusCommentId={pendingFocusCommentId}
                   onAutoFocusComment={onAutoFocusComment}
+                  onComposingChange={onComposingChange}
                 />
               </div>
             );
@@ -690,6 +693,7 @@ export function DocumentReviewRail({
                 onAutoFocusComment={onAutoFocusComment}
                 renderCommentContent={renderCommentContent}
                 getCommentActions={getCommentActions}
+                onComposingChange={onComposingChange}
               />
             </div>
           );

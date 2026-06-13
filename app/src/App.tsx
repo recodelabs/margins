@@ -7,6 +7,12 @@ import {
   useState,
 } from "react";
 import {
+  editorBusy,
+  findNewAgentReplies,
+  liveUpdateActionFor,
+} from "./activity-live";
+import type { ActivityEntry } from "./activity-log";
+import {
   buildLocationForDocumentEditorViewMode,
   type DocumentEditorViewMode,
   formatWorkspacePathForDisplay,
@@ -38,6 +44,7 @@ import {
   type Page,
   type StorageBackend,
 } from "./storage";
+import { Toast } from "./Toast";
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
 import { UpdateNotice } from "./UpdateNotice";
 import { fetchUpdateStatus, type UpdateStatus } from "./update-status";
@@ -111,6 +118,14 @@ export function App() {
   const [documentEditorViewMode, setDocumentEditorViewMode] = useState(() =>
     getDocumentEditorViewModeFromLocation("rich-text"),
   );
+  const [toast, setToast] = useState<{
+    message: string;
+    commitUrl?: string;
+  } | null>(null);
+  const [liveActivityEntries, setLiveActivityEntries] = useState<
+    ActivityEntry[] | null
+  >(null);
+  const prevActivityEntriesRef = useRef<ActivityEntry[]>([]);
   const backendRef = useRef<StorageBackend | null>(null);
   const documentPageRef = useRef<Page | null>(null);
   const activeDocumentPathRef = useRef<string | null>(activeDocumentPath);
@@ -573,6 +588,87 @@ export function App() {
     documentSession,
   ]);
 
+  useEffect(() => {
+    if (!backend?.capabilities.activityLog || !backend.watchActivityLog) return;
+    if (!activeDocumentPath) return;
+
+    let disposed = false;
+    let seeded = false;
+    prevActivityEntriesRef.current = [];
+
+    const stop = backend.watchActivityLog(activeDocumentPath, (entries) => {
+      if (disposed) return;
+      setLiveActivityEntries(entries);
+
+      // The first callback is the baseline (the log as it is when the doc opens).
+      // Seed the diff state but DON'T act on pre-existing replies — otherwise old
+      // agent replies would re-apply/toast every time you open the doc.
+      if (!seeded) {
+        seeded = true;
+        prevActivityEntriesRef.current = entries;
+        return;
+      }
+
+      const fresh = findNewAgentReplies(
+        prevActivityEntriesRef.current,
+        entries,
+      );
+      prevActivityEntriesRef.current = entries;
+
+      for (const reply of fresh) {
+        const snapshot = documentSession.getSnapshot();
+        const busy = editorBusy({
+          dirty: snapshot.dirty,
+          saveState: snapshot.saveState,
+          composingComment: snapshot.composingComment,
+        });
+        const action = liveUpdateActionFor(reply, busy);
+
+        if (action === "conflict") {
+          setDocumentDiskChangeState("changed");
+          setToast({
+            message: "The agent updated this doc — reload when ready.",
+          });
+          continue;
+        }
+        if (action !== "apply") continue;
+
+        void (async () => {
+          const currentBackend = backendRef.current;
+          const currentPath = activeDocumentPathRef.current;
+          if (!currentBackend || !currentPath || disposed) return;
+          try {
+            const nextDocument =
+              await currentBackend.getMarkdownFile(currentPath);
+            if (disposed) return;
+            applyDocumentPage(nextDocument);
+            documentSession.setDirty(false);
+            setDocumentDiskChangeState("clean");
+            setToast({
+              message: `Updated by the agent · ${reply.summary}`,
+              commitUrl: reply.commit
+                ? currentBackend.commitUrl?.(reply.commit)
+                : undefined,
+            });
+          } catch (error) {
+            console.error("Failed to apply agent update:", error);
+            setToast({
+              message: "The agent updated this doc — reload to see it.",
+            });
+          }
+        })();
+      }
+    });
+
+    return () => {
+      disposed = true;
+      stop();
+      setLiveActivityEntries(null);
+    };
+  }, [activeDocumentPath, applyDocumentPage, backend, documentSession]);
+
+  const dismissToast = useCallback(() => setToast(null), []);
+
   const handleDocumentEditorViewModeChange = useCallback(
     (nextMode: DocumentEditorViewMode) => {
       setDocumentEditorViewMode((current) => {
@@ -722,6 +818,13 @@ export function App() {
 
   return (
     <main className="relative flex h-screen min-w-0 flex-col overflow-hidden bg-[#FCFCFC] dark:bg-background text-slate-950 dark:text-slate-50">
+      {toast ? (
+        <Toast
+          message={toast.message}
+          commitUrl={toast.commitUrl}
+          onDismiss={dismissToast}
+        />
+      ) : null}
       {updateStatus ? (
         <div className="pointer-events-none absolute top-4 right-4 z-40 max-w-sm">
           <div className="pointer-events-auto">
@@ -750,6 +853,7 @@ export function App() {
           manualCommit={backend?.capabilities.manualCommit ?? false}
           githubNav={githubNav}
           onNavigate={handleNavigateAway}
+          liveActivityEntries={liveActivityEntries}
         />
       </Suspense>
       <UnsavedChangesDialog

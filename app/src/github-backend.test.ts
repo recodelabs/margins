@@ -751,6 +751,58 @@ describe("GitHubBackend", () => {
     });
   });
 
+  it("watchActivityLog polls, fires on change, and stops on unsubscribe", async () => {
+    vi.useFakeTimers();
+    const log1 =
+      '{"id":"i1","at":"t","by":"u","role":"user","type":"custom","instruction":"x"}\n';
+    const log2 =
+      log1 +
+      '{"id":"a1","at":"t","by":"agent","role":"agent","replyTo":"i1","status":"done","summary":"s","commit":"abc"}\n';
+    const bodies = [log1, log1, log2];
+    let call = 0;
+    global.fetch = vi.fn(async () => {
+      const body = bodies[Math.min(call, bodies.length - 1)];
+      call += 1;
+      return new Response(
+        JSON.stringify({
+          sha: `sha${call}`,
+          content: b64(body),
+          encoding: "base64",
+        }),
+        { status: 200 },
+      );
+    });
+
+    const seen: number[] = [];
+    const stop = backend().watchActivityLog("doc.md", (entries) => {
+      seen.push(entries.length);
+    });
+
+    // Baseline tick (immediate) -> fires once with 1 entry.
+    await vi.advanceTimersByTimeAsync(0);
+    // Second poll: identical content -> no fire.
+    await vi.advanceTimersByTimeAsync(10_000);
+    // Third poll: the agent reply appears -> fires with 2 entries.
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    stop();
+    const callsAfterStop = (global.fetch as ReturnType<typeof vi.fn>).mock.calls
+      .length;
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(
+      callsAfterStop,
+    );
+
+    expect(seen).toEqual([1, 2]);
+    vi.useRealTimers();
+  });
+
+  it("commitUrl points at the repo commit", () => {
+    expect(backend().commitUrl("abc123")).toBe(
+      "https://github.com/o/r/commit/abc123",
+    );
+  });
+
   describe("markdown-only guard", () => {
     it("getMarkdownFile rejects a non-.md path without calling fetch", async () => {
       const fetchMock = vi.fn();
