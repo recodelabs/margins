@@ -392,6 +392,114 @@
     margin: 1.3em 0;
   }
 
+  /* GitHub-style callouts (> [!NOTE] …). The [!type] marker is hidden by a
+     decoration; the type class drives colours/icon/label below. */
+  .tiptap blockquote.callout {
+    border-left-width: 1px;
+    border: 1px solid var(--callout-border);
+    border-radius: 0.65rem;
+    padding: 0.8rem 1rem;
+    margin: 1.3em 0;
+    background: var(--callout-bg);
+    color: #334155;
+  }
+  .dark .tiptap blockquote.callout {
+    color: #cbd5e1;
+  }
+  .tiptap blockquote.callout > :first-child {
+    margin-top: 0;
+  }
+  .tiptap blockquote.callout > :last-child {
+    margin-bottom: 0;
+  }
+  .tiptap blockquote.callout .callout-marker {
+    display: none;
+  }
+  .tiptap blockquote.callout::before {
+    content: var(--callout-label);
+    display: block;
+    margin-bottom: 0.4rem;
+    padding-left: 1.6em;
+    min-height: 1.2em;
+    line-height: 1.2em;
+    font-weight: 600;
+    font-size: 0.82em;
+    letter-spacing: 0.01em;
+    color: var(--callout-accent);
+    background: var(--callout-icon) no-repeat left center;
+    background-size: 1.2em 1.2em;
+  }
+
+  .tiptap blockquote.callout-note {
+    --callout-bg: #eef4ff;
+    --callout-border: #cbdcfb;
+    --callout-accent: #1d4ed8;
+    --callout-label: "Note";
+    --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231d4ed8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' y1='16' x2='12' y2='12'/%3E%3Cline x1='12' y1='8' x2='12.01' y2='8'/%3E%3C/svg%3E");
+  }
+  .dark .tiptap blockquote.callout-note {
+    --callout-bg: rgba(59, 130, 246, 0.13);
+    --callout-border: rgba(59, 130, 246, 0.35);
+    --callout-accent: #93b4ff;
+    --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2393b4ff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' y1='16' x2='12' y2='12'/%3E%3Cline x1='12' y1='8' x2='12.01' y2='8'/%3E%3C/svg%3E");
+  }
+
+  .tiptap blockquote.callout-tip {
+    --callout-bg: #ecfdf5;
+    --callout-border: #bbf0d6;
+    --callout-accent: #059669;
+    --callout-label: "Tip";
+    --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23059669' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18h6'/%3E%3Cpath d='M10 22h4'/%3E%3Cpath d='M12 2a7 7 0 0 0-4 12c.5.5 1 1.4 1 2.5h6c0-1.1.5-2 1-2.5a7 7 0 0 0-4-12z'/%3E%3C/svg%3E");
+  }
+  .dark .tiptap blockquote.callout-tip {
+    --callout-bg: rgba(16, 185, 129, 0.13);
+    --callout-border: rgba(16, 185, 129, 0.35);
+    --callout-accent: #6ee7b7;
+    --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236ee7b7' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18h6'/%3E%3Cpath d='M10 22h4'/%3E%3Cpath d='M12 2a7 7 0 0 0-4 12c.5.5 1 1.4 1 2.5h6c0-1.1.5-2 1-2.5a7 7 0 0 0-4-12z'/%3E%3C/svg%3E");
+  }
+
+  .tiptap blockquote.callout-important {
+    --callout-bg: #f5f1ff;
+    --callout-border: #ddd0fb;
+    --callout-accent: #7c3aed;
+    --callout-label: "Important";
+    --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237c3aed' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'/%3E%3C/svg%3E");
+  }
+  .dark .tiptap blockquote.callout-important {
+    --callout-bg: rgba(139, 92, 246, 0.14);
+    --callout-border: rgba(139, 92, 246, 0.36);
+    --callout-accent: #c4b5fd;
+    --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c4b5fd' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'/%3E%3C/svg%3E");
+  }
+
+  .tiptap blockquote.callout-warning {
+    --callout-bg: #fff8eb;
+    --callout-border: #fae3b5;
+    --callout-accent: #b45309;
+    --callout-label: "Warning";
+    --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b45309' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E");
+  }
+  .dark .tiptap blockquote.callout-warning {
+    --callout-bg: rgba(245, 158, 11, 0.14);
+    --callout-border: rgba(245, 158, 11, 0.36);
+    --callout-accent: #fcd34d;
+    --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fcd34d' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E");
+  }
+
+  .tiptap blockquote.callout-caution {
+    --callout-bg: #fff1f3;
+    --callout-border: #fbcdd6;
+    --callout-accent: #e11d48;
+    --callout-label: "Caution";
+    --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e11d48' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86'/%3E%3Cline x1='12' y1='8' x2='12' y2='12'/%3E%3Cline x1='12' y1='16' x2='12.01' y2='16'/%3E%3C/svg%3E");
+  }
+  .dark .tiptap blockquote.callout-caution {
+    --callout-bg: rgba(244, 63, 94, 0.14);
+    --callout-border: rgba(244, 63, 94, 0.36);
+    --callout-accent: #fda4af;
+    --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fda4af' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86'/%3E%3Cline x1='12' y1='8' x2='12' y2='12'/%3E%3Cline x1='12' y1='16' x2='12.01' y2='16'/%3E%3C/svg%3E");
+  }
+
   .tiptap ul {
     @apply list-disc;
     margin: 0.45em 0 1.05em;
