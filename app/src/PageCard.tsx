@@ -14,6 +14,7 @@ import {
 } from "react";
 import { buildLocationForLinkedMarkdownDocument } from "./app-navigation";
 import { CommentEditorList } from "./CommentEditorList";
+import { alignElementToTarget } from "./comment-scroll";
 import { shouldShowReviewRail } from "./comment-visibility";
 import {
   type CriticChangeAttrs,
@@ -29,7 +30,6 @@ import {
   type CriticChangeRailItem,
   DocumentReviewRail,
 } from "./DocumentReviewRail";
-import { alignElementToTarget } from "./comment-scroll";
 import {
   getPreferredCommentId,
   getRootThreadIdForCommentId,
@@ -1082,7 +1082,10 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     let raf = 0;
     const tryAlign = () => {
       const card = findCommentCardElement(rootCommentId);
-      const anchor = findCommentAnchorElement(editorRef.current, selectedCommentId);
+      const anchor = findCommentAnchorElement(
+        editorRef.current,
+        selectedCommentId,
+      );
       if (card && anchor) {
         alignElementToTarget(getRailScroller(), card, anchor, reduced);
         return;
