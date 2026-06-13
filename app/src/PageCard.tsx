@@ -30,7 +30,11 @@ import {
   type CriticChangeRailItem,
   DocumentReviewRail,
 } from "./DocumentReviewRail";
-import { getPreferredCommentId, parseCommentIds } from "./document-comments";
+import {
+  getPreferredCommentId,
+  getRootThreadIdForCommentId,
+  parseCommentIds,
+} from "./document-comments";
 import { EditorContextMenu } from "./EditorContextMenu";
 import {
   commentHighlightPluginKey,
@@ -257,6 +261,14 @@ function prefersReducedMotion(): boolean {
   return Boolean(
     typeof window !== "undefined" &&
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+  );
+}
+
+/** The rail card element for a comment thread (tagged with its root id). */
+function findCommentCardElement(rootCommentId: string): HTMLElement | null {
+  if (typeof document === "undefined") return null;
+  return document.querySelector<HTMLElement>(
+    `[data-comment-root-id="${rootCommentId}"]`,
   );
 }
 
@@ -622,6 +634,10 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
   const lastFocusRequestKeyRef = useRef<string | null>(null);
   const selectedCommentIdRef = useRef<string | null>(null);
   const selectedChangeIdRef = useRef<string | null>(null);
+  // Set when a comment is selected by clicking its rail card, so the
+  // selection-driven scroll-to-card below skips that case (card-clicks must not
+  // move the view). Body-highlight clicks and new comments leave it false.
+  const suppressNextSelectionScrollRef = useRef(false);
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(
     null,
   );
@@ -1032,6 +1048,31 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     );
   }, [activeCommentIds]);
 
+  // Bring the selected comment's rail card into view (centered) when selection
+  // moves to a comment — e.g. clicking a highlight in the body, or adding a
+  // comment. Card-clicks set the suppress flag so they don't move the view (the
+  // stack no longer re-pivots on selection, so this scroll replaces that
+  // navigation). No-ops when the card is already visible enough.
+  useEffect(() => {
+    if (!selectedCommentId) return;
+    if (suppressNextSelectionScrollRef.current) {
+      suppressNextSelectionScrollRef.current = false;
+      return;
+    }
+    const rootCommentId = getRootThreadIdForCommentId(
+      selectedCommentId,
+      commentsRef.current,
+    );
+    if (!rootCommentId) return;
+    requestAnimationFrame(() => {
+      scrollCommentAnchorIntoView(
+        findCommentCardElement(rootCommentId),
+        prefersReducedMotion(),
+        "center",
+      );
+    });
+  }, [selectedCommentId]);
+
   useEffect(() => {
     setSelectedChangeId((current) =>
       getPreferredCriticChangeId(activeChangeIds, current),
@@ -1256,15 +1297,13 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
       suppressNextMarkdownUpdateRef.current = false;
     }
 
+    // New comment: leave the suppress flag false so the selection-driven effect
+    // centers its freshly-rendered card in view (so it's clear where it landed
+    // and its pending-focus editor is on screen).
     setSelectedCommentId(comment.id);
     setPendingFocusCommentId(comment.id);
-    const newCommentId = comment.id;
     requestAnimationFrame(() => {
       measureLayout();
-      scrollCommentAnchorIntoView(
-        findCommentAnchorElement(editorRef.current, newCommentId),
-        prefersReducedMotion(),
-      );
     });
   }, [measureLayout]);
 
@@ -1597,6 +1636,9 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
   );
 
   const selectComment = useCallback((commentId: string) => {
+    if (selectedCommentIdRef.current !== commentId) {
+      suppressNextSelectionScrollRef.current = true;
+    }
     setSelectedCommentId(commentId);
   }, []);
 
@@ -1609,6 +1651,10 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     const currentEditor = editorRef.current;
     if (!currentEditor) return;
 
+    // A rail card-click: don't let the selection-driven scroll move the view.
+    if (selectedCommentIdRef.current !== commentId) {
+      suppressNextSelectionScrollRef.current = true;
+    }
     setSelectedCommentId(commentId);
 
     const range = findCommentRange(currentEditor, commentId);

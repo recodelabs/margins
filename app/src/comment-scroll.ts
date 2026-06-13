@@ -1,19 +1,23 @@
 /**
- * Scrolls a comment's anchor element into view, but only as much as needed:
- * `block: "nearest"` leaves the page put when the anchor is already fully
- * visible (so clicking a visible comment doesn't jump), and nudges the minimum
- * amount when it's off-screen. Instant when the user prefers reduced motion. The
- * absolutely-positioned rail card follows the document scroll, so the comment
- * and its highlight stay together. No-ops for a missing anchor, or when
- * `scrollIntoView` is unavailable (e.g. jsdom).
+ * Scrolls a comment-related element (a highlight anchor in the body, or a
+ * comment card in the rail) into view. `block` controls how much:
+ * - `"nearest"` (default) leaves the page put when the element is already fully
+ *   visible and nudges the minimum amount otherwise — for selecting a comment
+ *   without jumping the page.
+ * - `"center"` centers it — a deliberate "jump to this comment" used when
+ *   clicking a body highlight or adding a comment, so the target is clearly
+ *   brought into view.
+ * Instant when the user prefers reduced motion. No-ops for a missing element, or
+ * when `scrollIntoView` is unavailable (e.g. jsdom).
  */
 export function scrollCommentAnchorIntoView(
-  anchor: HTMLElement | null,
+  element: HTMLElement | null,
   prefersReducedMotion: boolean,
+  block: "nearest" | "center" = "nearest",
 ): void {
-  if (!anchor || typeof anchor.scrollIntoView !== "function") return;
-  anchor.scrollIntoView({
+  if (!element || typeof element.scrollIntoView !== "function") return;
+  element.scrollIntoView({
     behavior: prefersReducedMotion ? "auto" : "smooth",
-    block: "nearest",
+    block,
   });
 }

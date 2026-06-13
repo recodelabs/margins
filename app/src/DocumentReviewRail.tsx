@@ -421,6 +421,7 @@ export function DocumentReviewRail({
                 ref={(node) => setItemRef(layout.key, node)}
                 data-testid={`comment-thread-${layout.thread.rootCommentId}`}
                 data-comment-thread-container="true"
+                data-comment-root-id={layout.thread.rootCommentId}
                 className={cn(
                   railLayoutItemClass(railLayout),
                   isSelected

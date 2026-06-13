@@ -32,4 +32,13 @@ describe("scrollCommentAnchorIntoView", () => {
     const anchor = {} as unknown as HTMLElement;
     expect(() => scrollCommentAnchorIntoView(anchor, false)).not.toThrow();
   });
+
+  it("centers the element when block: 'center' is requested (jump-to-comment)", () => {
+    const anchor = fakeAnchor();
+    scrollCommentAnchorIntoView(anchor, false, "center");
+    expect(anchor.scrollIntoView).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "center",
+    });
+  });
 });
