@@ -120,8 +120,8 @@ export function InstructionSender({
         <ul className="flex flex-col gap-1.5 border-t border-slate-100 dark:border-slate-800 pt-2">
           {conversation.map((item) => (
             <li key={item.instruction.id} className="text-xs">
-              <div className="flex items-center justify-between gap-2">
-                <span className="min-w-0 truncate text-slate-700 dark:text-slate-300">
+              <div className="flex items-start justify-between gap-2">
+                <span className="min-w-0 break-words text-slate-700 dark:text-slate-300">
                   <span className="font-medium">{item.instruction.type}</span>:{" "}
                   {item.instruction.instruction}
                 </span>
