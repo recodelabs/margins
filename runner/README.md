@@ -23,11 +23,19 @@ Claude Code session billed to your own subscription. Two processes:
    # set clonePath to ~/margins-clone and stateDir to e.g. ~/.margins-runner/<repo>
    ```
 3. **Start the strict session** (uses your Claude subscription — a normal
-   interactive `claude`, not the API):
+   interactive `claude`, not the API). Requires `tmux`:
    ```bash
    ./runner/launch-session.sh ~/margins-clone ~/.margins-runner/<repo>
    ```
-   It will enter the wait loop and sit idle (zero tokens) until a task arrives.
+   It launches the session **inside a tmux session** (`margins-runner-<repo>`)
+   and auto-submits the kickoff prompt, then sits idle (zero tokens) until a task
+   arrives. (tmux is used because Claude Code does not auto-run a positional
+   prompt in interactive mode — without it the session sits at a blank prompt and
+   never enters the loop.) It also symlinks the `margins-runner` skill into
+   `~/.claude/skills/` on first run if it isn't already installed.
+
+   Watch it with `tmux attach -t margins-runner-<repo>` (detach: `Ctrl-b` then
+   `d`); stop it with `tmux kill-session -t margins-runner-<repo>`.
 4. **Start the poller** in another terminal:
    ```bash
    python3 -m runner.poller runner/config.json
@@ -36,6 +44,33 @@ Claude Code session billed to your own subscription. Two processes:
 Now send instructions from margins (the doc workspace). Within `pollSeconds` the
 poller picks them up, the session applies them, and the reply appears in the
 doc's activity log.
+
+## Watching & operating (tmux)
+
+`launch-session.sh` already runs the strict session inside tmux. Run the poller in
+tmux too so both survive the terminal (or your Claude session) closing and you can
+re-attach to either:
+
+```bash
+# poller in its own tmux session (mirrors the strict session):
+tmux new-session -d -s margins-poller-<repo> \
+  "cd <repo-with-runner> && python3 -u -m runner.poller runner/config.<repo>.json"
+```
+
+Day-to-day:
+
+| Action | Command |
+|---|---|
+| Watch the session | `tmux attach -t margins-runner-<repo>` |
+| Watch the poller | `tmux attach -t margins-poller-<repo>` |
+| Detach (leave running) | `Ctrl-b` then `d` |
+| Restart the session (e.g. after editing the skill) | re-run `./runner/launch-session.sh <clonePath> <stateDir>` — it kills the old tmux session and starts fresh |
+| Stop the session | `tmux kill-session -t margins-runner-<repo>` |
+| Stop the poller | `tmux kill-session -t margins-poller-<repo>` |
+| List running sessions | `tmux ls` |
+
+tmux sessions keep running after you close the terminal or your Claude session;
+they stop only on reboot or an explicit `kill-session`.
 
 ## Safety model
 

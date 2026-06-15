@@ -42,9 +42,19 @@ repo — so always open the doc at the **absolute** path
    - `type: "rewrite"` / `type: "custom"` — apply `instruction` to the doc text.
    - Edit the doc as it should finally read. Do not add chat, status notes, or
      explanations into the doc beyond CriticMarkup where appropriate.
-   - Follow the CriticMarkup conventions in the `margins` skill for syntax, but
-     ignore its git/versioning steps — you do **not** touch git or version stamps;
-     the poller commits.
+   - Follow the CriticMarkup conventions in the `margins` skill for syntax. You do
+     **not** run git (the poller commits), but you **do** bump the doc's version
+     stamp:
+   - **Bump the version** if the doc has one (a `version` + `last_modified` in YAML
+     frontmatter and a visible `` `vX.Y.Z · Last modified …` `` stamp under the H1).
+     Update **both**, kept in sync, by the instruction type:
+     - `type: "comments"` → **patch** bump, +0.0.1 (e.g. `0.4.0` → `0.4.1`)
+     - `type: "rewrite"` / `type: "custom"` → **minor** bump, +0.1.0 (e.g. `0.4.0` → `0.5.0`)
+
+     Refresh `last_modified` (frontmatter, ISO 8601 UTC) and the visible stamp (keep
+     its existing friendly local-time format and timezone) to the current time. You
+     cannot run `date`, so use your best estimate of the current time. Skip only if
+     the doc has no version stamp.
 5. **Write the sentinel** `$MARGINS_RUNNER_STATE/done.json` with `replyTo` =
    `instructionId` and a one- or two-sentence `summary` of what you changed:
    - success → `{ "status": "done", "summary": "<what you did>", "replyTo": "<id>" }`

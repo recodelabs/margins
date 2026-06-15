@@ -93,6 +93,68 @@ review back to the branch. It runs entirely client-side (no server of its own) a
 static SPA plus one stateless OAuth Function — see [`app/README.md`](app/README.md) for development
 and [`docs/deploy-cloudflare.md`](docs/deploy-cloudflare.md) for deployment.
 
+## Answering instructions automatically (the runner)
+
+When someone reading a doc in the hosted app sends an instruction ("apply these comments",
+"rewrite this section"), the app commits it to a log file **in that doc's own repo** —
+`.margins/<docPath>.activity.jsonl` — and then polls that log for a reply. Nothing answers it
+until you run the **runner** (`runner/`), which watches those logs, applies the instruction, and
+pushes the reply back. See [`runner/README.md`](runner/README.md) for the full walkthrough and the
+safety model; the essentials:
+
+- **Two processes.** A **poller** (`runner/poller.py`, plain Python — does all the git/network and
+  cannot be prompt-injected) hands one pending instruction to a **strict session**
+  (`runner/launch-session.sh`, a locked-down `claude` session that the `runner/guard.py` hook
+  confines to editing the one doc — no git, no network, no other shell). The poller then commits the
+  edited doc and appends the agent's reply.
+- **Replies push straight to the doc's branch** (often `main`) — there is no PR flow. That's
+  intended: the app reads the reply from that same branch. Point the runner only at repos where that
+  is acceptable.
+- **Install once, one watcher per repo.** Keep a single copy of `runner/` (here) and run a
+  clone + config + poller + session **per repo you want answered**. The runner only sees `.margins/`
+  logs in the clone it's pointed at, and only pushes to that clone's `origin` — so the clone must be
+  the same repo whose docs you open in the app, with working push auth.
+
+```bash
+# one-time, per repo: a config naming its clone + a private state dir (both gitignored)
+cp runner/config.example.json runner/config.<repo>.json
+#   clonePath -> a checkout of THAT repo;  stateDir -> e.g. ~/.margins-runner/<repo>
+
+# then run the two processes (separate terminals):
+python3 -m runner.poller runner/config.<repo>.json          # poller (git I/O)
+./runner/launch-session.sh <clonePath> <stateDir>           # strict responder session
+```
+
+Per-repo configs (`runner/config.*.json`) hold local absolute paths and stay out of git; only
+`config.example.json` is tracked.
+
+> **Running the poller from a Claude Code session?** A plain terminal is simplest (and the process
+> outlives the session). But if you launch the poller from *inside* a Claude Code session, its
+> auto-mode classifier blocks it as an unattended loop that pushes to a branch. Pre-authorize it once
+> by adding a permission rule to `.claude/settings.local.json` (gitignored — stays on your machine):
+>
+> ```json
+> { "permissions": { "allow": ["Bash(python3 -m runner.poller:*)"] } }
+> ```
+
+**Watching & operating (tmux).** `launch-session.sh` runs the strict session inside a tmux session
+(`margins-runner-<repo>`) and auto-submits its kickoff prompt (Claude Code won't auto-run a
+positional prompt, so without tmux the session sits idle at a blank prompt). Run the poller in tmux
+too so both survive your terminal — or your Claude session — closing, and you can re-attach to either:
+
+| Action | Command |
+|---|---|
+| Run the poller in tmux | `tmux new-session -d -s margins-poller-<repo> "python3 -u -m runner.poller runner/config.<repo>.json"` |
+| Watch the session | `tmux attach -t margins-runner-<repo>` |
+| Watch the poller | `tmux attach -t margins-poller-<repo>` |
+| Detach (leave it running) | `Ctrl-b` then `d` |
+| Restart the session | re-run `./runner/launch-session.sh <clonePath> <stateDir>` (it kills the old tmux session and starts fresh) |
+| Stop the session / poller | `tmux kill-session -t margins-runner-<repo>` · `tmux kill-session -t margins-poller-<repo>` |
+| List running sessions | `tmux ls` |
+
+tmux sessions keep running after you close the terminal or your Claude session; they stop only on
+reboot or an explicit `kill-session`.
+
 ## Notes / known limits
 
 - Big documents (hundreds of KB) are slow to load — that's ProseMirror parsing, not margins.
