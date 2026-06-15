@@ -7,6 +7,10 @@ import unittest
 
 from runner.guard import WAIT_COMMANDS, enforce
 
+# Repo root (where runner/ lives), derived from this file so the subprocess tests
+# resolve "runner/guard.py" regardless of where the repo is checked out.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 class TestEnforce(unittest.TestCase):
     def setUp(self):
@@ -94,7 +98,7 @@ class TestEnforce(unittest.TestCase):
             input='{"tool_name":"Read","tool_input":"file_path=/etc/passwd"}',
             capture_output=True,
             text=True,
-            cwd="/Users/claudius/github/roughneck",
+            cwd=_REPO_ROOT,
             env={**os.environ, "MARGINS_RUNNER_CLONE": self.clone, "MARGINS_RUNNER_STATE": self.state},
         )
         self.assertEqual(proc.returncode, 0)
@@ -106,7 +110,7 @@ class TestEnforce(unittest.TestCase):
             input="",
             capture_output=True,
             text=True,
-            cwd="/Users/claudius/github/roughneck",
+            cwd=_REPO_ROOT,
             env={**os.environ, "MARGINS_RUNNER_CLONE": self.clone, "MARGINS_RUNNER_STATE": self.state},
         )
         self.assertEqual(proc.returncode, 0)
