@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   ArrowLeft,
+  Bot,
   Check,
   CheckCheck,
   ChevronDown,
@@ -22,6 +23,10 @@ import {
   useState,
 } from "react";
 import type { ActivityEntry } from "./activity-log";
+import {
+  readStoredAgentBoxHidden,
+  writeStoredAgentBoxHidden,
+} from "./agent-box-visibility";
 import type { DocumentEditorViewMode } from "./app-navigation";
 import {
   readStoredCommentsHidden,
@@ -333,6 +338,19 @@ export function DocumentWorkspace({
     }
     writeStoredCommentsHidden(commentsHidden);
   }, [commentsHidden]);
+  const [agentBoxHidden, setAgentBoxHidden] = useState<boolean>(
+    readStoredAgentBoxHidden,
+  );
+  const agentBoxHiddenHydratedRef = useRef(false);
+
+  useEffect(() => {
+    // Skip the initial render so merely mounting doesn't write to localStorage.
+    if (!agentBoxHiddenHydratedRef.current) {
+      agentBoxHiddenHydratedRef.current = true;
+      return;
+    }
+    writeStoredAgentBoxHidden(agentBoxHidden);
+  }, [agentBoxHidden]);
   const [reviewHandoffState, setReviewHandoffState] =
     useState<ReviewHandoffState>("idle");
   const [reviewWatcherCount, setReviewWatcherCount] = useState(0);
@@ -515,6 +533,9 @@ export function DocumentWorkspace({
   const commentsToggleLabel = commentsHidden
     ? "Show comments"
     : "Hide comments";
+  const agentBoxToggleLabel = agentBoxHidden
+    ? "Show agent box"
+    : "Hide agent box";
   const activeDocumentInteractionMode = documentInteractionModeOptions.find(
     (option) => option.value === documentInteractionMode,
   );
@@ -1049,6 +1070,25 @@ export function DocumentWorkspace({
                   />
                 )}
                 <div className="ml-auto inline-flex h-[1.5rem] shrink-0 items-center gap-1">
+                  {backend?.capabilities.activityLog && activeDocumentPath ? (
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <button
+                            type="button"
+                            data-testid="document-agent-box-toggle"
+                            aria-pressed={agentBoxHidden}
+                            className="inline-flex h-[1.5rem] items-center justify-center rounded-full px-1 text-stone-400 outline-none transition hover:bg-[#EEE9E1] hover:text-stone-600 focus-visible:ring-2 focus-visible:ring-stone-300/70 dark:text-stone-500 dark:hover:bg-slate-800 dark:hover:text-stone-300 dark:focus-visible:ring-slate-600/70"
+                          >
+                            <Bot className="size-[0.78rem]" />
+                          </button>
+                        }
+                        aria-label={agentBoxToggleLabel}
+                        onClick={() => setAgentBoxHidden((hidden) => !hidden)}
+                      />
+                      <TooltipContent>{agentBoxToggleLabel}</TooltipContent>
+                    </Tooltip>
+                  ) : null}
                   <Tooltip>
                     <TooltipTrigger
                       render={
@@ -1111,7 +1151,9 @@ export function DocumentWorkspace({
         {documentPage ? (
           backend ? (
             <>
-              {backend?.capabilities.activityLog && activeDocumentPath ? (
+              {backend?.capabilities.activityLog &&
+              activeDocumentPath &&
+              !agentBoxHidden ? (
                 <div className="mb-4">
                   <InstructionSender
                     docPath={activeDocumentPath}
