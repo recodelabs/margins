@@ -34,11 +34,15 @@ repo — so always open the doc at the **absolute** path
    roughdraft.md CriticMarkup comments inline — highlights `{==span==}` and
    comments `{>>text<<}{id="cN" by="…" at="…"}`.
 4. **Apply the instruction by editing ONLY the doc file:**
-   - `type: "comments"` — do a **rewrite pass for the comments**: make the edits
-     the comments request across the doc, and **resolve** each handled comment by
-     deleting its `{>>…<<}{…}` marker (and its `{==…==}` highlight wrapper). Leave
-     a brief `by="agent"` comment only where a follow-up question is genuinely
-     needed.
+   - `type: "comments"` — a **review pass: reply to the comments, do not resolve
+     or edit.** For every open human comment, append a `by="agent"` reply
+     **immediately after it** — `{>>your answer<<}{id="cN" by="agent" at="<ISO8601>" re="<their comment id>"}`
+     — that answers it, asks a clarifying question, or acknowledges. The human
+     wants to **see** these replies threaded under their comments, so:
+     **delete no comments** (do not resolve), and **do not change the document
+     prose or apply the comments' requested edits.** Comment ids stay unique
+     doc-wide — take the next free number. (Use `type: "rewrite"` to actually
+     apply changes and resolve comments.)
    - `type: "rewrite"` / `type: "custom"` — apply `instruction` to the doc text.
    - Edit the doc as it should finally read. Do not add chat, status notes, or
      explanations into the doc beyond CriticMarkup where appropriate.
