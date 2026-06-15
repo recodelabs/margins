@@ -21,6 +21,7 @@ from runner.margins_log import (
     parse_activity_log,
 )
 from runner.runner_io import StateIO
+from runner.sanitize import unwrap_block_highlights
 
 
 @dataclass
@@ -90,6 +91,13 @@ def process_one(deps: Deps, config: Config) -> bool:
         return True
 
     if done.get("status") == "done":
+        # Defensively unwrap any block-spanning CriticMarkup highlights the agent
+        # may have left (they leak raw {== in the renderer). Pure text cleanup;
+        # only rewrites the file when something actually changed.
+        edited = deps.git.read_file(doc_path)
+        cleaned = unwrap_block_highlights(edited)
+        if cleaned != edited:
+            deps.git.write_file(doc_path, cleaned)
         sha = deps.git.commit([doc_path], f"agent: {done.get('summary', 'apply instruction')}")
         reply = build_reply_entry(
             instruction_id=instruction["id"], status="done",
