@@ -48,6 +48,19 @@ def enforce(tool_name: str, tool_input: dict, clone: str, state_dir: str) -> tup
             return ("allow", "")
         return ("deny", "the session may only run the wait script")
 
+    if tool_name == "Skill":
+        # Loading the runner's own playbook is just reading instructions; every
+        # action it then takes is still gated by this guard. Scope to that one
+        # skill so a prompt-injected instruction can't pull in some other skill.
+        if (tool_input.get("skill") or tool_input.get("command") or "") == "margins-runner":
+            return ("allow", "")
+        return ("deny", "only the margins-runner skill may be loaded")
+
+    # Harmless, no file/network side effects — lets the session track its loop
+    # without the guard spamming denials on a normal startup behavior.
+    if tool_name == "TodoWrite":
+        return ("allow", "")
+
     return ("deny", f"tool '{tool_name}' is not permitted in strict runner mode")
 
 

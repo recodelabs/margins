@@ -23,11 +23,19 @@ Claude Code session billed to your own subscription. Two processes:
    # set clonePath to ~/margins-clone and stateDir to e.g. ~/.margins-runner/<repo>
    ```
 3. **Start the strict session** (uses your Claude subscription — a normal
-   interactive `claude`, not the API):
+   interactive `claude`, not the API). Requires `tmux`:
    ```bash
    ./runner/launch-session.sh ~/margins-clone ~/.margins-runner/<repo>
    ```
-   It will enter the wait loop and sit idle (zero tokens) until a task arrives.
+   It launches the session **inside a tmux session** (`margins-runner-<repo>`)
+   and auto-submits the kickoff prompt, then sits idle (zero tokens) until a task
+   arrives. (tmux is used because Claude Code does not auto-run a positional
+   prompt in interactive mode — without it the session sits at a blank prompt and
+   never enters the loop.) It also symlinks the `margins-runner` skill into
+   `~/.claude/skills/` on first run if it isn't already installed.
+
+   Watch it with `tmux attach -t margins-runner-<repo>` (detach: `Ctrl-b` then
+   `d`); stop it with `tmux kill-session -t margins-runner-<repo>`.
 4. **Start the poller** in another terminal:
    ```bash
    python3 -m runner.poller runner/config.json
