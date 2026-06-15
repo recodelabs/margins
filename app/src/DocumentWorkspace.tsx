@@ -1111,19 +1111,6 @@ export function DocumentWorkspace({
         {documentPage ? (
           backend ? (
             <>
-              {backend?.capabilities.activityLog && activeDocumentPath ? (
-                <div className="mb-4">
-                  <InstructionSender
-                    docPath={activeDocumentPath}
-                    author={backend.info.authorLabel ?? "you"}
-                    readActivityLog={(p) => backend.readActivityLog(p)}
-                    appendActivityEntry={(p, entry) =>
-                      backend.appendActivityEntry(p, entry)
-                    }
-                    liveEntries={liveActivityEntries ?? undefined}
-                  />
-                </div>
-              ) : null}
               <PageCard
                 key={`${documentPage.id}:${activeDocumentPath ?? ""}`}
                 page={documentPage}
@@ -1144,6 +1131,19 @@ export function DocumentWorkspace({
                 forceResetKey={documentForceResetKey}
                 manualCommit={manualCommit}
               />
+              {backend?.capabilities.activityLog && activeDocumentPath ? (
+                <div className="mt-4">
+                  <InstructionSender
+                    docPath={activeDocumentPath}
+                    author={backend.info.authorLabel ?? "you"}
+                    readActivityLog={(p) => backend.readActivityLog(p)}
+                    appendActivityEntry={(p, entry) =>
+                      backend.appendActivityEntry(p, entry)
+                    }
+                    liveEntries={liveActivityEntries ?? undefined}
+                  />
+                </div>
+              ) : null}
               <MermaidOverlays
                 key={`mermaid:${documentPage.id}:${activeDocumentPath ?? ""}`}
               />
