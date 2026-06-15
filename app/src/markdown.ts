@@ -317,6 +317,19 @@ export function appendYamlEndmatter(
     : markdown;
 }
 
+/**
+ * Pretty-print a JSON code block for rendering (2-space indent, key order
+ * preserved). Invalid JSON — including a block that carries CriticMarkup review
+ * comments, which won't parse — is returned unchanged, so nothing is mangled.
+ */
+export function formatJsonCodeBlock(text: string): string {
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return text;
+  }
+}
+
 export function createMarkedRenderer(options?: MarkdownOptions) {
   const renderer = new marked.Renderer();
   const baseRenderer = new marked.Renderer();
@@ -325,7 +338,10 @@ export function createMarkedRenderer(options?: MarkdownOptions) {
 
   renderer.code = ({ text, lang, escaped }) => {
     const language = (lang || "").match(/\S+/)?.[0];
-    const content = escaped ? text : escapeHtml(text);
+    // Pretty-print JSON blocks on render (valid JSON only; invalid is left as-is).
+    const source =
+      language === "json" && !escaped ? formatJsonCodeBlock(text) : text;
+    const content = escaped ? source : escapeHtml(source);
     const classAttr = language
       ? ` class="language-${escapeHtml(language)}"`
       : "";
