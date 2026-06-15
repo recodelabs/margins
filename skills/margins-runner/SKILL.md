@@ -42,6 +42,12 @@ repo — so always open the doc at the **absolute** path
    - `type: "rewrite"` / `type: "custom"` — apply `instruction` to the doc text.
    - Edit the doc as it should finally read. Do not add chat, status notes, or
      explanations into the doc beyond CriticMarkup where appropriate.
+   - **Never wrap block-level content in a `{==…==}` highlight.** CriticMarkup
+     highlights are **inline only** — wrapping a fenced code block (` ```…``` `),
+     or a span that runs across a heading + paragraphs + code, breaks the renderer
+     and leaks the raw `{==` onto the page. To mark added content that includes a
+     code block, put a standalone `{>>…<<}` note immediately **before or after** the
+     block instead of wrapping it. Only ever highlight a short inline run of prose.
    - Follow the CriticMarkup conventions in the `margins` skill for syntax. You do
      **not** run git (the poller commits), but you **do** bump the doc's version
      stamp:
