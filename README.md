@@ -137,6 +137,24 @@ Per-repo configs (`runner/config.*.json`) hold local absolute paths and stay out
 > { "permissions": { "allow": ["Bash(python3 -m runner.poller:*)"] } }
 > ```
 
+**Watching & operating (tmux).** `launch-session.sh` runs the strict session inside a tmux session
+(`margins-runner-<repo>`) and auto-submits its kickoff prompt (Claude Code won't auto-run a
+positional prompt, so without tmux the session sits idle at a blank prompt). Run the poller in tmux
+too so both survive your terminal — or your Claude session — closing, and you can re-attach to either:
+
+| Action | Command |
+|---|---|
+| Run the poller in tmux | `tmux new-session -d -s margins-poller-<repo> "python3 -u -m runner.poller runner/config.<repo>.json"` |
+| Watch the session | `tmux attach -t margins-runner-<repo>` |
+| Watch the poller | `tmux attach -t margins-poller-<repo>` |
+| Detach (leave it running) | `Ctrl-b` then `d` |
+| Restart the session | re-run `./runner/launch-session.sh <clonePath> <stateDir>` (it kills the old tmux session and starts fresh) |
+| Stop the session / poller | `tmux kill-session -t margins-runner-<repo>` · `tmux kill-session -t margins-poller-<repo>` |
+| List running sessions | `tmux ls` |
+
+tmux sessions keep running after you close the terminal or your Claude session; they stop only on
+reboot or an explicit `kill-session`.
+
 ## Notes / known limits
 
 - Big documents (hundreds of KB) are slow to load — that's ProseMirror parsing, not margins.
