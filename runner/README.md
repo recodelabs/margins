@@ -45,6 +45,33 @@ Now send instructions from margins (the doc workspace). Within `pollSeconds` the
 poller picks them up, the session applies them, and the reply appears in the
 doc's activity log.
 
+## Watching & operating (tmux)
+
+`launch-session.sh` already runs the strict session inside tmux. Run the poller in
+tmux too so both survive the terminal (or your Claude session) closing and you can
+re-attach to either:
+
+```bash
+# poller in its own tmux session (mirrors the strict session):
+tmux new-session -d -s margins-poller-<repo> \
+  "cd <repo-with-runner> && python3 -u -m runner.poller runner/config.<repo>.json"
+```
+
+Day-to-day:
+
+| Action | Command |
+|---|---|
+| Watch the session | `tmux attach -t margins-runner-<repo>` |
+| Watch the poller | `tmux attach -t margins-poller-<repo>` |
+| Detach (leave running) | `Ctrl-b` then `d` |
+| Restart the session (e.g. after editing the skill) | re-run `./runner/launch-session.sh <clonePath> <stateDir>` — it kills the old tmux session and starts fresh |
+| Stop the session | `tmux kill-session -t margins-runner-<repo>` |
+| Stop the poller | `tmux kill-session -t margins-poller-<repo>` |
+| List running sessions | `tmux ls` |
+
+tmux sessions keep running after you close the terminal or your Claude session;
+they stop only on reboot or an explicit `kill-session`.
+
 ## Safety model
 
 The session runs under `runner/settings.json`, whose `PreToolUse` hook
