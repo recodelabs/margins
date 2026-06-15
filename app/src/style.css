@@ -377,6 +377,7 @@
 
   .tiptap pre {
     @apply overflow-x-auto rounded-2xl border p-4;
+    position: relative;
     margin: 1.35em 0;
     /* Render code blocks (e.g. JSON) a notch smaller than body text for density. */
     font-size: 0.85em;
@@ -387,6 +388,33 @@
 
   .tiptap pre code {
     @apply bg-transparent p-0 text-inherit;
+  }
+
+  /* Hover "Copy" button on code blocks (added by the code-block NodeView). */
+  .tiptap pre > .code-copy-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--code-block-border);
+    background-color: var(--code-block-background);
+    color: var(--code-block-foreground);
+    font-size: 0.7rem;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+    user-select: none;
+  }
+
+  .tiptap pre:hover > .code-copy-btn,
+  .tiptap pre > .code-copy-btn:focus-visible {
+    opacity: 1;
+  }
+
+  .tiptap pre > .code-copy-btn:hover {
+    filter: brightness(0.97);
   }
 
   .tiptap blockquote {
