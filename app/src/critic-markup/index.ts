@@ -18,6 +18,7 @@ import {
   appendYamlEndmatter,
   createMarkedRenderer,
   createTurndownService,
+  formatJsonCodeBlock,
   type MarkdownOptions,
   normalizeBlockSpacing,
   prependYamlFrontmatter,
@@ -937,9 +938,15 @@ function renderCriticCodeBlock(
 ) {
   const language = (token.lang || "").match(/\S+/)?.[0];
   const classAttr = language ? ` class="language-${escapeHtml(language)}"` : "";
+  // Pretty-print JSON blocks on render. Invalid JSON — including a block that
+  // carries inline CriticMarkup comments (which won't parse) — is left as-is.
+  const text =
+    language === "json" && !token.escaped
+      ? formatJsonCodeBlock(token.text)
+      : token.text;
   const content = token.escaped
     ? token.text
-    : renderCriticCodeText(token.text, comments, endmatter);
+    : renderCriticCodeText(text, comments, endmatter);
 
   return `<pre><code${classAttr}>${content}</code></pre>\n`;
 }

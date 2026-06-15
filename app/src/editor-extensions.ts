@@ -742,8 +742,71 @@ const MarkdownCode = Code.extend({
   excludes: "bold italic strike link",
 });
 
+// Languages rendered as diagrams elsewhere (MermaidOverlays etc.) — a "copy"
+// button over a rendered diagram is noise, so skip it for these.
+const DIAGRAM_LANGUAGES = new Set(["mermaid", "wardley", "cytoscape"]);
+
 const MarkdownCodeBlock = CodeBlock.extend({
   marks: "commentRef criticChange",
+
+  // A hover "Copy" button on each code block. The button lives in the editing
+  // NodeView only (outside `contentDOM`), so it never appears in `getHTML()` /
+  // the serialized markdown — copy/serialization behaviour is unchanged.
+  addNodeView() {
+    return ({ node }) => {
+      const pre = document.createElement("pre");
+      const code = document.createElement("code");
+      const applyLanguageClass = (language: unknown) => {
+        code.className =
+          typeof language === "string" && language
+            ? `language-${language}`
+            : "";
+      };
+      applyLanguageClass(node.attrs.language);
+      pre.appendChild(code);
+
+      const isDiagram =
+        typeof node.attrs.language === "string" &&
+        DIAGRAM_LANGUAGES.has(node.attrs.language);
+
+      if (!isDiagram) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "code-copy-btn";
+        button.textContent = "Copy";
+        button.setAttribute("contenteditable", "false");
+        button.setAttribute("aria-label", "Copy code");
+        // Don't let pressing the button move the editor selection or blur it.
+        button.addEventListener("mousedown", (event) => event.preventDefault());
+        let resetTimer: number | undefined;
+        const flash = (label: string) => {
+          button.textContent = label;
+          window.clearTimeout(resetTimer);
+          resetTimer = window.setTimeout(() => {
+            button.textContent = "Copy";
+          }, 1500);
+        };
+        button.addEventListener("click", () => {
+          const text = code.textContent ?? "";
+          void navigator.clipboard
+            ?.writeText(text)
+            .then(() => flash("Copied"))
+            .catch(() => flash("Failed"));
+        });
+        pre.appendChild(button);
+      }
+
+      return {
+        dom: pre,
+        contentDOM: code,
+        update: (updatedNode) => {
+          if (updatedNode.type.name !== node.type.name) return false;
+          applyLanguageClass(updatedNode.attrs.language);
+          return true;
+        },
+      };
+    };
+  },
 });
 
 const MarkdownImage = Image.extend({
