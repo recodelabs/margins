@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  formatJsonCodeBlock,
   rawMarkdownBlockAttribute,
   splitYamlFrontmatter,
   toHtml,
@@ -108,6 +109,42 @@ describe("toHtml", () => {
         "",
       ].join("\n"),
     );
+  });
+});
+
+describe("formatJsonCodeBlock", () => {
+  it("pretty-prints valid JSON with 2-space indent, preserving key order", () => {
+    expect(formatJsonCodeBlock('{"b":1,"a":{"c":2}}')).toBe(
+      '{\n  "b": 1,\n  "a": {\n    "c": 2\n  }\n}',
+    );
+  });
+
+  it("leaves invalid JSON untouched", () => {
+    expect(formatJsonCodeBlock('{"a": 1,}')).toBe('{"a": 1,}');
+    expect(formatJsonCodeBlock("not json")).toBe("not json");
+  });
+
+  it("leaves a block containing CriticMarkup comments untouched", () => {
+    const withComment = '{"a": 1} {>>check this<<}';
+    expect(formatJsonCodeBlock(withComment)).toBe(withComment);
+  });
+});
+
+describe("toHtml json code blocks", () => {
+  it("formats a minified json fence on render", () => {
+    const html = toHtml('```json\n{"a":1,"b":2}\n```\n');
+    expect(html).toContain('class="language-json"');
+    expect(html).toContain("{\n  &quot;a&quot;: 1,\n  &quot;b&quot;: 2\n}");
+  });
+
+  it("leaves a non-json fence untouched", () => {
+    const html = toHtml("```js\nconst x={a:1}\n```\n");
+    expect(html).toContain("const x={a:1}");
+  });
+
+  it("leaves an invalid json fence untouched", () => {
+    const html = toHtml("```json\n{not valid}\n```\n");
+    expect(html).toContain("{not valid}");
   });
 });
 
