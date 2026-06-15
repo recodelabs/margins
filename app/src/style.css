@@ -378,6 +378,8 @@
   .tiptap pre {
     @apply overflow-x-auto rounded-2xl border p-4;
     margin: 1.35em 0;
+    /* Render code blocks (e.g. JSON) a notch smaller than body text for density. */
+    font-size: 0.85em;
     background-color: var(--code-block-background);
     border-color: var(--code-block-border);
     color: var(--code-block-foreground);
