@@ -58,17 +58,21 @@ describe("GitHubPicker tree-fetch debounce", () => {
       });
     }
 
-    // Nothing fetched yet — every keystroke reset the debounce timer.
-    expect(fetchMock).not.toHaveBeenCalled();
+    const treeCalls = () =>
+      fetchMock.mock.calls.filter((c) =>
+        String(c[0]).includes("/git/trees/"),
+      );
+
+    // No tree request yet — every keystroke reset the debounce timer.
+    expect(treeCalls()).toHaveLength(0);
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(300);
     });
 
-    // Exactly one request, and it's the recursive tree listing.
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(String(fetchMock.mock.calls[0][0])).toContain("/git/trees/");
-    expect(String(fetchMock.mock.calls[0][0])).toContain("recursive=1");
+    // Exactly one tree request, and it's the recursive listing.
+    expect(treeCalls()).toHaveLength(1);
+    expect(String(treeCalls()[0][0])).toContain("recursive=1");
   });
 });
 

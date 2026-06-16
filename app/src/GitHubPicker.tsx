@@ -6,7 +6,15 @@ import {
   Loader2,
   Plus,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Autocomplete,
+  AutocompleteContent,
+  AutocompleteEmpty,
+  AutocompleteInput,
+  AutocompleteItem,
+  AutocompleteList,
+} from "./components/ui/autocomplete";
 import { Button } from "./components/ui/button";
 import {
   Dialog,
@@ -17,6 +25,11 @@ import {
 } from "./components/ui/dialog";
 import { clearToken, getStoredToken, login } from "./github-auth";
 import { GitHubBackend } from "./github-backend";
+import {
+  listAccessibleRepos,
+  listBranches,
+  type RepoOption,
+} from "./github-repos";
 import {
   gitHubHref,
   isMarkdownPath,
@@ -156,6 +169,67 @@ export function GitHubPicker() {
   const [newFileName, setNewFileName] = useState("untitled.md");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  // Repos the GitHub App has been granted access to, and the branches of the
+  // currently-typed repo. Both power searchable dropdowns; both fail soft so
+  // the fields keep working as free-text inputs if the API call errors.
+  const [repoOptions, setRepoOptions] = useState<RepoOption[]>([]);
+  const [branchOptions, setBranchOptions] = useState<string[]>([]);
+
+  // Map of full name -> default branch, so picking a repo can preselect its
+  // default branch instead of a hard-coded "main".
+  const repoDefaultBranch = useMemo(
+    () => new Map(repoOptions.map((o) => [o.fullName, o.defaultBranch])),
+    [repoOptions],
+  );
+
+  // Fetch the repos the user can access through the App's installations, once
+  // per token. Failure is non-fatal: the repo field stays free-text.
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    listAccessibleRepos(token)
+      .then((repos) => {
+        if (!cancelled) setRepoOptions(repos);
+      })
+      .catch(() => {
+        /* fail soft — keep manual entry */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  // Fetch branches for the typed repo (debounced/abortable like the tree fetch).
+  useEffect(() => {
+    const [owner, name] = repo.split("/");
+    if (!token || !owner || !name) {
+      setBranchOptions([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      listBranches(token, owner, name)
+        .then((b) => {
+          if (!cancelled) setBranchOptions(b);
+        })
+        .catch(() => {
+          if (!cancelled) setBranchOptions([]); // fail soft
+        });
+    }, TREE_FETCH_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [token, repo]);
+
+  // Repo changed via the input/dropdown: reset the browsed dir, and if the
+  // chosen repo is a known one, preselect its default branch.
+  const onRepoChange = (value: string) => {
+    setRepo(value);
+    setCurrentDir("");
+    const def = repoDefaultBranch.get(value);
+    if (def) setRef(def);
+  };
 
   // Listen for browser Back/Forward so path-based dir stays in sync
   useEffect(() => {
@@ -334,19 +408,31 @@ export function GitHubPicker() {
             >
               Repository
             </label>
-            <input
-              id="gh-repo-input"
+            <Autocomplete
+              items={repoOptions.map((o) => o.fullName)}
               value={repo}
-              onChange={(e) => {
-                setRepo(e.target.value);
-                // Reset dir when repo changes
-                setCurrentDir("");
-              }}
-              placeholder="owner/repo"
-              className="h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-950 dark:text-slate-50 outline-none focus:ring-2 focus:ring-slate-300/70 dark:focus:ring-slate-600/70 placeholder:text-stone-400"
-              spellCheck={false}
-              autoCapitalize="none"
-            />
+              onValueChange={onRepoChange}
+            >
+              <AutocompleteInput
+                id="gh-repo-input"
+                placeholder="owner/repo"
+                className="w-64"
+              />
+              {repoOptions.length > 0 ? (
+                <AutocompleteContent>
+                  <AutocompleteEmpty>
+                    No matching repositories
+                  </AutocompleteEmpty>
+                  <AutocompleteList>
+                    {(item: string) => (
+                      <AutocompleteItem key={item} value={item}>
+                        {item}
+                      </AutocompleteItem>
+                    )}
+                  </AutocompleteList>
+                </AutocompleteContent>
+              ) : null}
+            </Autocomplete>
           </div>
           <div className="flex flex-col gap-1">
             <label
@@ -355,14 +441,29 @@ export function GitHubPicker() {
             >
               Branch
             </label>
-            <input
-              id="gh-branch-input"
+            <Autocomplete
+              items={branchOptions}
               value={ref}
-              onChange={(e) => setRef(e.target.value)}
-              placeholder="main"
-              className="h-10 w-32 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-950 dark:text-slate-50 outline-none focus:ring-2 focus:ring-slate-300/70 dark:focus:ring-slate-600/70 placeholder:text-stone-400"
-              spellCheck={false}
-            />
+              onValueChange={setRef}
+            >
+              <AutocompleteInput
+                id="gh-branch-input"
+                placeholder="main"
+                className="w-44"
+              />
+              {branchOptions.length > 0 ? (
+                <AutocompleteContent>
+                  <AutocompleteEmpty>No matching branches</AutocompleteEmpty>
+                  <AutocompleteList>
+                    {(item: string) => (
+                      <AutocompleteItem key={item} value={item}>
+                        {item}
+                      </AutocompleteItem>
+                    )}
+                  </AutocompleteList>
+                </AutocompleteContent>
+              ) : null}
+            </Autocomplete>
           </div>
         </div>
 
