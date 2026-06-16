@@ -58,3 +58,36 @@ class TestGitOps(unittest.TestCase):
         # Committing an unchanged file must not raise.
         sha = self.git.commit(["a.md"], "agent: noop")
         self.assertEqual(len(sha), 40)
+
+    def test_try_push_and_fetch_and_merge_reconcile_divergence(self):
+        # A bare "origin" plus a second clone that races us (the hosted app).
+        import shutil
+
+        origin = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, origin, ignore_errors=True)
+        _run(origin, "git", "init", "-q", "--bare")
+        _run(self.clone, "git", "branch", "-M", "main")
+        _run(self.clone, "git", "remote", "add", "origin", origin)
+        _run(self.clone, "git", "push", "-q", "-u", "origin", "main")
+
+        other = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, other, ignore_errors=True)
+        _run(other, "git", "clone", "-q", origin, ".")
+        _run(other, "git", "config", "user.email", "o@o.o")
+        _run(other, "git", "config", "user.name", "o")
+        Path(other, "b.md").write_text("from the app\n")  # different file -> no conflict
+        _run(other, "git", "add", "-A")
+        _run(other, "git", "commit", "-q", "-m", "app edit")
+        _run(other, "git", "push", "-q", "origin", "main")  # origin advances
+
+        # Our local commit; push is now rejected (origin diverged).
+        self.git.write_file("a.md", "# Hi\nagent edit\n")
+        self.git.commit(["a.md"], "agent edit")
+        self.assertFalse(self.git.try_push("main"), "push should be rejected")
+        self.git.fetch_and_merge("main")  # reconcile
+        self.assertTrue(self.git.try_push("main"), "push should succeed after merge")
+
+        # Origin ends up with BOTH edits.
+        _run(other, "git", "pull", "-q", "origin", "main")
+        self.assertTrue(Path(other, "a.md").read_text().endswith("agent edit\n"))
+        self.assertTrue(Path(other, "b.md").exists())

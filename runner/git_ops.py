@@ -26,12 +26,34 @@ class GitOps:
         return result.stdout
 
     def pull(self, branch: str) -> None:
-        """Fast-forward the branch; never create merge commits."""
+        """Reconcile the branch with origin by merging. Not fast-forward-only:
+        the hosted app commits straight to origin, so the branch routinely
+        diverges from local, and ff-only would stall the poller permanently."""
         self._git("checkout", branch)
-        self._git("pull", "--ff-only", "origin", branch)
+        self.fetch_and_merge(branch)
+
+    def fetch_and_merge(self, branch: str) -> None:
+        """Fetch origin and merge it into the current branch. On conflict, abort
+        and re-raise so a half-merged tree is never committed; the caller treats a
+        conflict as a transient error and retries next cycle."""
+        self._git("fetch", "origin", branch)
+        try:
+            self._git("merge", "--no-edit", f"origin/{branch}")
+        except subprocess.CalledProcessError:
+            self._git("merge", "--abort")
+            raise
 
     def push(self, branch: str) -> None:
         self._git("push", "origin", branch)
+
+    def try_push(self, branch: str) -> bool:
+        """Push, returning False if rejected (e.g. origin advanced) instead of
+        raising, so the caller can merge origin in and retry."""
+        try:
+            self._git("push", "origin", branch)
+            return True
+        except subprocess.CalledProcessError:
+            return False
 
     def read_file(self, rel_path: str) -> str:
         return Path(self.clone, rel_path).read_text(encoding="utf-8")
