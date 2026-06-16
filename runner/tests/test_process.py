@@ -1,7 +1,56 @@
 import unittest
 
 from runner.config import Config
-from runner.poller import Deps, process_one
+from runner.poller import Deps, _push_reconciling, process_one
+
+
+class _RetryGit:
+    """Fake whose push is rejected `fail_n` times before succeeding, recording
+    how many times origin had to be merged in."""
+
+    def __init__(self, fail_n):
+        self._left = fail_n
+        self.merges = 0
+        self.pushes = 0
+        self.hard_pushes = 0
+
+    def try_push(self, branch):
+        self.pushes += 1
+        if self._left > 0:
+            self._left -= 1
+            return False
+        return True
+
+    def fetch_and_merge(self, branch):
+        self.merges += 1
+
+    def push(self, branch):
+        self.hard_pushes += 1
+
+
+class TestPushReconciling(unittest.TestCase):
+    def test_pushes_first_try_when_not_rejected(self):
+        git = _RetryGit(fail_n=0)
+        _push_reconciling(git, "main")
+        self.assertEqual(git.pushes, 1)
+        self.assertEqual(git.merges, 0)
+        self.assertEqual(git.hard_pushes, 0)
+
+    def test_merges_origin_and_retries_on_rejection(self):
+        git = _RetryGit(fail_n=2)
+        _push_reconciling(git, "main")
+        # rejected twice -> merged origin twice -> third try_push succeeds
+        self.assertEqual(git.merges, 2)
+        self.assertEqual(git.pushes, 3)
+        self.assertEqual(git.hard_pushes, 0)
+
+    def test_final_hard_push_after_exhausting_retries(self):
+        git = _RetryGit(fail_n=99)  # never succeeds via try_push
+        _push_reconciling(git, "main", attempts=3)
+        # attempts-1 = 2 try_pushes (both fail, 2 merges), then one hard push
+        self.assertEqual(git.pushes, 2)
+        self.assertEqual(git.merges, 2)
+        self.assertEqual(git.hard_pushes, 1)
 
 
 class FakeGit:
@@ -10,6 +59,7 @@ class FakeGit:
         self._files = dict(files)
         self.pulled = False
         self.pushed = False
+        self.merges = 0
         self.checked_out = []
         self.commits = []  # (paths, message)
 
@@ -18,6 +68,13 @@ class FakeGit:
 
     def push(self, branch):
         self.pushed = True
+
+    def try_push(self, branch):
+        self.pushed = True
+        return True
+
+    def fetch_and_merge(self, branch):
+        self.merges += 1
 
     def list_activity_logs(self):
         return dict(self._logs)

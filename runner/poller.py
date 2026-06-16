@@ -49,11 +49,22 @@ def _first_pending(git) -> tuple[str, str, dict] | None:
     return None
 
 
+def _push_reconciling(git, branch: str, attempts: int = 6) -> None:
+    """Push the agent's commits; if rejected because origin advanced (the hosted
+    app committing concurrently), merge origin in and retry. Keeps the poller
+    self-healing instead of stalling on every divergence."""
+    for _ in range(max(1, attempts - 1)):
+        if git.try_push(branch):
+            return
+        git.fetch_and_merge(branch)  # merge origin/branch; raises on conflict
+    git.push(branch)  # final attempt — raise if it still won't go
+
+
 def _append_reply(git, log_path: str, reply: dict, branch: str) -> None:
     text = git.read_file(log_path)
     git.write_file(log_path, append_activity_line(text, reply))
     git.commit([log_path], "chore(margins): agent reply")
-    git.push(branch)
+    _push_reconciling(git, branch)
 
 
 def process_one(deps: Deps, config: Config) -> bool:
