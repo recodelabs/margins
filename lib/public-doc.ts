@@ -10,19 +10,24 @@ export interface PublicDocParams {
   path: string;
 }
 
+// Successful reads get only a short cache. Public sharing is a live toggle:
+// a long TTL would keep an un-published doc readable for the whole window.
 const json = (body: unknown, status: number): Response =>
   new Response(JSON.stringify(body), {
     status,
     headers: {
       "Content-Type": "application/json",
-      "Cache-Control": "public, max-age=60",
+      "Cache-Control": "public, max-age=10",
     },
   });
 
+// Never cache the fail-closed 404. A doc that was just made public can briefly
+// 404 (GitHub's contents API lags a commit by a second or two); caching that
+// would freeze a logged-out viewer on the sign-in picker until the TTL expired.
 const notFound = (): Response =>
   new Response("Not found", {
     status: 404,
-    headers: { "Cache-Control": "public, max-age=60" },
+    headers: { "Cache-Control": "no-store" },
   });
 
 /** A path must be a relative markdown path — no traversal, no leading slash. */
