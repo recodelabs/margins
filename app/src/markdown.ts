@@ -83,8 +83,14 @@ function protectIndentedCodeAfterLists(markdown: string): string {
   );
 }
 
-function codeSpanContainsPipe(value: string): boolean {
-  return /`[^`\n]*\|[^`\n]*`/.test(value);
+// A pipe inside a code span only survives the markdown round-trip when it is
+// escaped (`\|`). marked treats an *unescaped* pipe inside a code span as a
+// column delimiter, so such a cell can't be parsed back from a real table —
+// those (malformed) tables are kept as raw source instead. Escaped pipes,
+// including `` `Reference(A \| B)` ``, round-trip fine and render as tables.
+function codeSpanContainsUnescapedPipe(value: string): boolean {
+  const codeSpans = value.match(/`[^`\n]*`/g) ?? [];
+  return codeSpans.some((span) => /(?:^|[^\\])\|/.test(span.slice(1, -1)));
 }
 
 function protectPipeSensitiveTables(markdown: string): string {
@@ -114,8 +120,9 @@ function protectPipeSensitiveTables(markdown: string): string {
     }
 
     const raw = tableLines.join("");
-    const needsProtection = raw.includes("\\|") || codeSpanContainsPipe(raw);
-    output.push(needsProtection ? createRawMarkdownBlock(raw) : raw);
+    output.push(
+      codeSpanContainsUnescapedPipe(raw) ? createRawMarkdownBlock(raw) : raw,
+    );
     index -= 1;
   }
 
