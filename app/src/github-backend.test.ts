@@ -803,6 +803,46 @@ describe("GitHubBackend", () => {
     );
   });
 
+  describe("getRepoPermission", () => {
+    it("returns true when the repo reports push access", async () => {
+      const fetchMock = vi.fn(
+        async () =>
+          new Response(JSON.stringify({ permissions: { push: true } }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+      );
+      global.fetch = fetchMock as unknown as typeof fetch;
+      expect(await backend().getRepoPermission()).toBe(true);
+      expect(String(fetchMock.mock.calls[0][0])).toContain("/repos/o/r");
+    });
+
+    it("returns false when push is false", async () => {
+      global.fetch = vi.fn(
+        async () =>
+          new Response(JSON.stringify({ permissions: { push: false } }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+      ) as unknown as typeof fetch;
+      expect(await backend().getRepoPermission()).toBe(false);
+    });
+
+    it("returns false when the request fails (non-ok status)", async () => {
+      global.fetch = vi.fn(
+        async () => new Response("forbidden", { status: 403 }),
+      ) as unknown as typeof fetch;
+      expect(await backend().getRepoPermission()).toBe(false);
+    });
+
+    it("returns false when fetch throws (network error)", async () => {
+      global.fetch = vi.fn(async () => {
+        throw new Error("network error");
+      }) as unknown as typeof fetch;
+      expect(await backend().getRepoPermission()).toBe(false);
+    });
+  });
+
   describe("markdown-only guard", () => {
     it("getMarkdownFile rejects a non-.md path without calling fetch", async () => {
       const fetchMock = vi.fn();

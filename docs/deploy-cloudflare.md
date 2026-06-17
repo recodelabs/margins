@@ -53,6 +53,25 @@ wrangler pages secret put GITHUB_CLIENT_SECRET --project-name marginsmd
 ```
 Then add the production callback URL to the GitHub App (Option A step 5).
 
+### Public sharing (Phase 1A) — additional secrets
+
+The public-read endpoint (`/api/public/doc`) acts as the GitHub **App** (not the
+viewer) so it can serve `public: true` docs to logged-out visitors. Set:
+
+- `GITHUB_APP_ID` — the App's numeric App ID (App settings → "About").
+- `GITHUB_APP_PRIVATE_KEY` — the App's private key in **PKCS#8** PEM. GitHub issues
+  PKCS#1 (`BEGIN RSA PRIVATE KEY`); convert once:
+  `openssl pkcs8 -topk8 -nocrypt -in github-app.pem -out github-app.pkcs8.pem`
+  then paste the `BEGIN PRIVATE KEY` contents as the secret.
+
+```bash
+wrangler pages secret put GITHUB_APP_ID --project-name marginsmd
+wrangler pages secret put GITHUB_APP_PRIVATE_KEY --project-name marginsmd
+```
+
+App **installation permission** required: **Contents: Read-only** (Phase 1A view).
+The App must be installed on any repo whose docs are shared.
+
 ## How the pieces map at runtime
 
 - `GET /api/auth/login` and `/api/auth/callback` → the Pages Function (reads

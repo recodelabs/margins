@@ -376,4 +376,23 @@ export class GitHubBackend implements StorageBackend {
   async openProject(_path: string): Promise<void> {
     // no-op: repo/branch are fixed at construction
   }
+
+  /**
+   * Whether the signed-in user has push (write) access to the repo, read from
+   * `GET /repos/{owner}/{repo}`'s `permissions.push`. Returns false on any error
+   * (fail safe: hide edit controls rather than offer a commit that 403s).
+   */
+  async getRepoPermission(): Promise<boolean> {
+    const { owner, repo } = this.cfg;
+    try {
+      const res = await fetch(`${API}/repos/${owner}/${repo}`, {
+        headers: this.headers(),
+      });
+      if (!res.ok) return false;
+      const json = (await res.json()) as { permissions?: { push?: boolean } };
+      return json.permissions?.push === true;
+    } catch {
+      return false;
+    }
+  }
 }

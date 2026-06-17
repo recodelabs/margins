@@ -59,9 +59,7 @@ describe("GitHubPicker tree-fetch debounce", () => {
     }
 
     const treeCalls = () =>
-      fetchMock.mock.calls.filter((c) =>
-        String(c[0]).includes("/git/trees/"),
-      );
+      fetchMock.mock.calls.filter((c) => String(c[0]).includes("/git/trees/"));
 
     // No tree request yet — every keystroke reset the debounce timer.
     expect(treeCalls()).toHaveLength(0);

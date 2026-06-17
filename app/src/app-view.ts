@@ -18,6 +18,8 @@ export interface AppViewParams {
   gitHubMode: boolean;
   /** Whether a GitHub token is stored for the session. */
   hasToken: boolean;
+  /** Whether a public (read-only) doc has loaded for a logged-out visitor. */
+  publicView?: boolean;
   githubLocation: { owner: string; repo: string; path: string };
   loadError: string | null;
   /** The local-mode requested path, captured once at mount. */
@@ -44,9 +46,9 @@ export function resolveAppView(params: AppViewParams): AppView {
 
   if (params.gitHubMode) {
     const { owner, repo, path } = params.githubLocation;
-    if (!params.hasToken || !owner || !repo || !isMarkdownPath(path)) {
-      return "github-picker";
-    }
+    const validDocUrl = Boolean(owner) && Boolean(repo) && isMarkdownPath(path);
+    if (!validDocUrl) return "github-picker";
+    if (!params.hasToken && !params.publicView) return "github-picker";
   }
 
   if (params.loadError) return "load-error";

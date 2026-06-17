@@ -1,8 +1,22 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiBackend } from "./api-backend";
 import { detectBackend } from "./detect-backend";
+import { completeLoginFromUrl } from "./github-auth";
+import { parseGitHubLocation } from "./github-route";
 import { LocalStorageBackend } from "./local-storage-backend";
+import { PublicBackend } from "./public-backend";
 import { RemoteBackend } from "./remote-backend";
+
+vi.mock("./github-auth", () => ({
+  completeLoginFromUrl: vi.fn().mockResolvedValue(null),
+  fetchLogin: vi.fn(),
+}));
+
+vi.mock("./github-route", () => ({
+  parseGitHubLocation: vi
+    .fn()
+    .mockReturnValue({ owner: "", repo: "", branch: "main", path: "" }),
+}));
 
 describe("detectBackend", () => {
   const originalFetch = global.fetch;
@@ -11,6 +25,7 @@ describe("detectBackend", () => {
     global.fetch = originalFetch;
     window.history.replaceState(null, "", "/");
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   it("creates a remote backend when the URL has a session and the server supports remote documents", async () => {
@@ -100,5 +115,21 @@ describe("detectBackend", () => {
     const backend = await detectBackend();
 
     expect(backend).toBeInstanceOf(LocalStorageBackend);
+  });
+
+  it("returns PublicBackend for a token-less GitHub-mode URL pointing at a markdown doc", async () => {
+    vi.stubEnv("VITE_GITHUB_MODE", "1");
+    vi.mocked(completeLoginFromUrl).mockResolvedValue(null);
+    vi.mocked(parseGitHubLocation).mockReturnValue({
+      owner: "o",
+      repo: "r",
+      branch: "main",
+      path: "doc.md",
+    });
+
+    const backend = await detectBackend();
+
+    expect(backend).toBeInstanceOf(PublicBackend);
+    expect(backend.info.kind).toBe("public");
   });
 });

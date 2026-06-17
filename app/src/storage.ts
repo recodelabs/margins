@@ -114,7 +114,7 @@ export interface ReviewWatchStatus {
 }
 
 export interface BackendInfo {
-  kind: "local-files" | "local-storage" | "remote" | "github";
+  kind: "local-files" | "local-storage" | "remote" | "github" | "public";
   label: string;
   detail: string;
   projectPath?: string;
