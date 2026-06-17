@@ -321,8 +321,12 @@ export function DocumentWorkspace({
   onNavigate,
   liveActivityEntries,
 }: DocumentWorkspaceProps) {
+  const readOnly = backend?.info.kind === "public";
   const [documentInteractionMode, setDocumentInteractionMode] =
     useState<DocumentInteractionMode>("editing");
+  const effectiveInteractionMode: DocumentInteractionMode = readOnly
+    ? "viewing"
+    : documentInteractionMode;
   const saveState = useDocumentSession(documentSession, (s) => s.saveState);
   const [commentsHidden, setCommentsHidden] = useState<boolean>(
     readStoredCommentsHidden,
@@ -1069,75 +1073,81 @@ export function DocumentWorkspace({
                     diskChangeState={documentDiskChangeState}
                   />
                 )}
-                <div className="ml-auto inline-flex h-[1.5rem] shrink-0 items-center gap-1">
-                  {backend?.capabilities.activityLog && activeDocumentPath ? (
+                {readOnly ? (
+                  <span className="ml-auto font-mono text-[0.7rem] text-stone-400 dark:text-stone-500">
+                    Public · read-only
+                  </span>
+                ) : (
+                  <div className="ml-auto inline-flex h-[1.5rem] shrink-0 items-center gap-1">
+                    {backend?.capabilities.activityLog && activeDocumentPath ? (
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <button
+                              type="button"
+                              data-testid="document-agent-box-toggle"
+                              aria-pressed={agentBoxHidden}
+                              className="inline-flex h-[1.5rem] items-center justify-center rounded-full px-1 text-stone-400 outline-none transition hover:bg-[#EEE9E1] hover:text-stone-600 focus-visible:ring-2 focus-visible:ring-stone-300/70 dark:text-stone-500 dark:hover:bg-slate-800 dark:hover:text-stone-300 dark:focus-visible:ring-slate-600/70"
+                            >
+                              <Bot className="size-[0.78rem]" />
+                            </button>
+                          }
+                          aria-label={agentBoxToggleLabel}
+                          onClick={() => setAgentBoxHidden((hidden) => !hidden)}
+                        />
+                        <TooltipContent>{agentBoxToggleLabel}</TooltipContent>
+                      </Tooltip>
+                    ) : null}
                     <Tooltip>
                       <TooltipTrigger
                         render={
                           <button
                             type="button"
-                            data-testid="document-agent-box-toggle"
-                            aria-pressed={agentBoxHidden}
+                            data-testid="document-comments-toggle"
+                            aria-pressed={commentsHidden}
                             className="inline-flex h-[1.5rem] items-center justify-center rounded-full px-1 text-stone-400 outline-none transition hover:bg-[#EEE9E1] hover:text-stone-600 focus-visible:ring-2 focus-visible:ring-stone-300/70 dark:text-stone-500 dark:hover:bg-slate-800 dark:hover:text-stone-300 dark:focus-visible:ring-slate-600/70"
                           >
-                            <Bot className="size-[0.78rem]" />
+                            {commentsHidden ? (
+                              <EyeOff className="size-[0.78rem]" />
+                            ) : (
+                              <MessageSquarePlus className="size-[0.78rem]" />
+                            )}
                           </button>
                         }
-                        aria-label={agentBoxToggleLabel}
-                        onClick={() => setAgentBoxHidden((hidden) => !hidden)}
+                        aria-label={commentsToggleLabel}
+                        onClick={() => setCommentsHidden((hidden) => !hidden)}
                       />
-                      <TooltipContent>{agentBoxToggleLabel}</TooltipContent>
+                      <TooltipContent>{commentsToggleLabel}</TooltipContent>
                     </Tooltip>
-                  ) : null}
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <button
-                          type="button"
-                          data-testid="document-comments-toggle"
-                          aria-pressed={commentsHidden}
-                          className="inline-flex h-[1.5rem] items-center justify-center rounded-full px-1 text-stone-400 outline-none transition hover:bg-[#EEE9E1] hover:text-stone-600 focus-visible:ring-2 focus-visible:ring-stone-300/70 dark:text-stone-500 dark:hover:bg-slate-800 dark:hover:text-stone-300 dark:focus-visible:ring-slate-600/70"
-                        >
-                          {commentsHidden ? (
-                            <EyeOff className="size-[0.78rem]" />
-                          ) : (
-                            <MessageSquarePlus className="size-[0.78rem]" />
-                          )}
-                        </button>
-                      }
-                      aria-label={commentsToggleLabel}
-                      onClick={() => setCommentsHidden((hidden) => !hidden)}
-                    />
-                    <TooltipContent>{commentsToggleLabel}</TooltipContent>
-                  </Tooltip>
-                  <Select<DocumentInteractionMode>
-                    value={documentInteractionMode}
-                    onValueChange={(value) => {
-                      if (value) setDocumentInteractionMode(value);
-                    }}
-                  >
-                    <SelectTrigger
-                      data-testid="document-mode-trigger"
-                      aria-label="Document mode"
-                      className="h-[1.5rem] px-1 font-mono text-[0.7rem] leading-[1.25rem] font-normal tracking-[0.01em] text-stone-400 dark:text-stone-500 hover:text-stone-500 dark:hover:text-stone-400"
+                    <Select<DocumentInteractionMode>
+                      value={documentInteractionMode}
+                      onValueChange={(value) => {
+                        if (value) setDocumentInteractionMode(value);
+                      }}
                     >
-                      <ActiveDocumentInteractionModeIcon className="size-[0.68rem]" />
-                      <span className="truncate">
-                        {activeDocumentInteractionMode?.label}
-                      </span>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {documentInteractionModeOptions.map(
-                        ({ value, label, Icon }) => (
-                          <SelectItem key={value} value={value} label={label}>
-                            <Icon className="size-3 text-stone-500 dark:text-stone-400" />
-                            <SelectItemText>{label}</SelectItemText>
-                          </SelectItem>
-                        ),
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
+                      <SelectTrigger
+                        data-testid="document-mode-trigger"
+                        aria-label="Document mode"
+                        className="h-[1.5rem] px-1 font-mono text-[0.7rem] leading-[1.25rem] font-normal tracking-[0.01em] text-stone-400 dark:text-stone-500 hover:text-stone-500 dark:hover:text-stone-400"
+                      >
+                        <ActiveDocumentInteractionModeIcon className="size-[0.68rem]" />
+                        <span className="truncate">
+                          {activeDocumentInteractionMode?.label}
+                        </span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {documentInteractionModeOptions.map(
+                          ({ value, label, Icon }) => (
+                            <SelectItem key={value} value={value} label={label}>
+                              <Icon className="size-3 text-stone-500 dark:text-stone-400" />
+                              <SelectItemText>{label}</SelectItemText>
+                            </SelectItem>
+                          ),
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             </div>
             {documentHasComments ? (
@@ -1174,7 +1184,7 @@ export function DocumentWorkspace({
                 onSave={onSaveDocument}
                 onSaveStateChange={documentSession.setSaveState}
                 editorViewMode={documentEditorViewMode}
-                interactionMode={documentInteractionMode}
+                interactionMode={effectiveInteractionMode}
                 commentsHidden={commentsHidden}
                 backend={backend}
                 onCommentRailPresenceChange={setDocumentHasComments}
