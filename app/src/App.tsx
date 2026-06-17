@@ -36,6 +36,7 @@ import { Homepage, HomepageSubtitle } from "./Homepage";
 import type { DocumentSaveState } from "./PageCard";
 import { PreviewPage } from "./PreviewPage";
 import { RoughdraftFlavoredMarkdownPage } from "./RoughdraftFlavoredMarkdownPage";
+import { PublicDocNotFoundError } from "./public-backend";
 import { runWithErrorFeedback } from "./run-with-error-feedback";
 import { handleSessionExpiry } from "./session-expiry";
 import {
@@ -112,6 +113,7 @@ export function App() {
   );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [publicView, setPublicView] = useState(false);
   const [pendingNavHref, setPendingNavHref] = useState<string | null>(null);
   const [committingBeforeLeave, setCommittingBeforeLeave] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
@@ -242,6 +244,7 @@ export function App() {
         setActiveDocumentPath(null);
         setDocumentPage(null);
         setLoadError(null);
+        setPublicView(false);
         setLoading(false);
         return;
       }
@@ -271,6 +274,7 @@ export function App() {
       setLoadError(null);
       await loadDocument(detectedBackend, path);
       if (cancelled) return;
+      setPublicView(detectedBackend.info.kind === "public");
       setLoading(false);
     };
 
@@ -328,6 +332,17 @@ export function App() {
         }
       } catch (error) {
         if (cancelled) return;
+
+        if (error instanceof PublicDocNotFoundError) {
+          // Not shared (or private): drop to the sign-in picker so the visitor
+          // can authenticate to view a private doc.
+          setPublicView(false);
+          setActiveDocumentPath(null);
+          setDocumentPage(null);
+          setLoadError(null);
+          setLoading(false);
+          return;
+        }
 
         // An expired session boots the user back to sign-in; don't render the
         // generic load error over the in-flight redirect.
@@ -764,6 +779,7 @@ export function App() {
     githubLocation,
     loadError,
     rawPath: requestedPathState.rawPath,
+    publicView,
   });
 
   if (view === "loading") {
