@@ -38,6 +38,7 @@ export default defineConfig({
       "test/**/*.test.ts",
       "test/**/*.test.tsx",
       "../auth/**/*.test.ts",
+      "../lib/**/*.test.ts",
     ],
   },
 });
