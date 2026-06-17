@@ -597,6 +597,8 @@
   .tiptap th,
   .tiptap td {
     @apply relative min-w-[1em] border border-slate-200 dark:border-slate-700 px-3 py-2 text-left align-top;
+    /* Slightly smaller than body text so wide tables fit the constrained page width */
+    font-size: 0.9375em;
   }
 
   .tiptap th {
