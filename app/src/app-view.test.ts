@@ -106,4 +106,36 @@ describe("resolveAppView", () => {
       ),
     ).toBe("document-workspace");
   });
+
+  it("renders the workspace for a token-less visitor when a public doc has loaded", () => {
+    expect(
+      resolveAppView({
+        loading: false,
+        isRoughdraftFlavoredMarkdownRoute: false,
+        isPreviewRoute: false,
+        gitHubMode: true,
+        hasToken: false,
+        publicView: true,
+        githubLocation: { owner: "o", repo: "r", path: "doc.md" },
+        loadError: null,
+        rawPath: null,
+      }),
+    ).toBe("document-workspace");
+  });
+
+  it("still shows the picker for a token-less visitor when no public doc loaded", () => {
+    expect(
+      resolveAppView({
+        loading: false,
+        isRoughdraftFlavoredMarkdownRoute: false,
+        isPreviewRoute: false,
+        gitHubMode: true,
+        hasToken: false,
+        publicView: false,
+        githubLocation: { owner: "o", repo: "r", path: "doc.md" },
+        loadError: null,
+        rawPath: null,
+      }),
+    ).toBe("github-picker");
+  });
 });
