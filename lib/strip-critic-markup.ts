@@ -9,8 +9,10 @@
  */
 export function stripCriticMarkup(markdown: string): string {
   let out = markdown;
-  // Comment followed by an optional metadata block: `{>>…<<}` then optional `{…}`.
-  out = out.replace(/\{>>[\s\S]*?<<\}(\{[^{}]*\})?/g, "");
+  // Comment followed by an optional metadata block: `{>>…<<}` then optional `{key=…}`.
+  // The metadata block must start with a word-like key (letter/underscore then word chars then `=`)
+  // so that adjacent CriticMarkup tokens like `{==…==}`, `{~~…~~}`, `{++…++}`, `{--…--}` are NOT consumed.
+  out = out.replace(/\{>>[\s\S]*?<<\}(\{\s*[A-Za-z_][\w-]*=[^{}]*\})?/g, "");
   // Highlight: `{==text==}` -> `text` (any trailing comment was already removed above).
   out = out.replace(/\{==([\s\S]*?)==\}/g, "$1");
   // Substitution: `{~~old~>new~~}` -> `old`.

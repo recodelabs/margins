@@ -29,4 +29,13 @@ describe("stripCriticMarkup", () => {
       'plain {id="x"} text',
     );
   });
+
+  it("does not swallow a highlight or substitution that immediately follows a comment", () => {
+    expect(stripCriticMarkup("{>>comment<<}{==highlighted==} rest")).toBe(
+      "highlighted rest",
+    );
+    expect(stripCriticMarkup("{>>note<<}{~~old~>new~~} text")).toBe("old text");
+    // a real metadata block still gets removed with its comment
+    expect(stripCriticMarkup('{>>c<<}{id="c1" by="x"} end')).toBe(" end");
+  });
 });
