@@ -39,6 +39,7 @@ import {
 import { getFolderContents, splitPath } from "./github-tree";
 import { cn } from "./lib/utils";
 import { validateNewFileName } from "./new-file-name";
+import { handleSessionExpiry, takeSignedOutReason } from "./session-expiry";
 
 // ---------------------------------------------------------------------------
 // GitHub mark SVG (inline, no external dependency)
@@ -71,6 +72,9 @@ function MarginsLogo() {
 // Login screen (no token stored)
 // ---------------------------------------------------------------------------
 function LoginScreen() {
+  // Read once: if we were booted out by an expired session, explain why. The
+  // reason is consumed (cleared) on read so it doesn't persist across reloads.
+  const [signedOutReason] = useState(takeSignedOutReason);
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-[#FCFCFC] dark:bg-background px-6 py-12 text-center text-slate-950 dark:text-slate-50">
       <div className="flex w-full max-w-xl flex-col items-center">
@@ -90,6 +94,14 @@ function LoginScreen() {
           </span>{" "}
           in GitHub to collaborate with your AI.
         </p>
+        {signedOutReason === "expired" && (
+          <p
+            role="status"
+            className="mt-6 rounded-lg bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-200"
+          >
+            Your session expired. Please sign in again.
+          </p>
+        )}
         <Button
           className="mt-9 h-14 cursor-pointer gap-2.5 rounded-xl px-7 text-lg shadow-[0_12px_32px_rgba(0,0,0,0.16)] transition-transform hover:-translate-y-0.5"
           size="lg"
@@ -277,6 +289,7 @@ export function GitHubPicker() {
         })
         .catch((e: unknown) => {
           if (abortCtrl.signal.aborted) return;
+          if (handleSessionExpiry(e)) return;
           setError(e instanceof Error ? e.message : String(e));
           setLoading(false);
         });
@@ -377,6 +390,7 @@ export function GitHubPicker() {
       setShowNewFile(false);
       openFile(newPath);
     } catch (e) {
+      if (handleSessionExpiry(e)) return;
       setCreating(false);
       setCreateError(e instanceof Error ? e.message : String(e));
     }

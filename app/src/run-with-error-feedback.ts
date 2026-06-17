@@ -1,3 +1,5 @@
+import { handleSessionExpiry } from "./session-expiry";
+
 /**
  * Runs an async action and reports any failure instead of letting it escape as
  * an unhandled rejection. Callers fire these handlers as `void runWithError…()`
@@ -17,6 +19,9 @@ export async function runWithErrorFeedback(
   try {
     await action();
   } catch (error) {
+    // An expired session boots the user back to sign-in instead of surfacing a
+    // raw `… failed (401)`; nothing left to report once that's underway.
+    if (handleSessionExpiry(error)) return;
     report(error instanceof Error && error.message ? error.message : fallback);
   }
 }

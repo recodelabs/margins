@@ -37,6 +37,7 @@ import type { DocumentSaveState } from "./PageCard";
 import { PreviewPage } from "./PreviewPage";
 import { RoughdraftFlavoredMarkdownPage } from "./RoughdraftFlavoredMarkdownPage";
 import { runWithErrorFeedback } from "./run-with-error-feedback";
+import { handleSessionExpiry } from "./session-expiry";
 import {
   type CompleteReviewOptions,
   FileTooLargeError,
@@ -327,6 +328,10 @@ export function App() {
         }
       } catch (error) {
         if (cancelled) return;
+
+        // An expired session boots the user back to sign-in; don't render the
+        // generic load error over the in-flight redirect.
+        if (handleSessionExpiry(error)) return;
 
         console.error("Failed to open markdown file:", error);
         setActiveDocumentPath(null);
