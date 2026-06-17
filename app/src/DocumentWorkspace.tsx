@@ -67,6 +67,7 @@ import {
   type DocumentSaveState,
   PageCard,
 } from "./PageCard";
+import { SharePopover } from "./SharePopover";
 import type { CompleteReviewOptions, Page, StorageBackend } from "./storage";
 
 type DiskChangeState = "clean" | "changed" | "conflict" | "paused";
@@ -292,6 +293,9 @@ interface DocumentWorkspaceProps {
   manualCommit?: boolean;
   githubNav?: GitHubDocNav | null;
   liveActivityEntries?: ActivityEntry[] | null;
+  canEdit?: boolean;
+  shareUrl?: string;
+  onSetPublic?: (next: boolean) => Promise<void>;
   /**
    * SPA-navigate to `href` (breadcrumb back-to-picker / folder). App owns the
    * unsaved-changes guard, so this may be a no-op if the user cancels.
@@ -320,6 +324,9 @@ export function DocumentWorkspace({
   githubNav = null,
   onNavigate,
   liveActivityEntries,
+  canEdit = false,
+  shareUrl = "",
+  onSetPublic = async () => {},
 }: DocumentWorkspaceProps) {
   const readOnly = backend?.info.kind === "public";
   const [documentInteractionMode, setDocumentInteractionMode] =
@@ -1146,6 +1153,14 @@ export function DocumentWorkspace({
                         )}
                       </SelectContent>
                     </Select>
+                    {backend?.info.kind === "github" ? (
+                      <SharePopover
+                        canEdit={canEdit}
+                        shareUrl={shareUrl}
+                        content={documentPage?.content ?? ""}
+                        onSetPublic={onSetPublic}
+                      />
+                    ) : null}
                   </div>
                 )}
               </div>

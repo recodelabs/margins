@@ -35,10 +35,11 @@ import { isMarkdownPath, navigate, parseGitHubLocation } from "./github-route";
 import { Homepage, HomepageSubtitle } from "./Homepage";
 import type { DocumentSaveState } from "./PageCard";
 import { PreviewPage } from "./PreviewPage";
-import { RoughdraftFlavoredMarkdownPage } from "./RoughdraftFlavoredMarkdownPage";
 import { PublicDocNotFoundError } from "./public-backend";
+import { RoughdraftFlavoredMarkdownPage } from "./RoughdraftFlavoredMarkdownPage";
 import { runWithErrorFeedback } from "./run-with-error-feedback";
 import { handleSessionExpiry } from "./session-expiry";
+import { setSharingFlag } from "./sharing-frontmatter";
 import {
   type CompleteReviewOptions,
   FileTooLargeError,
@@ -114,6 +115,7 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [publicView, setPublicView] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
   const [pendingNavHref, setPendingNavHref] = useState<string | null>(null);
   const [committingBeforeLeave, setCommittingBeforeLeave] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
@@ -275,6 +277,18 @@ export function App() {
       await loadDocument(detectedBackend, path);
       if (cancelled) return;
       setPublicView(detectedBackend.info.kind === "public");
+      if (detectedBackend.info.kind === "github") {
+        const canPush = await (
+          detectedBackend as unknown as {
+            getRepoPermission(): Promise<boolean>;
+          }
+        )
+          .getRepoPermission()
+          .catch(() => false);
+        if (!cancelled) setCanEdit(canPush);
+      } else {
+        setCanEdit(false);
+      }
       setLoading(false);
     };
 
@@ -548,6 +562,23 @@ export function App() {
         : { delivered: false };
     },
     [applyDocumentPage, documentSession],
+  );
+
+  const handleSetPublic = useCallback(
+    async (next: boolean) => {
+      const currentBackend = backendRef.current;
+      const currentPath = activeDocumentPathRef.current;
+      const currentDocument = documentPageRef.current;
+      if (!currentBackend || !currentPath || !currentDocument) return;
+      const updated = setSharingFlag(currentDocument.content, "public", next);
+      await currentBackend.saveMarkdownFile(
+        currentPath,
+        updated,
+        currentDocument.version,
+      );
+      await loadDocument(currentBackend, currentPath);
+    },
+    [loadDocument],
   );
 
   useEffect(() => {
@@ -837,6 +868,12 @@ export function App() {
     };
   })();
 
+  const shareUrl = (() => {
+    const loc = githubLocation;
+    if (!loc.owner || !loc.repo || !isMarkdownPath(loc.path)) return "";
+    return `${window.location.origin}/${loc.owner}/${loc.repo}/${loc.path}${loc.branch && loc.branch !== "main" ? `?branch=${loc.branch}` : ""}`;
+  })();
+
   return (
     <main className="relative flex h-screen min-w-0 flex-col overflow-hidden bg-[#FCFCFC] dark:bg-background text-slate-950 dark:text-slate-50">
       {toast ? (
@@ -875,6 +912,9 @@ export function App() {
           githubNav={githubNav}
           onNavigate={handleNavigateAway}
           liveActivityEntries={liveActivityEntries}
+          canEdit={canEdit}
+          shareUrl={shareUrl}
+          onSetPublic={handleSetPublic}
         />
       </Suspense>
       <UnsavedChangesDialog
