@@ -64,6 +64,22 @@ export function formatRateLimitMessage(info: GitHubRateLimitInfo): string {
   return `${base} Please wait a moment and try again.`;
 }
 
+/**
+ * A GitHub request came back `401 Unauthorized`, meaning the stored OAuth token
+ * has expired or been revoked. Callers surface this through {@link
+ * handleSessionExpiry} (in `session-expiry.ts`), which boots the user back to
+ * the sign-in screen instead of showing a raw `… failed (401)` error.
+ */
+export class SessionExpiredError extends Error {
+  status: number;
+
+  constructor(status = 401) {
+    super("Your GitHub session has expired. Please sign in again.");
+    this.name = "SessionExpiredError";
+    this.status = status;
+  }
+}
+
 export class GitHubRateLimitError extends Error {
   status: number;
   retryAfterSeconds?: number;

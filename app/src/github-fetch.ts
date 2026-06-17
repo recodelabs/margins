@@ -12,7 +12,11 @@ import {
   getCachedEntry,
   setCachedEntry,
 } from "./github-cache";
-import { GitHubRateLimitError, type GitHubRateLimitInfo } from "./storage";
+import {
+  GitHubRateLimitError,
+  type GitHubRateLimitInfo,
+  SessionExpiredError,
+} from "./storage";
 
 /** Longest server-suggested `Retry-After` we'll silently wait out (seconds). */
 const MAX_AUTO_RETRY_SECONDS = 5;
@@ -54,7 +58,9 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
- * `fetch` plus rate-limit handling. On a rate-limited response it either backs
+ * `fetch` plus rate-limit handling. A `401` (expired/revoked token) throws
+ * `SessionExpiredError` so callers can boot the user back to sign-in instead of
+ * surfacing a bare `… failed (401)`. On a rate-limited response it either backs
  * off once (for a short, server-suggested `Retry-After`) and retries, or
  * throws `GitHubRateLimitError`. All other responses (including non-rate-limit
  * errors like 404) are returned unchanged for the caller to interpret.
@@ -64,6 +70,7 @@ export async function githubFetch(
   init: RequestInit,
 ): Promise<Response> {
   const res = await fetch(url, init);
+  if (res.status === 401) throw new SessionExpiredError(res.status);
   const limit = parseRateLimit(res);
   if (!limit) return res;
 
