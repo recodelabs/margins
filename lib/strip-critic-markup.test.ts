@@ -38,4 +38,12 @@ describe("stripCriticMarkup", () => {
     // a real metadata block still gets removed with its comment
     expect(stripCriticMarkup('{>>c<<}{id="c1" by="x"} end')).toBe(" end");
   });
+
+  it("drops an unterminated comment so it cannot leak into the public body", () => {
+    expect(stripCriticMarkup("A {>>secret note never closed")).toBe("A ");
+    // a normal closed comment elsewhere still works alongside it
+    expect(stripCriticMarkup("ok {>>done<<} then {>>dangling")).toBe(
+      "ok  then ",
+    );
+  });
 });

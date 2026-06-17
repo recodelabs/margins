@@ -5,6 +5,8 @@
  *  - highlights `{==text==}` are unwrapped to `text` (and a trailing comment removed);
  *  - suggestions are rejected: additions `{++…++}` and deletions `{--…--}` removed,
  *    substitutions `{~~old~>new~~}` collapse to `old`.
+ *  - unterminated comments (`{>>` with no closing `<<}`) are dropped through
+ *    end-of-string so they cannot leak internal review text into the public body.
  * Order matters: resolve comment+metadata first, then highlights, then suggestions.
  */
 export function stripCriticMarkup(markdown: string): string {
@@ -20,5 +22,8 @@ export function stripCriticMarkup(markdown: string): string {
   // Addition / deletion: drop the marked span entirely.
   out = out.replace(/\{\+\+[\s\S]*?\+\+\}/g, "");
   out = out.replace(/\{--[\s\S]*?--\}/g, "");
+  // Defensive: an unterminated comment (`{>>` with no closing `<<}`) would
+  // otherwise leak its text into the public body. Drop it through end-of-string.
+  out = out.replace(/\{>>[\s\S]*$/g, "");
   return out;
 }
