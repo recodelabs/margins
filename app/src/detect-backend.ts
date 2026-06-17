@@ -3,6 +3,7 @@ import { completeLoginFromUrl, fetchLogin } from "./github-auth";
 import { GitHubBackend } from "./github-backend";
 import { parseGitHubLocation } from "./github-route";
 import { LocalStorageBackend } from "./local-storage-backend";
+import { PublicBackend } from "./public-backend";
 import { RemoteBackend } from "./remote-backend";
 import type { StorageBackend } from "./storage";
 
@@ -29,6 +30,15 @@ export async function detectBackend(): Promise<StorageBackend> {
         repo: loc.repo,
         branch: loc.branch,
         login,
+      });
+    }
+    // No token but the URL names a markdown doc → try the public read path.
+    // PublicBackend.getMarkdownFile 404s (caught by App) if it isn't shared.
+    if (!token && loc.owner && loc.repo && /\.md$/i.test(loc.path)) {
+      return new PublicBackend({
+        owner: loc.owner,
+        repo: loc.repo,
+        path: loc.path,
       });
     }
     // Not enough info yet (no token or repo) — fall through; the picker handles it.
