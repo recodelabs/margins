@@ -79,6 +79,32 @@ describe("handlePublicDoc", () => {
     expect(body.markdown).not.toContain("note");
   });
 
+  it("never caches the fail-closed 404 (so a freshly-public doc isn't frozen behind a stale 404)", async () => {
+    global.fetch = vi.fn(async () =>
+      contentsResponse("---\npublic: false\n---\nsecret"),
+    ) as never;
+    const res = await handlePublicDoc(env, {
+      owner: "o",
+      repo: "r",
+      path: "d.md",
+    });
+    expect(res.status).toBe(404);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("only briefly caches a successful read (so un-publishing takes effect promptly)", async () => {
+    global.fetch = vi.fn(async () =>
+      contentsResponse("---\npublic: true\n---\n# Hi\n"),
+    ) as never;
+    const res = await handlePublicDoc(env, {
+      owner: "o",
+      repo: "r",
+      path: "d.md",
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe("public, max-age=10");
+  });
+
   it("rejects a path traversal attempt with 400", async () => {
     const res = await handlePublicDoc(env, {
       owner: "o",
