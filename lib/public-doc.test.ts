@@ -87,4 +87,25 @@ describe("handlePublicDoc", () => {
     });
     expect(res.status).toBe(400);
   });
+
+  it("rejects a ?ref= branch-injection path with 400", async () => {
+    const res = await handlePublicDoc(env, {
+      owner: "o",
+      repo: "r",
+      path: "doc.md?ref=other.md",
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("fails closed to 404 when the GitHub fetch throws", async () => {
+    global.fetch = vi.fn(async () => {
+      throw new Error("network down");
+    }) as never;
+    const res = await handlePublicDoc(env, {
+      owner: "o",
+      repo: "r",
+      path: "d.md",
+    });
+    expect(res.status).toBe(404);
+  });
 });

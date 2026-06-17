@@ -29,6 +29,7 @@ const notFound = (): Response =>
 function isSafeMarkdownPath(path: string): boolean {
   if (!path || path.startsWith("/")) return false;
   if (path.split("/").some((seg) => seg === "..")) return false;
+  if (/[?#]/.test(path)) return false;
   return /\.md$/i.test(path);
 }
 
@@ -43,7 +44,10 @@ export async function handlePublicDoc(
 ): Promise<Response> {
   const { owner, repo, path } = params;
   if (!owner || !repo || !isSafeMarkdownPath(path)) {
-    return new Response("Bad request", { status: 400 });
+    return new Response("Bad request", {
+      status: 400,
+      headers: { "Cache-Control": "no-store" },
+    });
   }
 
   let token: string;
@@ -54,20 +58,24 @@ export async function handlePublicDoc(
   }
 
   // Default branch (no `ref`): the contents API serves the repo's default branch.
-  const res = await fetch(
-    `${API}/repos/${owner}/${repo}/contents/${encodeURI(path)}`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json",
-        "User-Agent": "marginsmd",
-        "X-GitHub-Api-Version": "2022-11-28",
+  let file: { content?: string; encoding?: string };
+  try {
+    const res = await fetch(
+      `${API}/repos/${owner}/${repo}/contents/${path.split("/").map(encodeURIComponent).join("/")}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+          "User-Agent": "marginsmd",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
       },
-    },
-  );
-  if (!res.ok) return notFound();
-
-  const file = (await res.json()) as { content?: string; encoding?: string };
+    );
+    if (!res.ok) return notFound();
+    file = (await res.json()) as { content?: string; encoding?: string };
+  } catch {
+    return notFound();
+  }
   if (!file.content || file.encoding !== "base64") return notFound();
   const markdown = new TextDecoder().decode(
     Uint8Array.from(atob(file.content.replace(/\n/g, "")), (c) =>
