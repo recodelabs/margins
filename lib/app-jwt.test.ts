@@ -1,3 +1,7 @@
+// @vitest-environment node
+// Server/Worker module: exercise Web Crypto under Node, not jsdom. jsdom's
+// realm hands crypto.subtle a cross-realm ArrayBuffer that Node 20's strict
+// importKey brand-check rejects ("not instance of ArrayBuffer").
 import { describe, expect, it } from "vitest";
 import { createAppJwt } from "./app-jwt";
 

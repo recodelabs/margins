@@ -1,3 +1,6 @@
+// @vitest-environment node
+// Server/Worker module: mints a GitHub App JWT via Web Crypto, which needs the
+// Node environment (see app-jwt.test.ts for why jsdom breaks on Node 20).
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   __resetTokenCacheForTest,
