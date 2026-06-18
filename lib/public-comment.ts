@@ -50,6 +50,10 @@ export async function handlePublicComment(
   if (!authorName || authorName.trim().length === 0 || authorName.length > MAX_NAME_LEN)
     return plain("Bad request", 400);
   if (mode === "new" && (!body.anchor || !body.anchor.quote)) return plain("Bad request", 400);
+  if (mode === "new" && body.anchor?.occurrence !== undefined) {
+    const occ = body.anchor.occurrence;
+    if (!Number.isInteger(occ) || occ < 1) return plain("Bad request", 400);
+  }
   if (mode === "reply" && !body.parentId) return plain("Bad request", 400);
 
   let token: string;
@@ -69,11 +73,14 @@ export async function handlePublicComment(
     return { markdown, sha: file.sha };
   };
 
+  // Strip CR/LF from authorName to prevent commit message newline injection
+  const safeAuthorName = authorName.replace(/[\r\n]/g, "");
+
   const commit = async (newMarkdown: string, sha: string): Promise<Response> => {
     const put = await fetch(contentsUrl, {
       method: "PUT", headers: ghHeaders(token),
       body: JSON.stringify({
-        message: `Public comment by ${authorName} (guest) on ${path}`,
+        message: `Public comment by ${safeAuthorName} (guest) on ${path}`,
         content: toBase64(newMarkdown),
         sha,
         author: { name: "margins[bot]", email: "margins[bot]@users.noreply.github.com" },

@@ -60,6 +60,12 @@ export function insertPublicComment(
   input: InsertInput,
 ): string {
   if (input.mode === "new") {
+    // Defense in depth: occurrence must be a positive integer (≤ 0 would leave `at` at -1,
+    // causing absoluteAt to land inside the frontmatter and overwrite the --- delimiter)
+    if (!Number.isInteger(input.occurrence) || input.occurrence < 1) {
+      throw new AnchorError("occurrence must be an integer ≥ 1");
+    }
+
     // Finding 2: Reject guest input containing CriticMarkup delimiters to prevent markup corruption
     if (input.text.includes("<<}") || input.text.includes("{>>")) {
       throw new AnchorError("text contains CriticMarkup delimiters");

@@ -84,6 +84,30 @@ describe("insertPublicComment — new", () => {
       text: "safe", authorName: "A", id: "g9", atIso: "t",
     })).toThrow(AnchorError);
   });
+
+  // CRITICAL: occurrence <= 0 must throw AnchorError (not silently corrupt the document)
+  it("throws AnchorError when occurrence is 0", () => {
+    expect(() => insertPublicComment(base("The cat sat.\n"), {
+      mode: "new", quote: "cat", occurrence: 0,
+      text: "x", authorName: "A", id: "g10", atIso: "t",
+    })).toThrow(AnchorError);
+  });
+
+  it("throws AnchorError when occurrence is -1", () => {
+    expect(() => insertPublicComment(base("The cat sat.\n"), {
+      mode: "new", quote: "cat", occurrence: -1,
+      text: "x", authorName: "A", id: "g11", atIso: "t",
+    })).toThrow(AnchorError);
+  });
+
+  it("occurrence: 1 still works (regression guard)", () => {
+    const md = base("The cat sat.\n");
+    const out = insertPublicComment(md, {
+      mode: "new", quote: "cat", occurrence: 1,
+      text: "first", authorName: "A", id: "g12", atIso: "t",
+    });
+    expect(out).toContain("{==cat==}");
+  });
 });
 
 describe("insertPublicComment — reply", () => {
