@@ -31,7 +31,7 @@ const notFound = (): Response =>
   });
 
 /** A path must be a relative markdown path — no traversal, no leading slash. */
-function isSafeMarkdownPath(path: string): boolean {
+export function isSafeMarkdownPath(path: string): boolean {
   if (!path || path.startsWith("/")) return false;
   if (path.split("/").some((seg) => seg === "..")) return false;
   if (/[?#]/.test(path)) return false;
