@@ -72,6 +72,17 @@ wrangler pages secret put GITHUB_APP_PRIVATE_KEY --project-name marginsmd
 App **installation permission** required: **Contents: Read-only** (Phase 1A view).
 The App must be installed on any repo whose docs are shared.
 
+### Public comments (Phase 2) — rate limit
+
+The guest comment endpoint `POST /api/public/comment` is anonymous. Add a Cloudflare
+**Rate limiting rule** (dashboard → the `marginsmd` project's zone → Security → WAF →
+Rate limiting rules):
+- **If** URI Path equals `/api/public/comment` **and** method is `POST`
+- **Then** when more than **5 requests per 1 minute** per client IP → **Block** for 1 minute.
+
+No code or secrets needed; the endpoint itself enforces max length (2000) and a required
+name. Tune the threshold to taste.
+
 ## How the pieces map at runtime
 
 - `GET /api/auth/login` and `/api/auth/callback` → the Pages Function (reads

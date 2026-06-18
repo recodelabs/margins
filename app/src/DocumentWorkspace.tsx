@@ -22,7 +22,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { bodyStart as commentAnchorBodyStart, selectionOccurrence } from "../../lib/comment-anchor";
+import {
+  bodyStart as commentAnchorBodyStart,
+  selectionOccurrence,
+} from "../../lib/comment-anchor";
 import type { ActivityEntry } from "./activity-log";
 import {
   readStoredAgentBoxHidden,
@@ -300,6 +303,7 @@ interface DocumentWorkspaceProps {
   canEdit?: boolean;
   shareUrl?: string;
   onSetPublic?: (next: boolean) => Promise<void>;
+  onSetComments?: (next: boolean) => Promise<void>;
   /**
    * SPA-navigate to `href` (breadcrumb back-to-picker / folder). App owns the
    * unsaved-changes guard, so this may be a no-op if the user cancels.
@@ -337,6 +341,7 @@ export function DocumentWorkspace({
   canEdit = false,
   shareUrl = "",
   onSetPublic = async () => {},
+  onSetComments,
   onDocumentPageChange,
 }: DocumentWorkspaceProps) {
   const readOnly = backend?.info.kind === "public";
@@ -551,7 +556,11 @@ export function DocumentWorkspace({
         // byte position of the selection start captured at selection time.
         const occurrence =
           guestForm.selectionStartOffset != null
-            ? selectionOccurrence(content, quote, guestForm.selectionStartOffset)
+            ? selectionOccurrence(
+                content,
+                quote,
+                guestForm.selectionStartOffset,
+              )
             : 1;
         anchor = { quote, occurrence };
       }
@@ -1497,6 +1506,7 @@ export function DocumentWorkspace({
                         shareUrl={shareUrl}
                         content={documentPage?.content ?? ""}
                         onSetPublic={onSetPublic}
+                        onSetComments={onSetComments}
                       />
                     ) : null}
                   </div>

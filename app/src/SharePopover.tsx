@@ -11,6 +11,7 @@ export interface SharePopoverProps {
   shareUrl: string;
   content: string;
   onSetPublic: (next: boolean) => Promise<void>;
+  onSetComments?: (next: boolean) => Promise<void>;
 }
 
 export function SharePopover({
@@ -18,8 +19,11 @@ export function SharePopover({
   shareUrl,
   content,
   onSetPublic,
+  onSetComments,
 }: SharePopoverProps) {
-  const isPublic = getSharingFlags(content).public;
+  const flags = getSharingFlags(content);
+  const isPublic = flags.public;
+  const isComments = flags.comments;
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -59,6 +63,30 @@ export function SharePopover({
           />
           <span>Public — anyone with the link can view</span>
         </label>
+        {onSetComments !== undefined ? (
+          <label className="mt-2 flex items-center gap-2 text-[0.8rem] text-stone-700 dark:text-slate-200">
+            <input
+              type="checkbox"
+              data-testid="share-comments-toggle"
+              checked={isComments}
+              disabled={!isPublic || !canEdit || busy}
+              onChange={async (e) => {
+                setBusy(true);
+                try {
+                  await onSetComments(e.target.checked);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            />
+            <span>Comments — anyone with the link can comment</span>
+          </label>
+        ) : null}
+        {onSetComments !== undefined && isComments ? (
+          <p className="mt-1 text-[0.7rem] text-stone-400">
+            Turns the existing comment threads public.
+          </p>
+        ) : null}
         {!canEdit ? (
           <p className="mt-2 text-[0.7rem] text-stone-400">
             You need write access to change this.
