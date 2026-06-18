@@ -448,11 +448,13 @@ function CommentThreadNode({
   const isEditing = interactive && editingCommentIds.includes(comment.id);
   const isAiAuthor = comment.authorType === "ai";
   const userAuthorId = comment.authorId?.trim();
-  const authorLabel = isAiAuthor
+  const baseLabel = isAiAuthor
     ? "AI"
     : userAuthorId && userAuthorId.toLowerCase() !== "user"
       ? userAuthorId
       : "Me";
+  const authorLabel =
+    !isAiAuthor && comment.guest ? `${baseLabel} (guest)` : baseLabel;
   const AuthorIcon = isAiAuthor ? Bot : User;
   const draftContent = drafts[comment.id] ?? comment.content;
   const avatarTone = isAiAuthor

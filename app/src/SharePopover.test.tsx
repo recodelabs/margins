@@ -101,4 +101,66 @@ describe("SharePopover", () => {
     expect(toggle).not.toBeNull();
     expect(toggle?.disabled).toBe(true);
   });
+
+  it("shows a Comments toggle, disabled until Public is on, and calls onSetComments when enabled", async () => {
+    const onSetComments = vi.fn(async () => {});
+    await act(async () => {
+      root.render(
+        <SharePopover
+          canEdit
+          shareUrl="u"
+          content={"---\npublic: true\n---\n"}
+          onSetPublic={async () => {}}
+          onSetComments={onSetComments}
+        />,
+      );
+    });
+
+    const trigger = container.querySelector<HTMLButtonElement>(
+      "[data-testid='share-trigger']",
+    );
+    if (!trigger) throw new Error("share-trigger not found");
+    await act(async () => {
+      trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const toggle = document.body.querySelector<HTMLInputElement>(
+      "[data-testid='share-comments-toggle']",
+    );
+    expect(toggle).not.toBeNull();
+    expect(toggle?.disabled).toBe(false);
+    await act(async () => {
+      toggle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onSetComments).toHaveBeenCalledWith(true);
+  });
+
+  it("disables Comments toggle when Public is off", async () => {
+    const onSetComments = vi.fn(async () => {});
+    await act(async () => {
+      root.render(
+        <SharePopover
+          canEdit
+          shareUrl="u"
+          content={"---\n---\n"}
+          onSetPublic={async () => {}}
+          onSetComments={onSetComments}
+        />,
+      );
+    });
+
+    const trigger = container.querySelector<HTMLButtonElement>(
+      "[data-testid='share-trigger']",
+    );
+    if (!trigger) throw new Error("share-trigger not found");
+    await act(async () => {
+      trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const toggle = document.body.querySelector<HTMLInputElement>(
+      "[data-testid='share-comments-toggle']",
+    );
+    expect(toggle).not.toBeNull();
+    expect(toggle?.disabled).toBe(true);
+  });
 });

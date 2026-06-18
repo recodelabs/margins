@@ -113,6 +113,7 @@ function parseLegacyMetadata(
     authorType: author.toUpperCase() === "AI" ? "ai" : "user",
     authorId: author.toUpperCase() === "AI" ? null : author,
     parentCommentId: fields.get("re") ?? null,
+    guest: fields.get("guest") === "true",
   };
 }
 
@@ -146,6 +147,7 @@ function parseAttributeMetadata(
     authorType: author.toUpperCase() === "AI" ? "ai" : "user",
     authorId: author.toUpperCase() === "AI" ? null : author,
     parentCommentId: fields.get("re") ?? null,
+    guest: fields.get("guest") === "true",
   };
 }
 
@@ -452,6 +454,7 @@ function createCommentWithContext(
     authorId: partial?.authorId ?? (authorType === "ai" ? null : "user"),
     parentCommentId: partial?.parentCommentId ?? null,
     scope: partial?.scope,
+    guest: partial?.guest,
   };
 }
 

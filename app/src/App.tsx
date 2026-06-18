@@ -581,6 +581,23 @@ export function App() {
     [loadDocument],
   );
 
+  const handleSetComments = useCallback(
+    async (next: boolean) => {
+      const currentBackend = backendRef.current;
+      const currentPath = activeDocumentPathRef.current;
+      const currentDocument = documentPageRef.current;
+      if (!currentBackend || !currentPath || !currentDocument) return;
+      const updated = setSharingFlag(currentDocument.content, "comments", next);
+      await currentBackend.saveMarkdownFile(
+        currentPath,
+        updated,
+        currentDocument.version,
+      );
+      await loadDocument(currentBackend, currentPath);
+    },
+    [loadDocument],
+  );
+
   useEffect(() => {
     if (!backend?.watchMarkdownFile || !activeDocumentPath) return;
 
@@ -915,6 +932,8 @@ export function App() {
           canEdit={canEdit}
           shareUrl={shareUrl}
           onSetPublic={handleSetPublic}
+          onSetComments={handleSetComments}
+          onDocumentPageChange={setDocumentPage}
         />
       </Suspense>
       <UnsavedChangesDialog

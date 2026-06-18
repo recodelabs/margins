@@ -22,6 +22,10 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  bodyStart as commentAnchorBodyStart,
+  selectionOccurrence,
+} from "../../lib/comment-anchor";
 import type { ActivityEntry } from "./activity-log";
 import {
   readStoredAgentBoxHidden,
@@ -58,6 +62,7 @@ import {
   useDocumentSession,
 } from "./document-session";
 import { gitHubHref } from "./github-route";
+import { getGuestName, setGuestName } from "./guest-identity";
 import { InstructionSender } from "./InstructionSender";
 import { cn } from "./lib/utils";
 import { MermaidOverlays } from "./MermaidOverlays";
@@ -67,7 +72,9 @@ import {
   type DocumentSaveState,
   PageCard,
 } from "./PageCard";
+import type { PublicBackend } from "./public-backend";
 import { SharePopover } from "./SharePopover";
+import { getSharingFlags } from "./sharing-frontmatter";
 import type { CompleteReviewOptions, Page, StorageBackend } from "./storage";
 
 type DiskChangeState = "clean" | "changed" | "conflict" | "paused";
@@ -296,11 +303,18 @@ interface DocumentWorkspaceProps {
   canEdit?: boolean;
   shareUrl?: string;
   onSetPublic?: (next: boolean) => Promise<void>;
+  onSetComments?: (next: boolean) => Promise<void>;
   /**
    * SPA-navigate to `href` (breadcrumb back-to-picker / folder). App owns the
    * unsaved-changes guard, so this may be a no-op if the user cancels.
    */
   onNavigate?: (href: string) => void;
+  /**
+   * Called after a successful guest comment submission (public view only) so
+   * the parent can replace the document with the refreshed Page returned by
+   * the server.
+   */
+  onDocumentPageChange?: (page: Page) => void;
 }
 
 export function DocumentWorkspace({
@@ -327,6 +341,8 @@ export function DocumentWorkspace({
   canEdit = false,
   shareUrl = "",
   onSetPublic = async () => {},
+  onSetComments,
+  onDocumentPageChange,
 }: DocumentWorkspaceProps) {
   const readOnly = backend?.info.kind === "public";
   const [documentInteractionMode, setDocumentInteractionMode] =
@@ -390,6 +406,195 @@ export function DocumentWorkspace({
         criticMarkdownHasReviewRail(documentPage.content),
     );
   }, [documentPage?.content]);
+
+  // ---------------------------------------------------------------------------
+  // Guest comment state (public / readOnly path only)
+  // ---------------------------------------------------------------------------
+  const publicCommentsEnabled =
+    readOnly &&
+    !!documentPage?.content &&
+    getSharingFlags(documentPage.content).comments;
+
+  // Selection detection: show "Leave a comment" button on text selection
+  const [guestSelectionText, setGuestSelectionText] = useState<string | null>(
+    null,
+  );
+  const [guestSelectionRect, setGuestSelectionRect] = useState<DOMRect | null>(
+    null,
+  );
+  // Markdown content offset of the selection's start character, used to
+  // compute the correct 1-based occurrence for insertPublicComment.
+  const [guestSelectionStartOffset, setGuestSelectionStartOffset] = useState<
+    number | null
+  >(null);
+  const publicDocAreaRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!readOnly || !publicCommentsEnabled) return;
+
+    const handleSelectionChange = () => {
+      const sel = window.getSelection();
+      const text = sel?.toString().trim() ?? "";
+      if (!text || !sel || sel.rangeCount === 0) {
+        setGuestSelectionText(null);
+        setGuestSelectionRect(null);
+        setGuestSelectionStartOffset(null);
+        return;
+      }
+      // Only show the button if the selection is inside the doc area
+      const range = sel.getRangeAt(0);
+      const container = publicDocAreaRef.current;
+      if (container && !container.contains(range.commonAncestorContainer)) {
+        setGuestSelectionText(null);
+        setGuestSelectionRect(null);
+        setGuestSelectionStartOffset(null);
+        return;
+      }
+
+      // Compute a "pre-selection prefix length" by cloning a range from the
+      // container start up to the selection start, then counting how many times
+      // the selected text appears in that prefix.  This tells us how many
+      // rendered occurrences precede the one the user selected, so we can
+      // derive the correct 1-based occurrence for insertPublicComment.
+      // We store it as a markdown body offset estimate: bodyStart + prefixLength.
+      let startOffsetHint: number | null = null;
+      if (container && documentPage?.content) {
+        try {
+          const prefixRange = document.createRange();
+          prefixRange.setStart(container, 0);
+          prefixRange.setEnd(range.startContainer, range.startOffset);
+          const prefixText = prefixRange.toString();
+          // bodyStart skips frontmatter — add it so selectionOccurrence sees
+          // the right absolute position within the markdown string.
+          startOffsetHint =
+            commentAnchorBodyStart(documentPage.content) + prefixText.length;
+        } catch {
+          startOffsetHint = null;
+        }
+      }
+
+      setGuestSelectionText(text);
+      setGuestSelectionRect(range.getBoundingClientRect());
+      setGuestSelectionStartOffset(startOffsetHint);
+    };
+
+    document.addEventListener("selectionchange", handleSelectionChange);
+    return () => {
+      document.removeEventListener("selectionchange", handleSelectionChange);
+    };
+  }, [readOnly, publicCommentsEnabled, documentPage?.content]);
+
+  // Guest comment form state
+  const [guestForm, setGuestForm] = useState<{
+    mode: "new" | "reply";
+    parentId?: string;
+    selectedText?: string;
+    /** Markdown byte offset of the selection start, used for occurrence counting. */
+    selectionStartOffset?: number;
+    text: string;
+    authorName: string;
+    submitting: boolean;
+    error: string | null;
+  } | null>(null);
+
+  const openGuestCommentForm = useCallback(
+    (selectedText: string, selectionStartOffset: number | null) => {
+      setGuestForm({
+        mode: "new",
+        selectedText,
+        selectionStartOffset: selectionStartOffset ?? undefined,
+        text: "",
+        authorName: getGuestName(),
+        submitting: false,
+        error: null,
+      });
+      // Clear selection so button hides
+      setGuestSelectionText(null);
+      setGuestSelectionRect(null);
+      setGuestSelectionStartOffset(null);
+    },
+    [],
+  );
+
+  const openGuestReplyForm = useCallback((parentId: string) => {
+    setGuestForm({
+      mode: "reply",
+      parentId,
+      text: "",
+      authorName: getGuestName(),
+      submitting: false,
+      error: null,
+    });
+  }, []);
+
+  const submitGuestComment = useCallback(async () => {
+    if (!guestForm || !backend || !publicCommentsEnabled) return;
+
+    const authorName = guestForm.authorName.trim();
+    if (!authorName) {
+      setGuestForm((f) => (f ? { ...f, error: "Please enter your name." } : f));
+      return;
+    }
+    const text = guestForm.text.trim();
+    if (!text) {
+      setGuestForm((f) => (f ? { ...f, error: "Please enter a comment." } : f));
+      return;
+    }
+
+    setGuestName(authorName);
+    setGuestForm((f) => (f ? { ...f, submitting: true, error: null } : f));
+
+    try {
+      const publicBackend = backend as PublicBackend;
+
+      let anchor: { quote: string; occurrence: number } | undefined;
+      if (guestForm.mode === "new" && guestForm.selectedText) {
+        const quote = guestForm.selectedText;
+        const content = documentPage?.content ?? "";
+        // Use the shared helper to find which plain-text, in-body occurrence
+        // of `quote` the user selected.  selectionStartOffset is the markdown
+        // byte position of the selection start captured at selection time.
+        const occurrence =
+          guestForm.selectionStartOffset != null
+            ? selectionOccurrence(
+                content,
+                quote,
+                guestForm.selectionStartOffset,
+              )
+            : 1;
+        anchor = { quote, occurrence };
+      }
+
+      const refreshedPage = await publicBackend.addComment({
+        mode: guestForm.mode,
+        text,
+        authorName,
+        anchor,
+        parentId: guestForm.parentId,
+      });
+
+      onDocumentPageChange?.(refreshedPage);
+      setGuestForm(null);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to submit comment.";
+      setGuestForm((f) =>
+        f ? { ...f, submitting: false, error: message } : f,
+      );
+    }
+  }, [
+    backend,
+    documentPage?.content,
+    guestForm,
+    onDocumentPageChange,
+    publicCommentsEnabled,
+  ]);
+
+  const cancelGuestComment = useCallback(() => {
+    setGuestForm(null);
+  }, []);
+
+  // ---------------------------------------------------------------------------
 
   useEffect(() => {
     const documentIdentity = `${activeDocumentPath ?? ""}:${documentPage?.id ?? ""}`;
@@ -965,7 +1170,149 @@ export function DocumentWorkspace({
           ) : null}
         </div>
       ) : null}
-      <div className="mx-auto min-h-full max-w-[1280px]">
+      {/* Guest comment floating button — shown on text selection in public view */}
+      {publicCommentsEnabled &&
+      guestSelectionText &&
+      guestSelectionRect &&
+      !guestForm ? (
+        <button
+          type="button"
+          data-testid="guest-add-comment-button"
+          className="fixed z-50 inline-flex items-center gap-1.5 rounded-full border border-stone-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-stone-300 shadow-md transition hover:bg-stone-50 dark:hover:bg-slate-700"
+          style={{
+            top: Math.max(8, guestSelectionRect.top + window.scrollY - 40),
+            left: Math.max(
+              8,
+              guestSelectionRect.left +
+                window.scrollX +
+                guestSelectionRect.width / 2 -
+                60,
+            ),
+          }}
+          onMouseDown={(e) => {
+            // Prevent blur from clearing selection before we capture it
+            e.preventDefault();
+          }}
+          onClick={() => {
+            if (guestSelectionText)
+              openGuestCommentForm(
+                guestSelectionText,
+                guestSelectionStartOffset,
+              );
+          }}
+        >
+          <MessageSquarePlus className="size-3.5" />
+          Leave a comment
+        </button>
+      ) : null}
+
+      {/* Guest comment form overlay */}
+      {guestForm ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) cancelGuestComment();
+          }}
+        >
+          <div className="w-full max-w-sm rounded-xl border border-stone-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
+            <h2 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-200">
+              {guestForm.mode === "reply"
+                ? "Reply to comment"
+                : "Leave a comment"}
+            </h2>
+            {guestForm.mode === "new" && guestForm.selectedText ? (
+              <p className="mb-3 rounded-md bg-stone-50 dark:bg-slate-800 px-3 py-2 text-xs italic text-stone-600 dark:text-stone-400 line-clamp-2">
+                "{guestForm.selectedText}"
+              </p>
+            ) : null}
+            <label
+              htmlFor="guest-name-input"
+              className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300"
+            >
+              Your name
+            </label>
+            <input
+              id="guest-name-input"
+              type="text"
+              data-testid="guest-name-input"
+              className="mb-3 w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 outline-none transition focus:border-emerald-300 dark:focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 dark:focus:ring-emerald-900"
+              placeholder="Name"
+              value={guestForm.authorName}
+              onChange={(e) =>
+                setGuestForm((f) =>
+                  f ? { ...f, authorName: e.target.value } : f,
+                )
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.preventDefault();
+              }}
+            />
+            <label
+              htmlFor="guest-comment-textarea"
+              className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300"
+            >
+              Comment
+            </label>
+            <Textarea
+              id="guest-comment-textarea"
+              data-testid="guest-comment-textarea"
+              value={guestForm.text}
+              rows={3}
+              className="mb-3 min-h-16 text-sm leading-6"
+              placeholder={
+                guestForm.mode === "reply"
+                  ? "Write a reply…"
+                  : "Write a comment…"
+              }
+              onChange={(e) =>
+                setGuestForm((f) => (f ? { ...f, text: e.target.value } : f))
+              }
+              onKeyDown={(e) => {
+                if (
+                  (e.metaKey || e.ctrlKey) &&
+                  e.key.toLowerCase() === "enter"
+                ) {
+                  e.preventDefault();
+                  void submitGuestComment();
+                }
+              }}
+            />
+            {guestForm.error ? (
+              <p
+                role="alert"
+                data-testid="guest-comment-error"
+                className="mb-3 text-xs text-red-600 dark:text-red-400"
+              >
+                {guestForm.error}
+              </p>
+            ) : null}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                data-testid="guest-comment-cancel"
+                className="inline-flex h-8 items-center rounded-lg px-3 text-sm font-medium text-stone-600 dark:text-stone-400 transition hover:bg-stone-100 dark:hover:bg-slate-700"
+                onClick={cancelGuestComment}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                data-testid="guest-comment-submit"
+                disabled={guestForm.submitting}
+                className="inline-flex h-8 items-center gap-1 rounded-lg bg-emerald-600 dark:bg-emerald-700 px-3 text-sm font-medium text-white transition hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => void submitGuestComment()}
+              >
+                {guestForm.submitting ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : null}
+                {guestForm.mode === "reply" ? "Reply" : "Comment"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div ref={publicDocAreaRef} className="mx-auto min-h-full max-w-[1280px]">
         {documentPage ? (
           <div
             data-testid="document-page-header"
@@ -1159,6 +1506,7 @@ export function DocumentWorkspace({
                         shareUrl={shareUrl}
                         content={documentPage?.content ?? ""}
                         onSetPublic={onSetPublic}
+                        onSetComments={onSetComments}
                       />
                     ) : null}
                   </div>
@@ -1210,6 +1558,9 @@ export function DocumentWorkspace({
                 saveBlocked={documentDiskChangeState !== "clean"}
                 forceResetKey={documentForceResetKey}
                 manualCommit={manualCommit}
+                onPublicReply={
+                  publicCommentsEnabled ? openGuestReplyForm : undefined
+                }
               />
               <MermaidOverlays
                 key={`mermaid:${documentPage.id}:${activeDocumentPath ?? ""}`}
