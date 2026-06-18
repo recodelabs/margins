@@ -85,3 +85,22 @@ describe("insertPublicComment — new", () => {
     })).toThrow(AnchorError);
   });
 });
+
+describe("insertPublicComment — reply", () => {
+  const thread = (body: string) => `---\npublic: true\ncomments: true\n---\n${body}`;
+  const doc = thread('See {==here==}{>>first<<}{id="c1" by="A" at="t1"} now.\n');
+
+  it("appends a reply block carrying re=<parentId> right after the parent block", () => {
+    const out = insertPublicComment(doc, {
+      mode: "reply", parentId: "c1", text: "agreed",
+      authorName: "Bob", id: "c2", atIso: "2026-06-18T00:00:00.000Z",
+    });
+    expect(out).toContain('{id="c1" by="A" at="t1"}{>>agreed<<}{id="c2" by="Bob" at="2026-06-18T00:00:00.000Z" re="c1" guest="true"}');
+  });
+
+  it("throws AnchorError when the parent id is absent", () => {
+    expect(() => insertPublicComment(doc, {
+      mode: "reply", parentId: "nope", text: "x", authorName: "B", id: "c9", atIso: "t",
+    })).toThrow(AnchorError);
+  });
+});
