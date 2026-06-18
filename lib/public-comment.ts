@@ -110,5 +110,4 @@ export async function handlePublicComment(
     const out = await commit(next, file.sha);
     if (out.status !== 409 || attempt === 1) return out;
   }
-  return plain("Conflict", 409);
 }

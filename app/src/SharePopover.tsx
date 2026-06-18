@@ -82,7 +82,7 @@ export function SharePopover({
             <span>Comments — anyone with the link can comment</span>
           </label>
         ) : null}
-        {onSetComments !== undefined && isComments ? (
+        {onSetComments !== undefined && isPublic && canEdit ? (
           <p className="mt-1 text-[0.7rem] text-stone-400">
             Turns the existing comment threads public.
           </p>
