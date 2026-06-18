@@ -285,6 +285,7 @@ type PageCardTestOptions = Partial<{
   selected: boolean;
   focusRequestKey: string | null;
   saveBlocked: boolean;
+  manualCommit: boolean;
 }>;
 
 type RenderedPageCard = {
@@ -335,6 +336,7 @@ async function renderPageCard(
       saveController = controller;
     },
     saveBlocked: options.saveBlocked ?? false,
+    manualCommit: options.manualCommit ?? false,
   } as const;
 
   const render = async () => {
@@ -599,6 +601,44 @@ describe("PageCard editor integration", () => {
     );
     // ...without triggering a network save.
     expect(rendered.onSave).not.toHaveBeenCalled();
+  });
+
+  it("manual-commit: a benign post-load transaction (table) does not flag unsaved", async () => {
+    // Tables, code blocks, mermaid, and task lists dispatch a benign
+    // post-load transaction that fires the editor's onUpdate without changing
+    // the serialized document. In GitHub manual-commit mode that must NOT make
+    // the doc read as "unsaved" on load (the Commit button would show with no
+    // real change).
+    const content = "# Title\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n";
+    const rendered = await renderPageCard({
+      page: { id: "doc-table-load", title: "Table", content },
+      selected: true,
+      manualCommit: true,
+    });
+
+    vi.useFakeTimers();
+    await act(async () => {
+      vi.advanceTimersByTime(400);
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
+    await flushReact();
+
+    // No spurious "unsaved" from the load-time transaction.
+    expect(rendered.onSaveStateChange).not.toHaveBeenCalledWith("unsaved");
+    expect(rendered.onSave).not.toHaveBeenCalled();
+
+    // A real edit still flags unsaved.
+    vi.useFakeTimers();
+    await insertTextAtEnd(rendered.getEditor(), " more");
+    await act(async () => {
+      vi.advanceTimersByTime(400);
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
+    await flushReact();
+
+    expect(rendered.onSaveStateChange).toHaveBeenCalledWith("unsaved");
   });
 
   it("manual save reports save failure without clearing dirty state", async () => {
