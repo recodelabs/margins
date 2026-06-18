@@ -414,6 +414,10 @@ export function createTurndownService(): TurndownService {
     headingStyle: "atx",
     codeBlockStyle: "fenced",
     bulletListMarker: "-",
+    // Match the `*italic*` convention our source docs use; Turndown defaults to
+    // `_italic_`, which made every italic re-serialize differently and show the
+    // doc as "changed" on load. Strong stays `**`.
+    emDelimiter: "*",
     blankReplacement(_content, node) {
       if (node.hasAttribute(rawMarkdownBlockAttribute)) {
         return `\n\n${decodeRawMarkdownBlock(
@@ -433,9 +437,13 @@ export function createTurndownService(): TurndownService {
   service.addRule("compactListItem", {
     filter: "li",
     replacement(content, node, options) {
+      // Strip trailing whitespace (TipTap wraps item content in <p>, so the
+      // turndown content arrives with trailing blank lines that otherwise
+      // became a `\n  ` indent + blank line between items — a loose list).
+      // Keep internal newlines, indented two spaces for nested content.
       const trimmed = content
         .replace(/^\n+/, "")
-        .replace(/\n+$/, "\n")
+        .replace(/\s+$/, "")
         .replace(/\n/gm, "\n  ");
 
       let prefix = `${options.bulletListMarker} `;
@@ -446,11 +454,7 @@ export function createTurndownService(): TurndownService {
         prefix = `${start ? Number(start) + index : index + 1}. `;
       }
 
-      return (
-        prefix +
-        trimmed +
-        (node.nextSibling && !/\n$/.test(trimmed) ? "\n" : "")
-      );
+      return prefix + trimmed + (node.nextSibling ? "\n" : "");
     },
   });
 
