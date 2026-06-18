@@ -134,4 +134,23 @@ describe("handlePublicDoc", () => {
     });
     expect(res.status).toBe(404);
   });
+
+  it("keeps CriticMarkup and reports comments:true when public+comments", async () => {
+    const md = '---\npublic: true\ncomments: true\n---\n# Hi {==x==}{>>n<<}{id="c" by="A" at="t"}\n';
+    global.fetch = vi.fn(async () => contentsResponse(md)) as never;
+    const res = await handlePublicDoc(env, { owner: "o", repo: "r", path: "d.md" });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { markdown: string; comments: boolean };
+    expect(body.comments).toBe(true);
+    expect(body.markdown).toContain("{>>n<<}");
+  });
+
+  it("still strips CriticMarkup when comments is absent/false", async () => {
+    const md = '---\npublic: true\n---\n# Hi {==x==}{>>n<<}{id="c" by="A" at="t"}\n';
+    global.fetch = vi.fn(async () => contentsResponse(md)) as never;
+    const res = await handlePublicDoc(env, { owner: "o", repo: "r", path: "d.md" });
+    const body = (await res.json()) as { markdown: string; comments: boolean };
+    expect(body.comments).toBe(false);
+    expect(body.markdown).not.toContain("{>>");
+  });
 });

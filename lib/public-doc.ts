@@ -91,12 +91,11 @@ export async function handlePublicDoc(
   const flags = readSharingFlags(markdown);
   if (!flags.public) return notFound();
 
-  // Phase 1A: comments not yet shipped → always serve the clean, stripped body.
   return json(
     {
-      markdown: stripCriticMarkup(markdown),
-      comments: false,
-      suggestions: false,
+      markdown: flags.comments ? markdown : stripCriticMarkup(markdown),
+      comments: flags.comments,
+      suggestions: false, // Phase 3
     },
     200,
   );
