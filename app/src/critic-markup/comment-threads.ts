@@ -12,6 +12,7 @@ export interface CriticComment {
   authorId?: string | null;
   parentCommentId?: string | null;
   scope?: "document";
+  guest?: boolean;
 }
 
 export interface CriticCommentThread {
