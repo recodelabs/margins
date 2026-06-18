@@ -172,6 +172,18 @@ describe("normalizeBlockSpacing", () => {
     expect(toMarkdown(toHtml(spaced))).toBe(spaced);
   });
 
+  it("round-trips * emphasis without rewriting it to _ (avoids spurious diffs)", () => {
+    const md = "carries *every* answer and *or* this\n";
+
+    expect(toMarkdown(toHtml(md))).toBe(md);
+  });
+
+  it("keeps simple lists tight (no injected blank line between items)", () => {
+    const md = "- First item\n- Second item\n- Third item\n";
+
+    expect(toMarkdown(toHtml(md))).toBe(md);
+  });
+
   it("uses dash bullet markers and compact list indentation", () => {
     const html = "<ul><li>Alpha</li><li>Beta</li></ul>";
 
