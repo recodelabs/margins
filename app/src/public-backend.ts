@@ -14,6 +14,14 @@ export interface PublicBackendConfig {
   path: string;
 }
 
+export interface AddCommentInput {
+  mode: "new" | "reply";
+  text: string;
+  authorName: string;
+  anchor?: { quote: string; occurrence: number };
+  parentId?: string;
+}
+
 /** Thrown when the public endpoint reports the doc isn't public/available (404). */
 export class PublicDocNotFoundError extends Error {
   constructor() {
@@ -84,5 +92,29 @@ export class PublicBackend implements StorageBackend {
   }
   async openProject(_path: string): Promise<void> {
     return;
+  }
+
+  async addComment(input: AddCommentInput): Promise<Page> {
+    const { owner, repo, path } = this.cfg;
+    const res = await fetch("/api/public/comment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ owner, repo, path, ...input }),
+    });
+    if (res.status === 403)
+      throw new Error("Comments are not enabled on this document.");
+    if (res.status === 409)
+      throw new Error(
+        "Couldn't place that comment — the text may have changed. Try again.",
+      );
+    if (res.status === 429)
+      throw new Error("Too many comments too quickly. Please wait a moment.");
+    if (!res.ok) throw new Error(`Comment failed (${res.status})`);
+    const body = (await res.json()) as { markdown: string };
+    return {
+      id: path,
+      title: titleFromContent(body.markdown, path.split("/").at(-1) || path),
+      content: body.markdown,
+    };
   }
 }

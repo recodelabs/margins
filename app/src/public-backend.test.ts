@@ -76,4 +76,31 @@ describe("PublicBackend", () => {
     expect(backend.capabilities.createFile).toBe(false);
     expect(backend.capabilities.activityLog).toBe(false);
   });
+
+  it("addComment POSTs to the endpoint and returns the refreshed doc", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            markdown:
+              '# Hi {==x==}{>>n<<}{id="c" by="Jane" at="t" guest="true"}',
+            comments: true,
+          }),
+          { status: 200 },
+        ),
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+    const be = new PublicBackend({ owner: "o", repo: "r", path: "d.md" });
+    const page = await be.addComment({
+      mode: "new",
+      text: "n",
+      authorName: "Jane",
+      anchor: { quote: "x", occurrence: 1 },
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/public/comment",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(page.content).toContain("{>>n<<}");
+  });
 });
