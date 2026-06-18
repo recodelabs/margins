@@ -1801,7 +1801,11 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
                   content: nextContent,
                 }));
               }}
-              onReplyComment={replyToComment}
+              onReplyComment={
+                interactionMode === "viewing" && onPublicReply
+                  ? onPublicReply
+                  : replyToComment
+              }
               onSelectComment={selectComment}
               onHoverComment={setHoveredCommentId}
               pendingFocusCommentId={pendingFocusCommentId}

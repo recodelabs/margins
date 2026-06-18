@@ -22,6 +22,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { bodyStart as commentAnchorBodyStart, selectionOccurrence } from "../../lib/comment-anchor";
 import type { ActivityEntry } from "./activity-log";
 import {
   readStoredAgentBoxHidden,
@@ -416,6 +417,11 @@ export function DocumentWorkspace({
   const [guestSelectionRect, setGuestSelectionRect] = useState<DOMRect | null>(
     null,
   );
+  // Markdown content offset of the selection's start character, used to
+  // compute the correct 1-based occurrence for insertPublicComment.
+  const [guestSelectionStartOffset, setGuestSelectionStartOffset] = useState<
+    number | null
+  >(null);
   const publicDocAreaRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -427,6 +433,7 @@ export function DocumentWorkspace({
       if (!text || !sel || sel.rangeCount === 0) {
         setGuestSelectionText(null);
         setGuestSelectionRect(null);
+        setGuestSelectionStartOffset(null);
         return;
       }
       // Only show the button if the selection is inside the doc area
@@ -435,42 +442,74 @@ export function DocumentWorkspace({
       if (container && !container.contains(range.commonAncestorContainer)) {
         setGuestSelectionText(null);
         setGuestSelectionRect(null);
+        setGuestSelectionStartOffset(null);
         return;
       }
+
+      // Compute a "pre-selection prefix length" by cloning a range from the
+      // container start up to the selection start, then counting how many times
+      // the selected text appears in that prefix.  This tells us how many
+      // rendered occurrences precede the one the user selected, so we can
+      // derive the correct 1-based occurrence for insertPublicComment.
+      // We store it as a markdown body offset estimate: bodyStart + prefixLength.
+      let startOffsetHint: number | null = null;
+      if (container && documentPage?.content) {
+        try {
+          const prefixRange = document.createRange();
+          prefixRange.setStart(container, 0);
+          prefixRange.setEnd(range.startContainer, range.startOffset);
+          const prefixText = prefixRange.toString();
+          // bodyStart skips frontmatter — add it so selectionOccurrence sees
+          // the right absolute position within the markdown string.
+          startOffsetHint =
+            commentAnchorBodyStart(documentPage.content) + prefixText.length;
+        } catch {
+          startOffsetHint = null;
+        }
+      }
+
       setGuestSelectionText(text);
       setGuestSelectionRect(range.getBoundingClientRect());
+      setGuestSelectionStartOffset(startOffsetHint);
     };
 
     document.addEventListener("selectionchange", handleSelectionChange);
     return () => {
       document.removeEventListener("selectionchange", handleSelectionChange);
     };
-  }, [readOnly, publicCommentsEnabled]);
+  }, [readOnly, publicCommentsEnabled, documentPage?.content]);
 
   // Guest comment form state
   const [guestForm, setGuestForm] = useState<{
     mode: "new" | "reply";
     parentId?: string;
     selectedText?: string;
+    /** Markdown byte offset of the selection start, used for occurrence counting. */
+    selectionStartOffset?: number;
     text: string;
     authorName: string;
     submitting: boolean;
     error: string | null;
   } | null>(null);
 
-  const openGuestCommentForm = useCallback((selectedText: string) => {
-    setGuestForm({
-      mode: "new",
-      selectedText,
-      text: "",
-      authorName: getGuestName(),
-      submitting: false,
-      error: null,
-    });
-    // Clear selection so button hides
-    setGuestSelectionText(null);
-    setGuestSelectionRect(null);
-  }, []);
+  const openGuestCommentForm = useCallback(
+    (selectedText: string, selectionStartOffset: number | null) => {
+      setGuestForm({
+        mode: "new",
+        selectedText,
+        selectionStartOffset: selectionStartOffset ?? undefined,
+        text: "",
+        authorName: getGuestName(),
+        submitting: false,
+        error: null,
+      });
+      // Clear selection so button hides
+      setGuestSelectionText(null);
+      setGuestSelectionRect(null);
+      setGuestSelectionStartOffset(null);
+    },
+    [],
+  );
 
   const openGuestReplyForm = useCallback((parentId: string) => {
     setGuestForm({
@@ -506,17 +545,15 @@ export function DocumentWorkspace({
       let anchor: { quote: string; occurrence: number } | undefined;
       if (guestForm.mode === "new" && guestForm.selectedText) {
         const quote = guestForm.selectedText;
-        const body = documentPage?.content ?? "";
-        // Count how many times quote appears in the body (1-based)
-        let occurrence = 0;
-        let searchFrom = 0;
-        while (true) {
-          const idx = body.indexOf(quote, searchFrom);
-          if (idx === -1) break;
-          occurrence += 1;
-          searchFrom = idx + 1;
-        }
-        anchor = { quote, occurrence: Math.max(1, occurrence) };
+        const content = documentPage?.content ?? "";
+        // Use the shared helper to find which plain-text, in-body occurrence
+        // of `quote` the user selected.  selectionStartOffset is the markdown
+        // byte position of the selection start captured at selection time.
+        const occurrence =
+          guestForm.selectionStartOffset != null
+            ? selectionOccurrence(content, quote, guestForm.selectionStartOffset)
+            : 1;
+        anchor = { quote, occurrence };
       }
 
       const refreshedPage = await publicBackend.addComment({
@@ -1148,7 +1185,11 @@ export function DocumentWorkspace({
             e.preventDefault();
           }}
           onClick={() => {
-            if (guestSelectionText) openGuestCommentForm(guestSelectionText);
+            if (guestSelectionText)
+              openGuestCommentForm(
+                guestSelectionText,
+                guestSelectionStartOffset,
+              );
           }}
         >
           <MessageSquarePlus className="size-3.5" />

@@ -1,4 +1,6 @@
 // lib/insert-public-comment.ts
+import { bodyStart as computeBodyStart, criticRegions as computeCriticRegions } from "./comment-anchor";
+
 export interface NewCommentInput {
   mode: "new";
   quote: string;
@@ -28,10 +30,6 @@ export class AnchorError extends Error {
 const escapeAttr = (v: string): string =>
   v.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 
-function frontmatterEnd(markdown: string): number {
-  const m = markdown.match(/^---[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/);
-  return m ? m[0].length : 0;
-}
 
 function metaBlock(
   id: string,
@@ -74,17 +72,11 @@ export function insertPublicComment(
       throw new AnchorError("quote contains CriticMarkup delimiters");
     }
 
-    const bodyStart = frontmatterEnd(markdown);
+    const bodyStart = computeBodyStart(markdown);
     const body = markdown.slice(bodyStart);
 
-    // Find all critic markup regions in the body so we can detect overlaps
-    const criticRegions: Array<{ start: number; end: number }> = [];
-    const criticRe = /\{==[\s\S]*?==\}|\{>>[\s\S]*?<<\}(\{[^{}]*\})?/g;
-    let cm: RegExpExecArray | null;
-    // biome-ignore lint/suspicious/noAssignInExpressions: idiomatic regex loop
-    while ((cm = criticRe.exec(body)) !== null) {
-      criticRegions.push({ start: cm.index, end: cm.index + cm[0].length });
-    }
+    // Shared region scan — same logic as comment-anchor.ts so the two can't drift
+    const regions = computeCriticRegions(body);
 
     // Finding 1: Find the occurrence-th PLAIN-TEXT match of quote within the body,
     // skipping any candidate index that falls inside a pre-scanned critic markup region
@@ -96,7 +88,7 @@ export function insertPublicComment(
       if (idx === -1) throw new AnchorError("quote occurrence not found");
       const matchEnd = idx + input.quote.length;
       // Skip this candidate if it overlaps any existing critic markup region
-      const insideMarkup = criticRegions.some(
+      const insideMarkup = regions.some(
         (region) => idx < region.end && matchEnd > region.start,
       );
       if (!insideMarkup) {
@@ -108,7 +100,7 @@ export function insertPublicComment(
 
     // Reject if the match overlaps any existing critic markup region
     const matchEnd = at + input.quote.length;
-    for (const region of criticRegions) {
+    for (const region of regions) {
       if (at < region.end && matchEnd > region.start) {
         throw new AnchorError("match overlaps existing critic markup");
       }
