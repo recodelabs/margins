@@ -2135,13 +2135,26 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
       saveTimer.current = null;
     }
 
-    reportDirtyState(true);
-
     if (manualCommit || saveBlocked) {
-      onSaveStateChange("unsaved");
+      // Don't flag "unsaved" on the bare editor update: tables, code blocks,
+      // mermaid, and task lists each dispatch a benign post-load transaction
+      // that fires onUpdate without changing the serialized document. Serialize
+      // once (debounced) and only flag unsaved when the markdown actually
+      // differs from the accepted baseline.
+      saveTimer.current = setTimeout(() => {
+        saveTimer.current = null;
+        const serialize = serializeFromEditorRef.current;
+        const next = serialize?.();
+        if (next == null) return;
+        pendingMarkdownRef.current = next;
+        const changed = next !== lastAcceptedMarkdownRef.current;
+        reportDirtyState(changed);
+        onSaveStateChange(changed ? "unsaved" : "saved");
+      }, 250);
       return;
     }
 
+    reportDirtyState(true);
     onSaveStateChange("saving");
     saveTimer.current = setTimeout(() => {
       saveTimer.current = null;
