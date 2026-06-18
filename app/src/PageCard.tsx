@@ -106,6 +106,11 @@ interface PageCardProps {
   saveBlocked?: boolean;
   forceResetKey?: string | null;
   manualCommit?: boolean;
+  /**
+   * When provided in public (readOnly) viewing mode, called instead of the
+   * editor-integrated replyToComment when the user clicks Reply on a thread.
+   */
+  onPublicReply?: (commentId: string) => void;
 }
 
 interface PageCardEditorSurfaceProps {
@@ -129,6 +134,7 @@ interface PageCardEditorSurfaceProps {
   saveBlocked?: boolean;
   forceResetKey?: string | null;
   manualCommit?: boolean;
+  onPublicReply?: (commentId: string) => void;
 }
 
 interface RichTextEditorSurfaceProps {
@@ -150,6 +156,7 @@ interface RichTextEditorSurfaceProps {
   // Registers a serializer the parent calls on demand (at save time) to get
   // the current document as critic markdown. Passing null clears it.
   onSerializeReady?: (serialize: (() => string | null) | null) => void;
+  onPublicReply?: (commentId: string) => void;
 }
 
 interface CodeEditorSurfaceProps {
@@ -635,6 +642,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
   onComposingCommentChange,
   onContentTouched,
   onSerializeReady,
+  onPublicReply,
 }: RichTextEditorSurfaceProps) {
   const editorRef = useRef<Editor | null>(null);
   const criticChangeFrameRef = useRef<number | null>(null);
@@ -1869,7 +1877,11 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
                 content: nextContent,
               }));
             }}
-            onReplyComment={replyToComment}
+            onReplyComment={
+              interactionMode === "viewing" && onPublicReply
+                ? onPublicReply
+                : replyToComment
+            }
             onSelectComment={selectComment}
             onFocusComment={focusComment}
             onHoverComment={setHoveredCommentId}
@@ -1985,6 +1997,7 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
   saveBlocked = false,
   forceResetKey = null,
   manualCommit = false,
+  onPublicReply,
 }: PageCardEditorSurfaceProps) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlightSaveRef = useRef<Promise<ManualSaveResult> | null>(null);
@@ -2322,6 +2335,7 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
       onEditorReady={onEditorReady}
       onContentTouched={handleContentTouched}
       onSerializeReady={handleSerializeReady}
+      onPublicReply={onPublicReply}
     />
   );
 });
@@ -2347,6 +2361,7 @@ export function PageCard({
   saveBlocked,
   forceResetKey,
   manualCommit,
+  onPublicReply,
 }: PageCardProps) {
   return (
     <div className="w-full">
@@ -2371,6 +2386,7 @@ export function PageCard({
         saveBlocked={saveBlocked}
         forceResetKey={forceResetKey}
         manualCommit={manualCommit}
+        onPublicReply={onPublicReply}
       />
     </div>
   );

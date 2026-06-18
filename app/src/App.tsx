@@ -915,6 +915,7 @@ export function App() {
           canEdit={canEdit}
           shareUrl={shareUrl}
           onSetPublic={handleSetPublic}
+          onDocumentPageChange={setDocumentPage}
         />
       </Suspense>
       <UnsavedChangesDialog
