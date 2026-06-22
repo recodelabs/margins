@@ -15,18 +15,28 @@ export interface FileEntry {
   name: string;
   /** Full file path relative to repo root (e.g. "docs/design/plan.md"). */
   path: string;
+  /** File size in bytes, from the GitHub tree's blob entry. */
+  size: number;
 }
 
 export type TreeEntry = FolderEntry | FileEntry;
 
+/** A markdown file path plus the metadata the tree listing carries for it. */
+export interface FileMeta {
+  /** Full file path relative to repo root (e.g. "docs/design/plan.md"). */
+  path: string;
+  /** File size in bytes. */
+  size: number;
+}
+
 /**
- * Given a flat list of `.md` file paths and a `currentDir` (empty string = repo
- * root), returns the immediate children at that folder: subfolders that contain
- * at least one `.md` anywhere beneath them, and `.md` files directly in the
- * current folder. Both lists are sorted alphabetically.
+ * Given a flat list of `.md` files (path + size) and a `currentDir` (empty
+ * string = repo root), returns the immediate children at that folder:
+ * subfolders that contain at least one `.md` anywhere beneath them, and `.md`
+ * files directly in the current folder. Both lists are sorted alphabetically.
  */
 export function getFolderContents(
-  allPaths: string[],
+  files: FileMeta[],
   currentDir: string,
 ): TreeEntry[] {
   const prefix = currentDir ? `${currentDir}/` : "";
@@ -34,13 +44,13 @@ export function getFolderContents(
   const immediateFiles: FileEntry[] = [];
   const subfolderNames = new Set<string>();
 
-  for (const p of allPaths) {
+  for (const { path: p, size } of files) {
     if (!p.startsWith(prefix)) continue;
     const rest = p.slice(prefix.length); // path relative to currentDir
     const slashIdx = rest.indexOf("/");
     if (slashIdx === -1) {
       // Direct child file
-      immediateFiles.push({ kind: "file", name: rest, path: p });
+      immediateFiles.push({ kind: "file", name: rest, path: p, size });
     } else {
       // It's under a subfolder
       subfolderNames.add(rest.slice(0, slashIdx));
@@ -53,9 +63,11 @@ export function getFolderContents(
     path: prefix + name,
   }));
 
-  const files = immediateFiles.sort((a, b) => a.name.localeCompare(b.name));
+  const sortedFiles = immediateFiles.sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
 
-  return [...folders, ...files];
+  return [...folders, ...sortedFiles];
 }
 
 /**

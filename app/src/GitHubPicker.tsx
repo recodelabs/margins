@@ -23,8 +23,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./components/ui/dialog";
+import { formatFileSize, formatRelativeTime } from "./format";
 import { clearToken, getStoredToken, login } from "./github-auth";
-import { GitHubBackend } from "./github-backend";
+import { type FileCommitInfo, GitHubBackend } from "./github-backend";
 import {
   listAccessibleRepos,
   listBranches,
@@ -36,7 +37,7 @@ import {
   navigate,
   parseGitHubLocation,
 } from "./github-route";
-import { getFolderContents, splitPath } from "./github-tree";
+import { type FileMeta, getFolderContents, splitPath } from "./github-tree";
 import { cn } from "./lib/utils";
 import { validateNewFileName } from "./new-file-name";
 import { handleSessionExpiry, takeSignedOutReason } from "./session-expiry";
@@ -174,7 +175,12 @@ export function GitHubPicker() {
   );
   const [ref, setRef] = useState(initialLoc.branch || "main");
   const [currentDir, setCurrentDir] = useState(() => getDirFromUrl());
-  const [allPaths, setAllPaths] = useState<string[] | null>(null);
+  const [allPaths, setAllPaths] = useState<FileMeta[] | null>(null);
+  // Last-commit metadata (date + author) per file path, fetched lazily for the
+  // current folder. Keyed by full path; absent until the folder's batch lands.
+  const [commitInfo, setCommitInfo] = useState<Map<string, FileCommitInfo>>(
+    () => new Map(),
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showNewFile, setShowNewFile] = useState(false);
@@ -272,6 +278,8 @@ export function GitHubPicker() {
       setLoading(true);
       setError(null);
       setAllPaths(null);
+      // Drop any commit metadata from the previous repo/branch.
+      setCommitInfo(new Map());
 
       const backend = new GitHubBackend({
         token,
@@ -300,6 +308,54 @@ export function GitHubPicker() {
       fetchAbortRef.current?.abort();
     };
   }, [token, repo, ref]);
+
+  // Compute folder contents for the current view (folders + files at this dir).
+  const entries = useMemo(
+    () => (allPaths ? getFolderContents(allPaths, currentDir) : []),
+    [allPaths, currentDir],
+  );
+
+  // Fetch last-commit metadata (date + author) for the files in the current
+  // folder — one batched GraphQL call per folder view. Failures are non-fatal:
+  // the list still works, it just won't show "modified … by …".
+  useEffect(() => {
+    const [owner, name] = repo.split("/");
+    if (!token || !owner || !name || !allPaths) return;
+
+    const filePaths = entries
+      .filter(
+        (e): e is Extract<typeof e, { kind: "file" }> => e.kind === "file",
+      )
+      .map((e) => e.path);
+    if (filePaths.length === 0) return;
+
+    let cancelled = false;
+    const backend = new GitHubBackend({
+      token,
+      owner,
+      repo: name,
+      branch: ref,
+      login: "",
+    });
+    backend
+      .listPathCommitInfo(filePaths)
+      .then((info) => {
+        if (cancelled || info.size === 0) return;
+        setCommitInfo((prev) => {
+          const next = new Map(prev);
+          for (const [path, value] of info) next.set(path, value);
+          return next;
+        });
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        handleSessionExpiry(e);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, repo, ref, entries, allPaths]);
 
   // Derive owner/name from the repo input field
   const [repoOwner, repoName] = repo.split("/");
@@ -351,8 +407,9 @@ export function GitHubPicker() {
   // Compute breadcrumb segments for the current dir
   const breadcrumbSegments = splitPath(currentDir);
 
-  // Compute folder contents for the current view
-  const entries = allPaths ? getFolderContents(allPaths, currentDir) : [];
+  // Reference time for relative "… ago" labels in the file list.
+  const now = new Date();
+
   const existingFileNames = entries
     .filter((e) => e.kind === "file")
     .map((e) => e.name);
@@ -612,12 +669,23 @@ export function GitHubPicker() {
                       );
                     }
                     // file entry
+                    const info = commitInfo.get(entry.path);
+                    const author = info
+                      ? (info.authorLogin ?? info.authorName)
+                      : "";
+                    // "12 KB · 3 days ago by octocat" — author/date appear once
+                    // the per-folder commit batch resolves.
+                    const metaParts = [formatFileSize(entry.size)];
+                    if (info) {
+                      const when = formatRelativeTime(info.date, now);
+                      metaParts.push(author ? `${when} by ${author}` : when);
+                    }
                     return (
                       <button
                         key={entry.path}
                         type="button"
                         className={cn(
-                          "group flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-sm text-slate-950 dark:text-slate-50 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors",
+                          "group flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-slate-950 dark:text-slate-50 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors",
                           !isLast &&
                             "border-b border-slate-100 dark:border-slate-800",
                         )}
@@ -627,8 +695,18 @@ export function GitHubPicker() {
                           className="size-4 shrink-0 text-stone-400 dark:text-stone-500"
                           aria-hidden="true"
                         />
-                        <span className="min-w-0 flex-1 truncate text-left">
-                          {entry.name}
+                        <span className="flex min-w-0 flex-1 flex-col text-left">
+                          <span className="truncate">{entry.name}</span>
+                          <span
+                            className="truncate text-xs text-stone-400 dark:text-stone-500"
+                            title={
+                              info
+                                ? new Date(info.date).toLocaleString()
+                                : undefined
+                            }
+                          >
+                            {metaParts.join(" · ")}
+                          </span>
                         </span>
                         <span className="shrink-0 text-xs text-stone-300 dark:text-stone-600 opacity-0 group-hover:opacity-100 transition-opacity">
                           Open
