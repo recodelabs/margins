@@ -150,16 +150,16 @@ describe("GitHubBackend", () => {
     }
   });
 
-  it("listMarkdownPaths returns only .md blob paths from the tree", async () => {
+  it("listMarkdownPaths returns .md blob paths with sizes from the tree", async () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(
           JSON.stringify({
             tree: [
-              { path: "a.md", type: "blob" },
+              { path: "a.md", type: "blob", size: 100 },
               { path: "docs", type: "tree" },
-              { path: "docs/b.md", type: "blob" },
-              { path: "img.png", type: "blob" },
+              { path: "docs/b.md", type: "blob", size: 2048 },
+              { path: "img.png", type: "blob", size: 9999 },
             ],
           }),
           { status: 200 },
@@ -167,7 +167,7 @@ describe("GitHubBackend", () => {
     );
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    const paths = await backend().listMarkdownPaths();
+    const files = await backend().listMarkdownPaths();
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.github.com/repos/o/r/git/trees/main?recursive=1",
@@ -178,7 +178,96 @@ describe("GitHubBackend", () => {
         },
       },
     );
-    expect(paths).toEqual(["a.md", "docs/b.md"]);
+    expect(files).toEqual([
+      { path: "a.md", size: 100 },
+      { path: "docs/b.md", size: 2048 },
+    ]);
+  });
+
+  describe("listPathCommitInfo", () => {
+    it("fetches last-commit date and author per path via one GraphQL call", async () => {
+      const fetchMock = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              data: {
+                repository: {
+                  f0: {
+                    history: {
+                      nodes: [
+                        {
+                          committedDate: "2026-06-20T10:00:00Z",
+                          author: {
+                            name: "Octo Cat",
+                            user: { login: "octocat" },
+                          },
+                        },
+                      ],
+                    },
+                  },
+                  f1: {
+                    history: {
+                      nodes: [
+                        {
+                          committedDate: "2026-06-19T10:00:00Z",
+                          author: { name: "Amadeus Agent", user: null },
+                        },
+                      ],
+                    },
+                  },
+                },
+              },
+            }),
+            { status: 200 },
+          ),
+      );
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const info = await backend().listPathCommitInfo(["a.md", "docs/b.md"]);
+
+      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe("https://api.github.com/graphql");
+      expect(init.method).toBe("POST");
+      expect(headersOf(init).Authorization).toBe("Bearer tok");
+      expect(String(init.body)).toContain("a.md");
+      expect(String(init.body)).toContain("docs/b.md");
+
+      expect(info.get("a.md")).toEqual({
+        date: "2026-06-20T10:00:00Z",
+        authorName: "Octo Cat",
+        authorLogin: "octocat",
+      });
+      expect(info.get("docs/b.md")).toEqual({
+        date: "2026-06-19T10:00:00Z",
+        authorName: "Amadeus Agent",
+        authorLogin: null,
+      });
+    });
+
+    it("omits paths with no commit history", async () => {
+      const fetchMock = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              data: { repository: { f0: { history: { nodes: [] } } } },
+            }),
+            { status: 200 },
+          ),
+      );
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const info = await backend().listPathCommitInfo(["ghost.md"]);
+      expect(info.has("ghost.md")).toBe(false);
+    });
+
+    it("returns an empty map for no paths without hitting the API", async () => {
+      const fetchMock = vi.fn();
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const info = await backend().listPathCommitInfo([]);
+      expect(info.size).toBe(0);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
   });
 
   it("round-trips multibyte UTF-8 content (accents, CJK, emoji)", async () => {
@@ -317,7 +406,7 @@ describe("GitHubBackend", () => {
 
     it("caches the tree listing and serves a 304 from cache", async () => {
       const tree = JSON.stringify({
-        tree: [{ path: "a.md", type: "blob" }],
+        tree: [{ path: "a.md", type: "blob", size: 7 }],
       });
       const fetchMock = vi
         .fn()
@@ -330,8 +419,8 @@ describe("GitHubBackend", () => {
       global.fetch = fetchMock as unknown as typeof fetch;
 
       const bk = backend();
-      expect(await bk.listMarkdownPaths()).toEqual(["a.md"]);
-      expect(await bk.listMarkdownPaths()).toEqual(["a.md"]);
+      expect(await bk.listMarkdownPaths()).toEqual([{ path: "a.md", size: 7 }]);
+      expect(await bk.listMarkdownPaths()).toEqual([{ path: "a.md", size: 7 }]);
       expect(headersOf(fetchMock.mock.calls[1][1])["If-None-Match"]).toBe(
         '"tree-1"',
       );
@@ -436,14 +525,16 @@ describe("GitHubBackend", () => {
         )
         .mockResolvedValueOnce(
           new Response(
-            JSON.stringify({ tree: [{ path: "a.md", type: "blob" }] }),
+            JSON.stringify({
+              tree: [{ path: "a.md", type: "blob", size: 11 }],
+            }),
             { status: 200 },
           ),
         );
       global.fetch = fetchMock as unknown as typeof fetch;
 
-      const paths = await backend().listMarkdownPaths();
-      expect(paths).toEqual(["a.md"]);
+      const files = await backend().listMarkdownPaths();
+      expect(files).toEqual([{ path: "a.md", size: 11 }]);
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 

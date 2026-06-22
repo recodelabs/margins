@@ -7,6 +7,7 @@ import {
 } from "./activity-log";
 import { invalidateCachedUrl } from "./github-cache";
 import { githubFetch, githubGet } from "./github-fetch";
+import type { FileMeta } from "./github-tree";
 import { titleFromContent } from "./markdown";
 import {
   type BackendCapabilities,
@@ -24,6 +25,16 @@ export interface GitHubBackendConfig {
   repo: string;
   branch: string;
   login: string;
+}
+
+/** Last-commit metadata for a single file, as shown in the file list. */
+export interface FileCommitInfo {
+  /** ISO 8601 committed date of the most recent commit touching the file. */
+  date: string;
+  /** Commit author's display name (may be empty if GitHub omits it). */
+  authorName: string;
+  /** Author's GitHub login when the commit maps to a user, else null. */
+  authorLogin: string | null;
 }
 
 const API = "https://api.github.com";
@@ -342,13 +353,13 @@ export class GitHubBackend implements StorageBackend {
     }
   }
 
-  async listMarkdownPaths(): Promise<string[]> {
+  async listMarkdownPaths(): Promise<FileMeta[]> {
     const { owner, repo, branch } = this.cfg;
     const url = `${API}/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
     return githubGet(url, this.headers(), async (res) => {
       if (!res.ok) throw new Error(`GitHub tree failed (${res.status})`);
       const json = (await res.json()) as {
-        tree: Array<{ path: string; type: string }>;
+        tree: Array<{ path: string; type: string; size?: number }>;
         truncated?: boolean;
       };
       if (json.truncated) {
@@ -358,8 +369,80 @@ export class GitHubBackend implements StorageBackend {
       }
       return json.tree
         .filter((e) => e.type === "blob" && /\.md$/i.test(e.path))
-        .map((e) => e.path);
+        .map((e) => ({ path: e.path, size: e.size ?? 0 }));
     });
+  }
+
+  /**
+   * Last-commit metadata (date + author) for a set of paths, fetched in a
+   * single GraphQL call. Used by the file list to show "last modified … by …".
+   * Paths with no commit history (shouldn't normally happen for tracked files)
+   * are simply absent from the returned map. Returns an empty map — with no
+   * network call — for an empty input.
+   *
+   * The query aliases one `history(first: 1, path: …)` per file off the branch
+   * head commit, so it's one round-trip per folder view regardless of count.
+   */
+  async listPathCommitInfo(
+    paths: string[],
+  ): Promise<Map<string, FileCommitInfo>> {
+    const result = new Map<string, FileCommitInfo>();
+    if (paths.length === 0) return result;
+
+    const { owner, repo, branch } = this.cfg;
+    const fields = paths
+      .map(
+        (path, i) =>
+          `f${i}: object(expression: ${JSON.stringify(branch)}) { ` +
+          `... on Commit { history(first: 1, path: ${JSON.stringify(path)}) { ` +
+          `nodes { committedDate author { name user { login } } } } } }`,
+      )
+      .join("\n");
+    const query = `query { repository(owner: ${JSON.stringify(
+      owner,
+    )}, name: ${JSON.stringify(repo)}) {\n${fields}\n} }`;
+
+    const res = await githubFetch(`${API}/graphql`, {
+      method: "POST",
+      headers: this.headers({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ query }),
+    });
+    if (!res.ok) {
+      throw new Error(`GitHub commit info failed (${res.status})`);
+    }
+    const json = (await res.json()) as {
+      data?: {
+        repository?: Record<
+          string,
+          {
+            history?: {
+              nodes?: Array<{
+                committedDate: string;
+                author?: {
+                  name?: string;
+                  user?: { login?: string } | null;
+                } | null;
+              }>;
+            };
+          } | null
+        >;
+      };
+    };
+
+    const repository = json.data?.repository;
+    if (!repository) return result;
+
+    paths.forEach((path, i) => {
+      const node = repository[`f${i}`]?.history?.nodes?.[0];
+      if (!node) return;
+      result.set(path, {
+        date: node.committedDate,
+        authorName: node.author?.name ?? "",
+        authorLogin: node.author?.user?.login ?? null,
+      });
+    });
+
+    return result;
   }
 
   saveAsset(_file: File): Promise<StoredAsset> {
