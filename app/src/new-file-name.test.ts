@@ -13,9 +13,24 @@ describe("validateNewFileName", () => {
     });
   });
 
-  it("rejects a name without a .md extension", () => {
-    const r = validateNewFileName("notes.txt", []);
-    expect(r).toEqual({ ok: false, error: "File name must end in .md" });
+  it("accepts the other supported extensions", () => {
+    for (const name of [
+      "data.json",
+      "config.yaml",
+      "config.yml",
+      "notes.txt",
+      "patient.fsh",
+    ]) {
+      expect(validateNewFileName(name, [])).toEqual({ ok: true });
+    }
+  });
+
+  it("rejects an unsupported extension", () => {
+    const r = validateNewFileName("logo.png", []);
+    expect(r).toEqual({
+      ok: false,
+      error: "File name must end in .md, .json, .yaml, .yml, .txt or .fsh",
+    });
   });
 
   it("rejects a name containing a slash", () => {

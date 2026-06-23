@@ -161,6 +161,8 @@ interface RichTextEditorSurfaceProps {
 
 interface CodeEditorSurfaceProps {
   markdown: string;
+  /** Open document path/name — drives the code editor's syntax highlighting. */
+  filePath: string | null;
   hasCommentRailSpace: boolean;
   interactionMode: DocumentInteractionMode;
   layout: "default" | "embedded-demo";
@@ -1920,6 +1922,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
 
 const CodeEditorSurface = memo(function CodeEditorSurface({
   markdown,
+  filePath,
   hasCommentRailSpace,
   interactionMode,
   layout,
@@ -1960,6 +1963,7 @@ const CodeEditorSurface = memo(function CodeEditorSurface({
                 <MarkdownCodeEditor
                   testId="markdown-code-editor"
                   value={markdown}
+                  path={filePath ?? undefined}
                   onChange={onMarkdownChange}
                   readOnly={interactionMode === "viewing"}
                   autoFocus
@@ -2319,6 +2323,7 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
     return (
       <CodeEditorSurface
         markdown={markdown}
+        filePath={activeDocumentPath}
         hasCommentRailSpace={hasCommentRailSpace}
         interactionMode={interactionMode}
         layout={layout}

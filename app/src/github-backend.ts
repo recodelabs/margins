@@ -5,6 +5,7 @@ import {
   appendActivityLine,
   parseActivityLog,
 } from "./activity-log";
+import { isSupportedPath } from "./file-types";
 import { invalidateCachedUrl } from "./github-cache";
 import { githubFetch, githubGet } from "./github-fetch";
 import type { FileMeta } from "./github-tree";
@@ -130,8 +131,8 @@ export class GitHubBackend implements StorageBackend {
   }
 
   async getMarkdownFile(relativePath: string): Promise<Page> {
-    if (!/\.md$/i.test(relativePath)) {
-      throw new Error("Only markdown (.md) files can be opened in margins");
+    if (!isSupportedPath(relativePath)) {
+      throw new Error("This file type can't be opened in margins");
     }
     return this.readFile(relativePath);
   }
@@ -141,8 +142,8 @@ export class GitHubBackend implements StorageBackend {
     content: string,
     expectedVersion?: string,
   ): Promise<Page> {
-    if (!/\.md$/i.test(relativePath)) {
-      throw new Error("Only markdown (.md) files can be opened in margins");
+    if (!isSupportedPath(relativePath)) {
+      throw new Error("This file type can't be opened in margins");
     }
     const { owner, repo, branch } = this.cfg;
     const res = await githubFetch(
@@ -198,8 +199,8 @@ export class GitHubBackend implements StorageBackend {
     relativePath: string,
     content: string,
   ): Promise<Page> {
-    if (!/\.md$/i.test(relativePath)) {
-      throw new Error("Only markdown (.md) files can be created in margins");
+    if (!isSupportedPath(relativePath)) {
+      throw new Error("This file type can't be created in margins");
     }
     const { owner, repo, branch } = this.cfg;
     const res = await githubFetch(
@@ -368,7 +369,7 @@ export class GitHubBackend implements StorageBackend {
         );
       }
       return json.tree
-        .filter((e) => e.type === "blob" && /\.md$/i.test(e.path))
+        .filter((e) => e.type === "blob" && isSupportedPath(e.path))
         .map((e) => ({ path: e.path, size: e.size ?? 0 }));
     });
   }

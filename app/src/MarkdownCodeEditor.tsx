@@ -1,28 +1,54 @@
+import { json } from "@codemirror/lang-json";
 import { markdown } from "@codemirror/lang-markdown";
-import { yamlFrontmatter } from "@codemirror/lang-yaml";
+import { yaml, yamlFrontmatter } from "@codemirror/lang-yaml";
 import { EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { basicSetup } from "codemirror";
 import { useEffect, useRef } from "react";
+import { type CodeHighlight, codeHighlightForPath } from "./file-types";
 import { cn } from "./lib/utils";
 
 interface MarkdownCodeEditorProps {
   value: string;
   onChange: (value: string) => void;
+  /**
+   * File path/name, used to pick the syntax-highlighting grammar. Omit to keep
+   * the historical Markdown (+ YAML frontmatter) default.
+   */
+  path?: string;
   autoFocus?: boolean;
   readOnly?: boolean;
   className?: string;
   testId?: string;
 }
 
+/**
+ * CodeMirror language for a highlight kind. `.txt`/`.fsh` ("plain") get no
+ * grammar — there is no CodeMirror parser for FHIR Shorthand.
+ */
+function languageExtensionFor(highlight: CodeHighlight): Extension | null {
+  switch (highlight) {
+    case "markdown":
+      return yamlFrontmatter({ content: markdown() });
+    case "yaml":
+      return yaml();
+    case "json":
+      return json();
+    case "plain":
+      return null;
+  }
+}
+
 export function createMarkdownCodeEditorExtensions(
   readOnly: boolean,
   onDocumentChange: (value: string) => void,
   lastValueRef: { current: string },
+  highlight: CodeHighlight = "markdown",
 ): Extension[] {
+  const language = languageExtensionFor(highlight);
   return [
     basicSetup,
-    yamlFrontmatter({ content: markdown() }),
+    ...(language ? [language] : []),
     EditorView.lineWrapping,
     EditorState.readOnly.of(readOnly),
     EditorView.editable.of(!readOnly),
@@ -87,6 +113,7 @@ export function createMarkdownCodeEditorExtensions(
 export function MarkdownCodeEditor({
   value,
   onChange,
+  path,
   autoFocus = false,
   readOnly = false,
   className,
@@ -97,6 +124,9 @@ export function MarkdownCodeEditor({
   const onChangeRef = useRef(onChange);
   const initialValueRef = useRef(value);
   const lastValueRef = useRef(value);
+  const highlight: CodeHighlight = path
+    ? codeHighlightForPath(path)
+    : "markdown";
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -114,6 +144,7 @@ export function MarkdownCodeEditor({
           readOnly,
           (nextValue) => onChangeRef.current(nextValue),
           lastValueRef,
+          highlight,
         ),
       }),
     });
@@ -129,7 +160,7 @@ export function MarkdownCodeEditor({
       editorViewRef.current = null;
       view.destroy();
     };
-  }, [autoFocus, readOnly]);
+  }, [autoFocus, readOnly, highlight]);
 
   useEffect(() => {
     const view = editorViewRef.current;

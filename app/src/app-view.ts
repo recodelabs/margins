@@ -1,4 +1,4 @@
-import { isMarkdownPath } from "./github-route";
+import { isSupportedPath } from "./github-route";
 
 /** The distinct top-level screens App can render, decided by `resolveAppView`. */
 export type AppView =
@@ -46,7 +46,8 @@ export function resolveAppView(params: AppViewParams): AppView {
 
   if (params.gitHubMode) {
     const { owner, repo, path } = params.githubLocation;
-    const validDocUrl = Boolean(owner) && Boolean(repo) && isMarkdownPath(path);
+    const validDocUrl =
+      Boolean(owner) && Boolean(repo) && isSupportedPath(path);
     if (!validDocUrl) return "github-picker";
     if (!params.hasToken && !params.publicView) return "github-picker";
   }

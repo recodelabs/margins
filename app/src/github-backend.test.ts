@@ -150,7 +150,7 @@ describe("GitHubBackend", () => {
     }
   });
 
-  it("listMarkdownPaths returns .md blob paths with sizes from the tree", async () => {
+  it("listMarkdownPaths returns supported blob paths with sizes, skipping others", async () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(
@@ -159,7 +159,12 @@ describe("GitHubBackend", () => {
               { path: "a.md", type: "blob", size: 100 },
               { path: "docs", type: "tree" },
               { path: "docs/b.md", type: "blob", size: 2048 },
+              { path: "data.json", type: "blob", size: 64 },
+              { path: "config.yaml", type: "blob", size: 32 },
+              { path: "notes.txt", type: "blob", size: 16 },
+              { path: "patient.fsh", type: "blob", size: 8 },
               { path: "img.png", type: "blob", size: 9999 },
+              { path: "script.ts", type: "blob", size: 1234 },
             ],
           }),
           { status: 200 },
@@ -178,9 +183,14 @@ describe("GitHubBackend", () => {
         },
       },
     );
+    // .md/.json/.yaml/.txt/.fsh are listed; .png and .ts are skipped.
     expect(files).toEqual([
       { path: "a.md", size: 100 },
       { path: "docs/b.md", size: 2048 },
+      { path: "data.json", size: 64 },
+      { path: "config.yaml", size: 32 },
+      { path: "notes.txt", size: 16 },
+      { path: "patient.fsh", size: 8 },
     ]);
   });
 
@@ -620,13 +630,13 @@ describe("GitHubBackend", () => {
       await expect(promise).rejects.not.toThrow(/already exists/);
     });
 
-    it("rejects a non-.md path without calling fetch", async () => {
+    it("rejects an unsupported file type without calling fetch", async () => {
       const fetchMock = vi.fn();
       global.fetch = fetchMock as unknown as typeof fetch;
 
       await expect(
-        backend().createMarkdownFile("notes.txt", "x"),
-      ).rejects.toThrow(/markdown/);
+        backend().createMarkdownFile("logo.png", "x"),
+      ).rejects.toThrow("This file type can't be created in margins");
       expect(fetchMock).not.toHaveBeenCalled();
     });
   });
@@ -934,23 +944,41 @@ describe("GitHubBackend", () => {
     });
   });
 
-  describe("markdown-only guard", () => {
-    it("getMarkdownFile rejects a non-.md path without calling fetch", async () => {
+  describe("supported-file-type guard", () => {
+    it("getMarkdownFile rejects an unsupported path without calling fetch", async () => {
       const fetchMock = vi.fn();
       global.fetch = fetchMock as unknown as typeof fetch;
       await expect(backend().getMarkdownFile("data.csv")).rejects.toThrow(
-        "Only markdown (.md) files can be opened in margins",
+        "This file type can't be opened in margins",
       );
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it("saveMarkdownFile rejects a non-.md path without calling fetch", async () => {
+    it("saveMarkdownFile rejects an unsupported path without calling fetch", async () => {
       const fetchMock = vi.fn();
       global.fetch = fetchMock as unknown as typeof fetch;
-      await expect(
-        backend().saveMarkdownFile("config.json", "{}"),
-      ).rejects.toThrow("Only markdown (.md) files can be opened in margins");
+      await expect(backend().saveMarkdownFile("logo.png", "x")).rejects.toThrow(
+        "This file type can't be opened in margins",
+      );
       expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("getMarkdownFile reads a non-markdown supported type (.json)", async () => {
+      const fetchMock = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              sha: "j1",
+              content: b64('{\n  "a": 1\n}\n'),
+              encoding: "base64",
+            }),
+            { status: 200 },
+          ),
+      );
+      global.fetch = fetchMock as unknown as typeof fetch;
+      const page = await backend().getMarkdownFile("data.json");
+      expect(page.content).toBe('{\n  "a": 1\n}\n');
+      expect(fetchMock).toHaveBeenCalled();
     });
 
     it("getMarkdownFile accepts a .MD (uppercase) path", async () => {
