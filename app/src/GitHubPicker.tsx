@@ -34,6 +34,7 @@ import {
 import {
   gitHubHref,
   isMarkdownPath,
+  isSupportedPath,
   navigate,
   parseGitHubLocation,
 } from "./github-route";
@@ -147,9 +148,9 @@ function LoginScreen() {
 /** Read the current folder from the path-based URL. */
 function getDirFromUrl(): string {
   const loc = parseGitHubLocation();
-  // If the path looks like a markdown file (shouldn't happen in picker mode,
+  // If the path looks like an openable file (shouldn't happen in picker mode,
   // but guard anyway), treat the parent as the current folder.
-  if (isMarkdownPath(loc.path)) {
+  if (isSupportedPath(loc.path)) {
     const lastSlash = loc.path.lastIndexOf("/");
     return lastSlash >= 0 ? loc.path.slice(0, lastSlash) : "";
   }
@@ -441,8 +442,11 @@ export function GitHubPicker() {
     const newPath = currentDir
       ? `${currentDir}/${newFileName.trim()}`
       : newFileName.trim();
+    // Seed markdown with a heading; other types start empty so the file stays
+    // valid (e.g. a "# Untitled" line would be invalid JSON).
+    const initialContent = isMarkdownPath(newPath) ? "# Untitled\n" : "";
     try {
-      await backend.createMarkdownFile(newPath, "# Untitled\n");
+      await backend.createMarkdownFile(newPath, initialContent);
       setCreating(false);
       setShowNewFile(false);
       openFile(newPath);
@@ -637,7 +641,7 @@ export function GitHubPicker() {
                 {/* Folder + file rows */}
                 {entries.length === 0 ? (
                   <div className="px-4 py-6 text-sm text-stone-400 dark:text-stone-500">
-                    No markdown files here.
+                    No files here.
                   </div>
                 ) : (
                   entries.map((entry, i) => {
@@ -696,7 +700,19 @@ export function GitHubPicker() {
                           aria-hidden="true"
                         />
                         <span className="flex min-w-0 flex-1 flex-col text-left">
-                          <span className="truncate">{entry.name}</span>
+                          {/* Markdown is the primary content type — give .md
+                              files a bolder, darker name so they stand out from
+                              the supporting file types in the same list. */}
+                          <span
+                            className={cn(
+                              "truncate",
+                              isMarkdownPath(entry.name)
+                                ? "font-semibold text-slate-900 dark:text-slate-100"
+                                : "font-normal text-stone-600 dark:text-stone-300",
+                            )}
+                          >
+                            {entry.name}
+                          </span>
                           <span
                             className="truncate text-xs text-stone-400 dark:text-stone-500"
                             title={
@@ -730,7 +746,7 @@ export function GitHubPicker() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New markdown file</DialogTitle>
+            <DialogTitle>New file</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-2">
             <label

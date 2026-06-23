@@ -31,7 +31,7 @@ import { detectBackend, isGitHubMode } from "./detect-backend";
 import { createDocumentSessionStore } from "./document-session";
 import { GitHubPicker } from "./GitHubPicker";
 import { completeLoginFromUrl, getStoredToken } from "./github-auth";
-import { isMarkdownPath, navigate, parseGitHubLocation } from "./github-route";
+import { isSupportedPath, navigate, parseGitHubLocation } from "./github-route";
 import { Homepage, HomepageSubtitle } from "./Homepage";
 import type { DocumentSaveState } from "./PageCard";
 import { PreviewPage } from "./PreviewPage";
@@ -242,7 +242,7 @@ export function App() {
 
       // Folder / repo-root URL (or not enough info yet) → picker view. Clear any
       // open document so render falls through to <GitHubPicker />.
-      if (!owner || !repo || !isMarkdownPath(path)) {
+      if (!owner || !repo || !isSupportedPath(path)) {
         setActiveDocumentPath(null);
         setDocumentPage(null);
         setLoadError(null);
@@ -390,7 +390,7 @@ export function App() {
     const githubFilePath =
       githubLocation.owner &&
       githubLocation.repo &&
-      isMarkdownPath(githubLocation.path)
+      isSupportedPath(githubLocation.path)
         ? `${githubLocation.owner}/${githubLocation.repo}/${githubLocation.path.replace(/^\/+/, "")}`
         : null;
 
@@ -876,7 +876,7 @@ export function App() {
   const githubNav: GitHubDocNav | null = (() => {
     if (!isGitHubMode()) return null;
     const loc = githubLocation;
-    if (!loc.owner || !loc.repo || !isMarkdownPath(loc.path)) return null;
+    if (!loc.owner || !loc.repo || !isSupportedPath(loc.path)) return null;
     return {
       owner: loc.owner,
       repo: loc.repo,
@@ -887,7 +887,7 @@ export function App() {
 
   const shareUrl = (() => {
     const loc = githubLocation;
-    if (!loc.owner || !loc.repo || !isMarkdownPath(loc.path)) return "";
+    if (!loc.owner || !loc.repo || !isSupportedPath(loc.path)) return "";
     return `${window.location.origin}/${loc.owner}/${loc.repo}/${loc.path}${loc.branch && loc.branch !== "main" ? `?branch=${loc.branch}` : ""}`;
   })();
 

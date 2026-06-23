@@ -45,9 +45,11 @@ export function gitHubHref(target: {
   return `/${encoded}${qs}`;
 }
 
-export function isMarkdownPath(path: string): boolean {
-  return /\.md$/i.test(path);
-}
+// File-type predicates live in `file-types.ts` (the single source of truth).
+// Re-exported here so existing routing callers keep importing from one place:
+//   - isSupportedPath — can the app open this path at all (listing/routing)?
+//   - isMarkdownPath  — does it get the rich-text editor + comment rail?
+export { isMarkdownPath, isSupportedPath } from "./file-types";
 
 /**
  * Single SPA-navigation primitive. Pushes `href` onto the history stack, then

@@ -1,3 +1,5 @@
+import { isSupportedPath } from "./file-types";
+
 interface RequestedPathState {
   rawPath: string | null;
   projectPath: string | null;
@@ -56,7 +58,7 @@ export function getRequestedPathState(): RequestedPathState {
   }
 
   const normalizedPath = normalizePathSeparators(rawPath);
-  if (!normalizedPath.toLowerCase().endsWith(".md")) {
+  if (!isSupportedPath(normalizedPath)) {
     return { rawPath, projectPath: rawPath, documentPath: null };
   }
 

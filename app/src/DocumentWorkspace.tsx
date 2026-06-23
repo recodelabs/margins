@@ -61,6 +61,7 @@ import {
   type DocumentSessionStore,
   useDocumentSession,
 } from "./document-session";
+import { isMarkdownPath } from "./file-types";
 import { gitHubHref } from "./github-route";
 import { getGuestName, setGuestName } from "./guest-identity";
 import { InstructionSender } from "./InstructionSender";
@@ -345,6 +346,14 @@ export function DocumentWorkspace({
   onDocumentPageChange,
 }: DocumentWorkspaceProps) {
   const readOnly = backend?.info.kind === "public";
+  // Non-markdown files (.json/.yaml/.txt/.fsh) open in the code editor only:
+  // the rich-text editor and CriticMarkup comment/review rail are
+  // markdown-specific, so the view toggle and comment controls are hidden and
+  // the editor is pinned to "code" regardless of any ?editor= URL override.
+  const isMarkdownDoc = isMarkdownPath(documentFilenameLabel);
+  const effectiveEditorViewMode: DocumentEditorViewMode = isMarkdownDoc
+    ? documentEditorViewMode
+    : "code";
   const [documentInteractionMode, setDocumentInteractionMode] =
     useState<DocumentInteractionMode>("editing");
   const effectiveInteractionMode: DocumentInteractionMode = readOnly
@@ -1324,53 +1333,55 @@ export function DocumentWorkspace({
           >
             <div className="document-page-main w-full max-w-[56rem] min-w-0">
               <div className="flex w-full flex-wrap items-center gap-1.5 px-1">
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <button
-                        type="button"
-                        data-testid="document-editor-view-toggle"
-                        className="grid shrink-0 grid-cols-2 rounded-[999px] bg-[#E8E3DB] dark:bg-slate-700 px-[2px] pt-[3px] pb-[2px] shadow-[inset_0_1px_0_rgba(255,251,245,0.72)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-                      >
-                        <span
-                          className={`flex w-[1.375rem] items-center justify-center rounded-full py-[2px] transition ${
-                            documentEditorViewMode === "rich-text"
-                              ? "bg-[#FFFDFC] dark:bg-slate-500 text-stone-700 dark:text-white shadow-[0_1px_2px_rgba(41,37,36,0.12)]"
-                              : "text-stone-500 dark:text-slate-400"
-                          }`}
+                {isMarkdownDoc ? (
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <button
+                          type="button"
+                          data-testid="document-editor-view-toggle"
+                          className="grid shrink-0 grid-cols-2 rounded-[999px] bg-[#E8E3DB] dark:bg-slate-700 px-[2px] pt-[3px] pb-[2px] shadow-[inset_0_1px_0_rgba(255,251,245,0.72)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
                         >
-                          <Eye className="size-[0.75rem]" />
-                        </span>
-                        <span
-                          className={`flex w-[1.375rem] items-center justify-center rounded-full py-[2px] transition ${
-                            documentEditorViewMode === "code"
-                              ? "bg-[#FFFDFC] dark:bg-slate-500 text-stone-700 dark:text-white shadow-[0_1px_2px_rgba(41,37,36,0.12)]"
-                              : "text-stone-500 dark:text-slate-400"
-                          }`}
-                        >
-                          <CodeXml className="size-[0.75rem]" />
-                        </span>
-                      </button>
-                    }
-                    aria-label={editorViewModeToggleLabel}
-                    onClick={() => {
-                      // Leaving the rich-text editor: serialize the latest
-                      // edits into the draft so the code view opens with them
-                      // (rich-text serialization is otherwise deferred to save).
-                      if (documentEditorViewMode === "rich-text") {
-                        documentSession
-                          .getSnapshot()
-                          .saveController?.flushDraft();
+                          <span
+                            className={`flex w-[1.375rem] items-center justify-center rounded-full py-[2px] transition ${
+                              documentEditorViewMode === "rich-text"
+                                ? "bg-[#FFFDFC] dark:bg-slate-500 text-stone-700 dark:text-white shadow-[0_1px_2px_rgba(41,37,36,0.12)]"
+                                : "text-stone-500 dark:text-slate-400"
+                            }`}
+                          >
+                            <Eye className="size-[0.75rem]" />
+                          </span>
+                          <span
+                            className={`flex w-[1.375rem] items-center justify-center rounded-full py-[2px] transition ${
+                              documentEditorViewMode === "code"
+                                ? "bg-[#FFFDFC] dark:bg-slate-500 text-stone-700 dark:text-white shadow-[0_1px_2px_rgba(41,37,36,0.12)]"
+                                : "text-stone-500 dark:text-slate-400"
+                            }`}
+                          >
+                            <CodeXml className="size-[0.75rem]" />
+                          </span>
+                        </button>
                       }
-                      onDocumentEditorViewModeChange(
-                        documentEditorViewMode === "rich-text"
-                          ? "code"
-                          : "rich-text",
-                      );
-                    }}
-                  />
-                  <TooltipContent>{editorViewModeToggleLabel}</TooltipContent>
-                </Tooltip>
+                      aria-label={editorViewModeToggleLabel}
+                      onClick={() => {
+                        // Leaving the rich-text editor: serialize the latest
+                        // edits into the draft so the code view opens with them
+                        // (rich-text serialization is otherwise deferred to save).
+                        if (documentEditorViewMode === "rich-text") {
+                          documentSession
+                            .getSnapshot()
+                            .saveController?.flushDraft();
+                        }
+                        onDocumentEditorViewModeChange(
+                          documentEditorViewMode === "rich-text"
+                            ? "code"
+                            : "rich-text",
+                        );
+                      }}
+                    />
+                    <TooltipContent>{editorViewModeToggleLabel}</TooltipContent>
+                  </Tooltip>
+                ) : null}
                 <Popover
                   open={fileCopyMenuOpen}
                   onOpenChange={setFileCopyMenuOpen}
@@ -1452,54 +1463,64 @@ export function DocumentWorkspace({
                         <TooltipContent>{agentBoxToggleLabel}</TooltipContent>
                       </Tooltip>
                     ) : null}
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <button
-                            type="button"
-                            data-testid="document-comments-toggle"
-                            aria-pressed={commentsHidden}
-                            className="inline-flex h-[1.5rem] items-center justify-center rounded-full px-1 text-stone-400 outline-none transition hover:bg-[#EEE9E1] hover:text-stone-600 focus-visible:ring-2 focus-visible:ring-stone-300/70 dark:text-stone-500 dark:hover:bg-slate-800 dark:hover:text-stone-300 dark:focus-visible:ring-slate-600/70"
+                    {isMarkdownDoc ? (
+                      <>
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <button
+                                type="button"
+                                data-testid="document-comments-toggle"
+                                aria-pressed={commentsHidden}
+                                className="inline-flex h-[1.5rem] items-center justify-center rounded-full px-1 text-stone-400 outline-none transition hover:bg-[#EEE9E1] hover:text-stone-600 focus-visible:ring-2 focus-visible:ring-stone-300/70 dark:text-stone-500 dark:hover:bg-slate-800 dark:hover:text-stone-300 dark:focus-visible:ring-slate-600/70"
+                              >
+                                {commentsHidden ? (
+                                  <EyeOff className="size-[0.78rem]" />
+                                ) : (
+                                  <MessageSquarePlus className="size-[0.78rem]" />
+                                )}
+                              </button>
+                            }
+                            aria-label={commentsToggleLabel}
+                            onClick={() =>
+                              setCommentsHidden((hidden) => !hidden)
+                            }
+                          />
+                          <TooltipContent>{commentsToggleLabel}</TooltipContent>
+                        </Tooltip>
+                        <Select<DocumentInteractionMode>
+                          value={documentInteractionMode}
+                          onValueChange={(value) => {
+                            if (value) setDocumentInteractionMode(value);
+                          }}
+                        >
+                          <SelectTrigger
+                            data-testid="document-mode-trigger"
+                            aria-label="Document mode"
+                            className="h-[1.5rem] px-1 font-mono text-[0.7rem] leading-[1.25rem] font-normal tracking-[0.01em] text-stone-400 dark:text-stone-500 hover:text-stone-500 dark:hover:text-stone-400"
                           >
-                            {commentsHidden ? (
-                              <EyeOff className="size-[0.78rem]" />
-                            ) : (
-                              <MessageSquarePlus className="size-[0.78rem]" />
+                            <ActiveDocumentInteractionModeIcon className="size-[0.68rem]" />
+                            <span className="truncate">
+                              {activeDocumentInteractionMode?.label}
+                            </span>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {documentInteractionModeOptions.map(
+                              ({ value, label, Icon }) => (
+                                <SelectItem
+                                  key={value}
+                                  value={value}
+                                  label={label}
+                                >
+                                  <Icon className="size-3 text-stone-500 dark:text-stone-400" />
+                                  <SelectItemText>{label}</SelectItemText>
+                                </SelectItem>
+                              ),
                             )}
-                          </button>
-                        }
-                        aria-label={commentsToggleLabel}
-                        onClick={() => setCommentsHidden((hidden) => !hidden)}
-                      />
-                      <TooltipContent>{commentsToggleLabel}</TooltipContent>
-                    </Tooltip>
-                    <Select<DocumentInteractionMode>
-                      value={documentInteractionMode}
-                      onValueChange={(value) => {
-                        if (value) setDocumentInteractionMode(value);
-                      }}
-                    >
-                      <SelectTrigger
-                        data-testid="document-mode-trigger"
-                        aria-label="Document mode"
-                        className="h-[1.5rem] px-1 font-mono text-[0.7rem] leading-[1.25rem] font-normal tracking-[0.01em] text-stone-400 dark:text-stone-500 hover:text-stone-500 dark:hover:text-stone-400"
-                      >
-                        <ActiveDocumentInteractionModeIcon className="size-[0.68rem]" />
-                        <span className="truncate">
-                          {activeDocumentInteractionMode?.label}
-                        </span>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {documentInteractionModeOptions.map(
-                          ({ value, label, Icon }) => (
-                            <SelectItem key={value} value={value} label={label}>
-                              <Icon className="size-3 text-stone-500 dark:text-stone-400" />
-                              <SelectItemText>{label}</SelectItemText>
-                            </SelectItem>
-                          ),
-                        )}
-                      </SelectContent>
-                    </Select>
+                          </SelectContent>
+                        </Select>
+                      </>
+                    ) : null}
                     {backend?.info.kind === "github" ? (
                       <SharePopover
                         canEdit={canEdit}
@@ -1546,7 +1567,7 @@ export function DocumentWorkspace({
                 selected
                 onSave={onSaveDocument}
                 onSaveStateChange={documentSession.setSaveState}
-                editorViewMode={documentEditorViewMode}
+                editorViewMode={effectiveEditorViewMode}
                 interactionMode={effectiveInteractionMode}
                 commentsHidden={commentsHidden}
                 backend={backend}
@@ -1569,7 +1590,7 @@ export function DocumentWorkspace({
           ) : null
         ) : (
           <div className="flex min-h-[50vh] items-center justify-center text-sm text-slate-500 dark:text-slate-400">
-            Open a markdown file to begin.
+            Open a file to begin.
           </div>
         )}
       </div>
