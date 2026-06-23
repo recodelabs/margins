@@ -25,6 +25,8 @@ import {
   syncRequestedPathInUrl,
 } from "./app-navigation";
 import { resolveAppView } from "./app-view";
+import { type AutoMergeOutcome, saveWithAutoMerge } from "./auto-merge";
+import { ConflictResolveDialog } from "./ConflictResolveDialog";
 import { DocumentLoadError } from "./DocumentLoadError";
 import type { GitHubDocNav } from "./DocumentWorkspace";
 import { detectBackend, isGitHubMode } from "./detect-backend";
@@ -33,6 +35,7 @@ import { GitHubPicker } from "./GitHubPicker";
 import { completeLoginFromUrl, getStoredToken } from "./github-auth";
 import { isMarkdownPath, navigate, parseGitHubLocation } from "./github-route";
 import { Homepage, HomepageSubtitle } from "./Homepage";
+import type { MergeRegion } from "./merge";
 import type { DocumentSaveState } from "./PageCard";
 import { PreviewPage } from "./PreviewPage";
 import { PublicDocNotFoundError } from "./public-backend";
@@ -109,6 +112,15 @@ export function App() {
   const [documentForceResetKey, setDocumentForceResetKey] = useState<
     string | null
   >(null);
+  // Set when an autosave hits an overlapping edit conflict that the 3-way merge
+  // could not resolve on its own; drives the resolve dialog. `version` is the
+  // server's current version, which the resolved text must be saved against.
+  const [documentMergeConflict, setDocumentMergeConflict] = useState<{
+    path: string;
+    base: string;
+    regions: MergeRegion[];
+    version?: string;
+  } | null>(null);
   const [documentActionError, setDocumentActionError] = useState<string | null>(
     null,
   );
@@ -420,36 +432,68 @@ export function App() {
     requestedPathState.rawPath,
   ]);
 
+  // Bind the active backend's save into the pure auto-merge orchestrator, so it
+  // folds in concurrent saves and surfaces only genuine overlaps as conflicts.
+  const runAutoMergeSave = useCallback(
+    (params: {
+      path: string;
+      content: string;
+      base: string;
+      expectedVersion?: string;
+    }): Promise<AutoMergeOutcome> => {
+      const backend = backendRef.current;
+      if (!backend) return Promise.resolve({ kind: "exhausted" });
+      return saveWithAutoMerge(
+        (path, content, expectedVersion) =>
+          backend.saveMarkdownFile(path, content, expectedVersion),
+        params,
+      );
+    },
+    [],
+  );
+
   const handleSaveDocument = useCallback(
     async (id: string, content: string) => {
       if (!activeDocumentPath) return;
-      const expectedVersion =
-        documentPageRef.current?.id === id
-          ? documentPageRef.current.version
-          : undefined;
 
-      const backend = backendRef.current;
-      if (!backend) return;
+      const baseDoc =
+        documentPageRef.current?.id === id ? documentPageRef.current : null;
+      const outcome = await runAutoMergeSave({
+        path: activeDocumentPath,
+        content,
+        // The common ancestor: the content we last synced with the server. On a
+        // conflict the save failed, so this still holds the base.
+        base: baseDoc?.content ?? content,
+        expectedVersion: baseDoc?.version,
+      });
 
-      let savedDocument: Page;
-      try {
-        savedDocument = await backend.saveMarkdownFile(
-          activeDocumentPath,
-          content,
-          expectedVersion,
-        );
-      } catch (error) {
-        if (error instanceof MarkdownFileConflictError) {
-          setDocumentDiskChangeState("conflict");
+      if (outcome.kind === "saved") {
+        applyDocumentPage(outcome.savedDocument);
+        documentSession.setDirty(false);
+        setDocumentDiskChangeState("clean");
+        setDocumentMergeConflict(null);
+        if (outcome.autoMerged) {
+          // The editor still shows our pre-merge draft; reset it to the merged
+          // result so the next autosave can't clobber the folded-in changes.
+          setDocumentForceResetKey(
+            `${activeDocumentPath}:${outcome.savedDocument.version ?? Date.now()}:merged`,
+          );
+          setToast({ message: "Merged in changes saved by someone else." });
         }
-        throw error;
+        return;
       }
 
-      applyDocumentPage(savedDocument);
-      documentSession.setDirty(false);
-      setDocumentDiskChangeState("clean");
+      if (outcome.kind === "conflict") {
+        setDocumentMergeConflict(outcome.conflict);
+      }
+      setDocumentDiskChangeState("conflict");
+      // Signal the editor that this autosave did not land, so it doesn't show
+      // "saved" while the conflict dialog is open.
+      throw new MarkdownFileConflictError(
+        documentPageRef.current ?? { id, title: id, content },
+      );
     },
-    [activeDocumentPath, applyDocumentPage, documentSession],
+    [activeDocumentPath, applyDocumentPage, documentSession, runAutoMergeSave],
   );
 
   useEffect(() => {
@@ -533,6 +577,65 @@ export function App() {
       ),
     [applyDocumentPage, documentSession],
   );
+
+  // The user picked how to resolve each overlapping conflict; save the combined
+  // text. If yet another save landed meanwhile, re-merge and re-open the dialog.
+  const handleResolveConflict = useCallback(
+    (resolvedText: string) =>
+      runWithErrorFeedback(
+        async () => {
+          const conflict = documentMergeConflict;
+          const currentPath = activeDocumentPathRef.current;
+          if (!conflict || !currentPath) return;
+
+          setDocumentActionError(null);
+          const outcome = await runAutoMergeSave({
+            path: currentPath,
+            content: resolvedText,
+            base: conflict.base,
+            expectedVersion: conflict.version,
+          });
+
+          if (outcome.kind === "saved") {
+            applyDocumentPage(outcome.savedDocument);
+            documentSession.setDirty(false);
+            documentSession.setSaveState("saved");
+            setDocumentDiskChangeState("clean");
+            setDocumentMergeConflict(null);
+            setDocumentForceResetKey(
+              `${currentPath}:${outcome.savedDocument.version ?? Date.now()}:resolved`,
+            );
+            return;
+          }
+
+          if (outcome.kind === "conflict") {
+            setDocumentMergeConflict(outcome.conflict);
+            return;
+          }
+          throw new Error("Could not save the resolved document.");
+        },
+        setDocumentActionError,
+        "Could not save the resolved document.",
+      ),
+    [
+      applyDocumentPage,
+      documentMergeConflict,
+      documentSession,
+      runAutoMergeSave,
+    ],
+  );
+
+  const handleCancelConflict = useCallback(() => {
+    // Close the dialog but keep the draft; autosave stays paused so we don't
+    // immediately re-trigger the same conflict.
+    setDocumentMergeConflict(null);
+    setDocumentDiskChangeState("paused");
+  }, []);
+
+  const handleTakeTheirsForConflict = useCallback(() => {
+    setDocumentMergeConflict(null);
+    void handleReloadDocumentFromDisk();
+  }, [handleReloadDocumentFromDisk]);
 
   const handleCompleteReview = useCallback(
     async (options?: CompleteReviewOptions) => {
@@ -898,6 +1001,14 @@ export function App() {
           message={toast.message}
           commitUrl={toast.commitUrl}
           onDismiss={dismissToast}
+        />
+      ) : null}
+      {documentMergeConflict ? (
+        <ConflictResolveDialog
+          regions={documentMergeConflict.regions}
+          onResolve={handleResolveConflict}
+          onTakeTheirs={handleTakeTheirsForConflict}
+          onCancel={handleCancelConflict}
         />
       ) : null}
       {updateStatus ? (
