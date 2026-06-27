@@ -25,6 +25,7 @@ import {
   criticMarkdownToEditorState,
   editorStateToCriticMarkdown,
   getCommentDescendantIds,
+  markdownEquivalent,
 } from "./critic-markup";
 import {
   type CriticChangeRailItem,
@@ -43,7 +44,7 @@ import {
   SUGGESTED_PARAGRAPH_SENTINEL,
 } from "./editor-extensions";
 import { cn } from "./lib/utils";
-import { toHtml } from "./markdown";
+import { type MarkdownOptions, toHtml } from "./markdown";
 import { runWithErrorFeedback } from "./run-with-error-feedback";
 import type { Page, StorageBackend } from "./storage";
 import {
@@ -2030,6 +2031,31 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
     [onDirtyStateChange],
   );
 
+  // Same parse options the rich-text editor uses, so canonicalization produces
+  // byte-identical output to the editor's own serialization (URLs included).
+  const markdownComparisonOptions = useMemo<MarkdownOptions | undefined>(() => {
+    if (!backend) return undefined;
+    return {
+      resolveFileUrl: (path: string) => backend.resolveFileUrl(path),
+      resolveLinkUrl: (path: string) =>
+        buildLocationForLinkedMarkdownDocument({
+          projectPath: backend.info.projectPath,
+          currentDocumentPath: activeDocumentPath,
+          href: path,
+        }),
+    };
+  }, [activeDocumentPath, backend]);
+
+  // True when the candidate Markdown is the same document as the baseline,
+  // ignoring the cosmetic normalization the editor applies on round-trip.
+  // Loading an untouched document serializes to non-identical bytes; comparing
+  // raw strings here is what made the manual-commit button appear on every load.
+  const sameContent = useCallback(
+    (candidate: string, baseline: string) =>
+      markdownEquivalent(candidate, baseline, markdownComparisonOptions),
+    [markdownComparisonOptions],
+  );
+
   const acceptMarkdown = useCallback(
     (nextMarkdown: string) => {
       pendingMarkdownRef.current = nextMarkdown;
@@ -2127,9 +2153,11 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
     pendingMarkdownRef.current = nextMarkdown;
     setMarkdown(nextMarkdown);
     onLocalContentChange?.(nextMarkdown);
-    reportDirtyState(nextMarkdown !== lastAcceptedMarkdownRef.current);
+    reportDirtyState(
+      !sameContent(nextMarkdown, lastAcceptedMarkdownRef.current),
+    );
     return nextMarkdown;
-  }, [onLocalContentChange, reportDirtyState]);
+  }, [onLocalContentChange, reportDirtyState, sameContent]);
 
   // Rich-text typing path: flip save state immediately (cheap) and schedule
   // the autosave, which serializes once when it fires instead of per keystroke.
@@ -2151,7 +2179,7 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
         const next = serialize?.();
         if (next == null) return;
         pendingMarkdownRef.current = next;
-        const changed = next !== lastAcceptedMarkdownRef.current;
+        const changed = !sameContent(next, lastAcceptedMarkdownRef.current);
         reportDirtyState(changed);
         onSaveStateChange(changed ? "unsaved" : "saved");
       }, 250);
@@ -2175,6 +2203,7 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
     onSaveStateChange,
     performSave,
     reportDirtyState,
+    sameContent,
     saveBlocked,
   ]);
 
@@ -2191,7 +2220,7 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
     const currentMarkdown = pendingMarkdownRef.current;
 
     if (
-      currentMarkdown === lastAcceptedMarkdownRef.current &&
+      sameContent(currentMarkdown, lastAcceptedMarkdownRef.current) &&
       !inFlightSaveRef.current
     ) {
       onSaveStateChange("saved");
@@ -2200,14 +2229,16 @@ const PageCardEditorSurface = memo(function PageCardEditorSurface({
 
     if (inFlightSaveRef.current) {
       await inFlightSaveRef.current;
-      if (pendingMarkdownRef.current === lastAcceptedMarkdownRef.current) {
+      if (
+        sameContent(pendingMarkdownRef.current, lastAcceptedMarkdownRef.current)
+      ) {
         onSaveStateChange("saved");
         return { status: "saved" };
       }
     }
 
     return await performSave(pendingMarkdownRef.current);
-  }, [commitSerializedFromEditor, onSaveStateChange, performSave]);
+  }, [commitSerializedFromEditor, onSaveStateChange, performSave, sameContent]);
 
   const flushDraft = useCallback(() => {
     commitSerializedFromEditor();

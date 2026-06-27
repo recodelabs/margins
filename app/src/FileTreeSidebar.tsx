@@ -1,16 +1,14 @@
 import {
   ChevronDown,
   ChevronRight,
-  Clock,
   FileText,
   Folder,
   FolderOpen,
   Loader2,
   PanelLeftClose,
   PanelLeftOpen,
-  Pin,
 } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { GitHubDocNav } from "./DocumentWorkspace";
 import { isMarkdownPath } from "./file-types";
 import { gitHubHref } from "./github-route";
@@ -21,13 +19,6 @@ import {
   type TreeNode,
 } from "./github-tree";
 import { cn } from "./lib/utils";
-import {
-  readPinnedFiles,
-  readRecentFiles,
-  recordRecentFile,
-  repoKey,
-  togglePinnedFile,
-} from "./recent-files";
 import { handleSessionExpiry } from "./session-expiry";
 import {
   readStoredSidebarCollapsed,
@@ -46,16 +37,15 @@ interface FileTreeSidebarProps {
   onNavigate: (href: string) => void;
 }
 
-const leafName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 const parentDir = (path: string) =>
   path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
 
 /**
  * Persistent, collapsible file-tree sidebar for the workspace. Lets a reader
- * switch files without returning to the picker, with quick-access Pinned and
- * Recent sections. GitHub-mode only: it relies on the backend's recursive
- * `listMarkdownPaths`, which other backends don't provide — so it renders
- * nothing outside GitHub mode.
+ * switch files without returning to the picker. The open file is highlighted
+ * and its parent folders are auto-expanded so it's always visible. GitHub-mode
+ * only: it relies on the backend's recursive `listMarkdownPaths`, which other
+ * backends don't provide — so it renders nothing outside GitHub mode.
  */
 export function FileTreeSidebar({
   backend,
@@ -79,8 +69,6 @@ export function FileTreeSidebar({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-  const [recent, setRecent] = useState<string[]>([]);
-  const [pinned, setPinned] = useState<string[]>([]);
 
   // GitHub-only: gate on the recursive listing the sidebar needs.
   const isGitHub =
@@ -90,7 +78,6 @@ export function FileTreeSidebar({
   const repo = githubNav?.repo ?? "";
   const branch = githubNav?.branch ?? "main";
   const currentPath = githubNav?.path ?? "";
-  const key = isGitHub && owner && repo ? repoKey(owner, repo) : "";
 
   // Fetch the flat path list whenever the repo/branch changes. The GitHub
   // ETag cache makes a repeat of the picker's listing come back 304.
@@ -126,36 +113,20 @@ export function FileTreeSidebar({
     // identity changes whenever the repo or branch does — driving a refetch.
   }, [isGitHub, owner, repo, backend?.listMarkdownPaths]);
 
-  // Load this repo's stored Recent / Pinned shortcuts.
+  // Reveal the open file by expanding every ancestor folder, so a deeply nested
+  // highlighted file is always visible without the reader hunting for it.
   useEffect(() => {
-    if (!key) {
-      setRecent([]);
-      setPinned([]);
-      return;
-    }
-    setRecent(readRecentFiles(key));
-    setPinned(readPinnedFiles(key));
-  }, [key]);
-
-  // Record the open file as recent and reveal its folder in the tree.
-  useEffect(() => {
-    if (!key || !currentPath) return;
-    setRecent(recordRecentFile(key, currentPath));
+    if (!currentPath) return;
     const ancestors = splitPath(parentDir(currentPath)).map((s) => s.path);
-    if (ancestors.length > 0) {
-      setExpanded((prev) => {
-        const next = new Set(prev);
-        for (const a of ancestors) next.add(a);
-        return next;
-      });
-    }
-  }, [key, currentPath]);
+    if (ancestors.length === 0) return;
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      for (const a of ancestors) next.add(a);
+      return next;
+    });
+  }, [currentPath]);
 
   const tree = useMemo(() => (allPaths ? buildTree(allPaths) : []), [allPaths]);
-  const knownPaths = useMemo(
-    () => new Set((allPaths ?? []).map((f) => f.path)),
-    [allPaths],
-  );
 
   const openPath = (path: string) => {
     onNavigate(gitHubHref({ owner, repo, branch, path }));
@@ -167,10 +138,6 @@ export function FileTreeSidebar({
       else next.add(path);
       return next;
     });
-  const onTogglePin = (path: string) => {
-    if (!key) return;
-    setPinned(togglePinnedFile(key, path));
-  };
 
   if (!isGitHub || !githubNav) return null;
 
@@ -190,13 +157,6 @@ export function FileTreeSidebar({
       </div>
     );
   }
-
-  // Pinned / recent shortcuts, filtered to files that still exist in the repo.
-  const pinnedExisting = pinned.filter((p) => knownPaths.has(p));
-  const pinnedSet = new Set(pinnedExisting);
-  const recentExisting = recent.filter(
-    (p) => knownPaths.has(p) && !pinnedSet.has(p),
-  );
 
   return (
     <aside
@@ -231,178 +191,32 @@ export function FileTreeSidebar({
           </p>
         ) : null}
 
-        {/* Pinned */}
-        {pinnedExisting.length > 0 ? (
-          <ShortcutSection
-            testid="file-tree-pinned"
-            icon={<Pin className="size-3" aria-hidden="true" />}
-            label="Pinned"
-          >
-            {pinnedExisting.map((path) => (
-              <ShortcutRow
-                key={path}
-                path={path}
-                active={path === currentPath}
-                pinned
+        {loading && !allPaths ? (
+          <div className="flex items-center gap-2 px-3 py-2 text-xs text-stone-400 dark:text-stone-500">
+            <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+            Loading files…
+          </div>
+        ) : tree.length === 0 ? (
+          <p className="px-3 py-2 text-xs text-stone-400 dark:text-stone-500">
+            No files.
+          </p>
+        ) : (
+          <ul className="list-none">
+            {tree.map((node) => (
+              <TreeRow
+                key={node.path}
+                node={node}
+                depth={0}
+                currentPath={currentPath}
+                expanded={expanded}
                 onOpen={openPath}
-                onTogglePin={onTogglePin}
+                onToggleFolder={toggleFolder}
               />
             ))}
-          </ShortcutSection>
-        ) : null}
-
-        {/* Recent */}
-        {recentExisting.length > 0 ? (
-          <ShortcutSection
-            testid="file-tree-recent"
-            icon={<Clock className="size-3" aria-hidden="true" />}
-            label="Recent"
-          >
-            {recentExisting.map((path) => (
-              <ShortcutRow
-                key={path}
-                path={path}
-                active={path === currentPath}
-                pinned={false}
-                onOpen={openPath}
-                onTogglePin={onTogglePin}
-              />
-            ))}
-          </ShortcutSection>
-        ) : null}
-
-        {/* Full tree */}
-        <div className="mt-1">
-          {(pinnedExisting.length > 0 || recentExisting.length > 0) && (
-            <div className="px-3 pt-2 pb-1 text-[0.62rem] font-semibold uppercase tracking-wider text-stone-400 dark:text-stone-500">
-              Files
-            </div>
-          )}
-          {loading && !allPaths ? (
-            <div className="flex items-center gap-2 px-3 py-2 text-xs text-stone-400 dark:text-stone-500">
-              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-              Loading files…
-            </div>
-          ) : tree.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-stone-400 dark:text-stone-500">
-              No files.
-            </p>
-          ) : (
-            <ul className="list-none">
-              {tree.map((node) => (
-                <TreeRow
-                  key={node.path}
-                  node={node}
-                  depth={0}
-                  currentPath={currentPath}
-                  expanded={expanded}
-                  pinnedSet={pinnedSet}
-                  onOpen={openPath}
-                  onToggleFolder={toggleFolder}
-                  onTogglePin={onTogglePin}
-                />
-              ))}
-            </ul>
-          )}
-        </div>
+          </ul>
+        )}
       </div>
     </aside>
-  );
-}
-
-function ShortcutSection({
-  testid,
-  icon,
-  label,
-  children,
-}: {
-  testid: string;
-  icon: ReactNode;
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div data-testid={testid}>
-      <div className="flex items-center gap-1.5 px-3 pt-1.5 pb-1 text-[0.62rem] font-semibold uppercase tracking-wider text-stone-400 dark:text-stone-500">
-        {icon}
-        {label}
-      </div>
-      <ul className="list-none">{children}</ul>
-    </div>
-  );
-}
-
-function ShortcutRow({
-  path,
-  active,
-  pinned,
-  onOpen,
-  onTogglePin,
-}: {
-  path: string;
-  active: boolean;
-  pinned: boolean;
-  onOpen: (path: string) => void;
-  onTogglePin: (path: string) => void;
-}) {
-  return (
-    <li className="group/row relative">
-      <button
-        type="button"
-        data-testid="file-tree-file"
-        data-active={active || undefined}
-        title={path}
-        onClick={() => onOpen(path)}
-        className={cn(
-          "flex w-full items-center gap-1.5 py-1 pl-3 pr-7 text-left text-xs transition-colors",
-          active
-            ? "bg-blue-50 font-medium text-blue-700 dark:bg-blue-500/15 dark:text-blue-200"
-            : "text-stone-600 hover:bg-black/[0.04] dark:text-stone-300 dark:hover:bg-white/[0.05]",
-        )}
-      >
-        <FileText
-          className="size-3.5 shrink-0 text-stone-400 dark:text-stone-500"
-          aria-hidden="true"
-        />
-        <span className="min-w-0 flex-1 truncate">{leafName(path)}</span>
-      </button>
-      <PinButton path={path} pinned={pinned} onTogglePin={onTogglePin} />
-    </li>
-  );
-}
-
-function PinButton({
-  path,
-  pinned,
-  onTogglePin,
-}: {
-  path: string;
-  pinned: boolean;
-  onTogglePin: (path: string) => void;
-}) {
-  return (
-    <button
-      type="button"
-      data-testid="file-tree-pin"
-      aria-label={pinned ? "Unpin file" : "Pin file"}
-      aria-pressed={pinned}
-      title={pinned ? "Unpin" : "Pin"}
-      onClick={(e) => {
-        e.stopPropagation();
-        onTogglePin(path);
-      }}
-      className={cn(
-        "absolute right-1.5 top-1/2 inline-flex size-5 -translate-y-1/2 items-center justify-center rounded text-stone-400 hover:text-slate-900 dark:hover:text-slate-100",
-        pinned
-          ? "text-blue-500 dark:text-blue-300"
-          : "opacity-0 transition-opacity group-hover/row:opacity-100 focus-visible:opacity-100",
-      )}
-    >
-      <Pin
-        className={cn("size-3", pinned && "fill-current")}
-        aria-hidden="true"
-      />
-    </button>
   );
 }
 
@@ -411,21 +225,17 @@ function TreeRow({
   depth,
   currentPath,
   expanded,
-  pinnedSet,
   onOpen,
   onToggleFolder,
-  onTogglePin,
 }: {
   node: TreeNode;
   depth: number;
   currentPath: string;
   expanded: Set<string>;
-  pinnedSet: Set<string>;
   onOpen: (path: string) => void;
   onToggleFolder: (path: string) => void;
-  onTogglePin: (path: string) => void;
 }) {
-  // 0.75rem base + 0.7rem per depth level for the indent guide.
+  // 0.5rem base + 0.7rem per depth level for the indent guide.
   const indent = { paddingLeft: `${0.5 + depth * 0.7}rem` };
 
   if (node.kind === "folder") {
@@ -473,10 +283,8 @@ function TreeRow({
                 depth={depth + 1}
                 currentPath={currentPath}
                 expanded={expanded}
-                pinnedSet={pinnedSet}
                 onOpen={onOpen}
                 onToggleFolder={onToggleFolder}
-                onTogglePin={onTogglePin}
               />
             ))}
           </ul>
@@ -487,7 +295,7 @@ function TreeRow({
 
   const active = node.path === currentPath;
   return (
-    <li className="group/row relative">
+    <li className="relative">
       <button
         type="button"
         data-testid="file-tree-file"
@@ -496,7 +304,7 @@ function TreeRow({
         onClick={() => onOpen(node.path)}
         style={indent}
         className={cn(
-          "flex w-full items-center gap-1.5 py-1 pr-7 text-left text-xs transition-colors",
+          "flex w-full items-center gap-1.5 py-1 pr-2 text-left text-xs transition-colors",
           active
             ? "bg-blue-50 font-medium text-blue-700 dark:bg-blue-500/15 dark:text-blue-200"
             : isMarkdownPath(node.name)
@@ -510,11 +318,6 @@ function TreeRow({
         />
         <span className="min-w-0 flex-1 truncate">{node.name}</span>
       </button>
-      <PinButton
-        path={node.path}
-        pinned={pinnedSet.has(node.path)}
-        onTogglePin={onTogglePin}
-      />
     </li>
   );
 }
