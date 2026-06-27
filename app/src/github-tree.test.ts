@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { type FileMeta, getFolderContents, splitPath } from "./github-tree";
+import {
+  buildTree,
+  type FileMeta,
+  getFolderContents,
+  splitPath,
+  type TreeFolderNode,
+} from "./github-tree";
 
 describe("getFolderContents", () => {
   const files: FileMeta[] = [
@@ -71,6 +77,45 @@ describe("getFolderContents", () => {
   it("handles empty path list", () => {
     expect(getFolderContents([], "")).toEqual([]);
     expect(getFolderContents([], "docs")).toEqual([]);
+  });
+});
+
+describe("buildTree", () => {
+  const files: FileMeta[] = [
+    { path: "README.md", size: 100 },
+    { path: "docs/intro.md", size: 200 },
+    { path: "docs/design/plan.md", size: 300 },
+    { path: "docs/design/spec.md", size: 400 },
+    { path: "notes/scratch.md", size: 600 },
+  ];
+
+  it("nests files under their folders, folders before files, alpha sorted", () => {
+    const tree = buildTree(files);
+    expect(tree.map((n) => n.name)).toEqual(["docs", "notes", "README.md"]);
+    expect(tree[0].kind).toBe("folder");
+    expect(tree[2].kind).toBe("file");
+
+    const docs = tree[0] as TreeFolderNode;
+    expect(docs.path).toBe("docs");
+    // subfolder "design" sorts before file "intro.md"
+    expect(docs.children.map((n) => n.name)).toEqual(["design", "intro.md"]);
+
+    const design = docs.children[0] as TreeFolderNode;
+    expect(design.path).toBe("docs/design");
+    expect(design.children.map((n) => n.name)).toEqual(["plan.md", "spec.md"]);
+    expect(design.children.every((n) => n.kind === "file")).toBe(true);
+  });
+
+  it("carries file path and size onto leaf nodes", () => {
+    const tree = buildTree(files);
+    const readme = tree.find((n) => n.name === "README.md");
+    expect(readme?.kind).toBe("file");
+    expect(readme?.kind === "file" && readme.size).toBe(100);
+    expect(readme?.path).toBe("README.md");
+  });
+
+  it("returns an empty array for no files", () => {
+    expect(buildTree([])).toEqual([]);
   });
 });
 

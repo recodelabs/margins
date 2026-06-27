@@ -64,6 +64,14 @@ const DocumentWorkspace = lazy(() =>
   })),
 );
 
+// The file-tree sidebar only appears in the document workspace (GitHub mode),
+// so lazy-load it with the workspace to keep it off the login/picker path.
+const FileTreeSidebar = lazy(() =>
+  import("./FileTreeSidebar").then((module) => ({
+    default: module.FileTreeSidebar,
+  })),
+);
+
 export type DocumentDiskChangeState =
   | "clean"
   | "changed"
@@ -1018,35 +1026,44 @@ export function App() {
           </div>
         </div>
       ) : null}
-      <Suspense fallback={null}>
-        <DocumentWorkspace
-          documentPage={documentPage}
-          activeDocumentPath={activeDocumentPath}
-          documentFilenameLabel={documentFilenameLabel}
-          documentEditorViewMode={documentEditorViewMode}
-          onDocumentEditorViewModeChange={handleDocumentEditorViewModeChange}
-          onSaveDocument={handleSaveDocument}
-          documentSession={documentSession}
-          documentDiskChangeState={documentDiskChangeState}
-          documentForceResetKey={documentForceResetKey}
-          documentActionError={documentActionError}
-          onDismissDocumentActionError={() => setDocumentActionError(null)}
-          onReloadDocumentFromDisk={handleReloadDocumentFromDisk}
-          onKeepEditingWithoutAutosave={handleKeepEditingWithoutAutosave}
-          onOverwriteDocumentOnDisk={handleOverwriteDocumentOnDisk}
-          onCompleteReview={handleCompleteReview}
-          backend={backend}
-          manualCommit={backend?.capabilities.manualCommit ?? false}
-          githubNav={githubNav}
-          onNavigate={handleNavigateAway}
-          liveActivityEntries={liveActivityEntries}
-          canEdit={canEdit}
-          shareUrl={shareUrl}
-          onSetPublic={handleSetPublic}
-          onSetComments={handleSetComments}
-          onDocumentPageChange={setDocumentPage}
-        />
-      </Suspense>
+      <div className="flex min-h-0 flex-1">
+        <Suspense fallback={null}>
+          <FileTreeSidebar
+            backend={backend}
+            githubNav={githubNav}
+            onNavigate={handleNavigateAway}
+          />
+        </Suspense>
+        <Suspense fallback={null}>
+          <DocumentWorkspace
+            documentPage={documentPage}
+            activeDocumentPath={activeDocumentPath}
+            documentFilenameLabel={documentFilenameLabel}
+            documentEditorViewMode={documentEditorViewMode}
+            onDocumentEditorViewModeChange={handleDocumentEditorViewModeChange}
+            onSaveDocument={handleSaveDocument}
+            documentSession={documentSession}
+            documentDiskChangeState={documentDiskChangeState}
+            documentForceResetKey={documentForceResetKey}
+            documentActionError={documentActionError}
+            onDismissDocumentActionError={() => setDocumentActionError(null)}
+            onReloadDocumentFromDisk={handleReloadDocumentFromDisk}
+            onKeepEditingWithoutAutosave={handleKeepEditingWithoutAutosave}
+            onOverwriteDocumentOnDisk={handleOverwriteDocumentOnDisk}
+            onCompleteReview={handleCompleteReview}
+            backend={backend}
+            manualCommit={backend?.capabilities.manualCommit ?? false}
+            githubNav={githubNav}
+            onNavigate={handleNavigateAway}
+            liveActivityEntries={liveActivityEntries}
+            canEdit={canEdit}
+            shareUrl={shareUrl}
+            onSetPublic={handleSetPublic}
+            onSetComments={handleSetComments}
+            onDocumentPageChange={setDocumentPage}
+          />
+        </Suspense>
+      </div>
       <UnsavedChangesDialog
         open={pendingNavHref !== null}
         manualCommit={backend?.capabilities.manualCommit ?? false}
