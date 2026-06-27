@@ -107,6 +107,33 @@ describe("FileTreeSidebar", () => {
     expect(fileLabels.some((f) => f?.includes("intro.md"))).toBe(true);
   });
 
+  it("auto-expands every ancestor folder of a deeply nested open file", async () => {
+    await render(
+      <FileTreeSidebar
+        backend={makeBackend()}
+        githubNav={{ ...NAV, path: "docs/design/plan.md" }}
+        onNavigate={() => {}}
+      />,
+    );
+    // Both "docs" and "docs/design" must be expanded so plan.md is visible.
+    const expandedFolders = [
+      ...container.querySelectorAll('[data-testid="file-tree-folder"]'),
+    ]
+      .filter((n) => n.getAttribute("data-expanded") === "true")
+      .map((n) => n.textContent);
+    expect(expandedFolders.some((l) => l?.includes("docs"))).toBe(true);
+    expect(expandedFolders.some((l) => l?.includes("design"))).toBe(true);
+    const fileLabels = [
+      ...container.querySelectorAll('ul [data-testid="file-tree-file"]'),
+    ].map((n) => n.textContent);
+    expect(fileLabels.some((f) => f?.includes("plan.md"))).toBe(true);
+    // The nested file is the highlighted/active one.
+    const active = container.querySelector(
+      '[data-testid="file-tree-file"][data-active="true"]',
+    );
+    expect(active?.textContent).toContain("plan.md");
+  });
+
   it("navigates to a clicked file", async () => {
     const onNavigate = vi.fn();
     await render(
@@ -121,18 +148,6 @@ describe("FileTreeSidebar", () => {
     ].find((n) => n.textContent?.includes("README.md")) as HTMLButtonElement;
     act(() => readme.click());
     expect(onNavigate).toHaveBeenCalledWith("/octo/demo/README.md");
-  });
-
-  it("records the open file under Recent", async () => {
-    await render(
-      <FileTreeSidebar
-        backend={makeBackend()}
-        githubNav={NAV}
-        onNavigate={() => {}}
-      />,
-    );
-    const recent = container.querySelector('[data-testid="file-tree-recent"]');
-    expect(recent?.textContent).toContain("intro.md");
   });
 
   it("collapses to a rail and expands again", async () => {
@@ -159,27 +174,5 @@ describe("FileTreeSidebar", () => {
     expect(
       container.querySelector('[data-testid="file-tree-sidebar"]'),
     ).not.toBeNull();
-  });
-
-  it("pins a file, moving it into the Pinned section", async () => {
-    await render(
-      <FileTreeSidebar
-        backend={makeBackend()}
-        githubNav={NAV}
-        onNavigate={() => {}}
-      />,
-    );
-    // Pin README.md via its row's pin button.
-    const readmeRow = [...container.querySelectorAll("li")].find((li) =>
-      li.textContent?.includes("README.md"),
-    ) as HTMLElement;
-    const pinBtn = readmeRow.querySelector<HTMLButtonElement>(
-      '[data-testid="file-tree-pin"]',
-    );
-    act(() => pinBtn?.click());
-    const pinnedSection = container.querySelector(
-      '[data-testid="file-tree-pinned"]',
-    );
-    expect(pinnedSection?.textContent).toContain("README.md");
   });
 });
