@@ -900,11 +900,14 @@ describe("PageCard editor integration", () => {
         .querySelector("a[data-markdown-src='target.md']")
         ?.getAttribute("href"),
     ).toBe("/?path=%2FUsers%2Fme%2Fproject%2Fnotes%2Ftarget.md");
+    // Relative image refs resolve against the document's folder (like the link
+    // above, and like github.com), so `diagram.png` in notes/source.md is
+    // notes/diagram.png — not the repo root.
     expect(
       rendered.container
         .querySelector("img[data-markdown-src='diagram.png']")
         ?.getAttribute("src"),
-    ).toBe("file://diagram.png");
+    ).toBe("file://notes/diagram.png");
   });
 
   it("opens local markdown document links through Roughdraft from the link popover", async () => {

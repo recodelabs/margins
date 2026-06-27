@@ -1,7 +1,7 @@
 import { Extension, Mark, mergeAttributes, Node } from "@tiptap/core";
 import Code from "@tiptap/extension-code";
 import CodeBlock from "@tiptap/extension-code-block";
-import Image from "@tiptap/extension-image";
+import Image, { type ImageOptions } from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Table } from "@tiptap/extension-table";
@@ -809,7 +809,28 @@ const MarkdownCodeBlock = CodeBlock.extend({
   },
 });
 
-const MarkdownImage = Image.extend({
+/**
+ * Resolver the editor calls when an image's `src` fails to load — e.g. a
+ * private-repo `raw.githubusercontent.com` URL that 404s without auth. Given the
+ * original Markdown reference it returns a renderable URL (a `data:` URL with
+ * the bytes fetched authenticated), or null if it can't be recovered.
+ */
+export type LoadAuthedImageSrc = (
+  markdownSrc: string,
+) => Promise<string | null>;
+
+interface MarkdownImageOptions extends ImageOptions {
+  loadAuthedImageSrc?: LoadAuthedImageSrc | null;
+}
+
+const MarkdownImage = Image.extend<MarkdownImageOptions>({
+  addOptions() {
+    return {
+      ...this.parent?.(),
+      loadAuthedImageSrc: null,
+    } as MarkdownImageOptions;
+  },
+
   addAttributes() {
     return {
       ...this.parent?.(),
@@ -827,6 +848,60 @@ const MarkdownImage = Image.extend({
             ? { "data-markdown-src": attributes.dataMarkdownSrc }
             : {},
       },
+    };
+  },
+
+  // Render images through a NodeView so a failed load (private-repo raw URL,
+  // expired link) can be retried via the authenticated resolver. We only swap
+  // the DOM element's `src`; the node's attrs (and therefore the serialized
+  // Markdown) keep the original reference, so nothing leaks a `data:` URL.
+  addNodeView() {
+    const loadAuthedImageSrc = this.options.loadAuthedImageSrc;
+    return ({ node }) => {
+      const img = document.createElement("img");
+      let recovered = false;
+
+      const apply = (attrs: Record<string, unknown>) => {
+        const src = typeof attrs.src === "string" ? attrs.src : "";
+        img.setAttribute("src", src);
+        if (typeof attrs.alt === "string" && attrs.alt) img.alt = attrs.alt;
+        else img.removeAttribute("alt");
+        if (typeof attrs.title === "string" && attrs.title)
+          img.title = attrs.title;
+        else img.removeAttribute("title");
+        const markdownSrc =
+          typeof attrs.dataMarkdownSrc === "string"
+            ? attrs.dataMarkdownSrc
+            : "";
+        if (markdownSrc) img.setAttribute("data-markdown-src", markdownSrc);
+        else img.removeAttribute("data-markdown-src");
+      };
+
+      apply(node.attrs);
+
+      img.addEventListener("error", () => {
+        if (recovered || !loadAuthedImageSrc) return;
+        recovered = true;
+        const markdownSrc =
+          (typeof node.attrs.dataMarkdownSrc === "string" &&
+            node.attrs.dataMarkdownSrc) ||
+          (typeof node.attrs.src === "string" && node.attrs.src) ||
+          "";
+        if (!markdownSrc) return;
+        void loadAuthedImageSrc(markdownSrc).then((url) => {
+          if (url) img.setAttribute("src", url);
+        });
+      });
+
+      return {
+        dom: img,
+        update: (updatedNode) => {
+          if (updatedNode.type.name !== node.type.name) return false;
+          recovered = false;
+          apply(updatedNode.attrs);
+          return true;
+        },
+      };
     };
   },
 });
@@ -909,7 +984,10 @@ const Callout = Extension.create({
   },
 });
 
-export function createEditorExtensions(placeholder: string) {
+export function createEditorExtensions(
+  placeholder: string,
+  options?: { loadAuthedImageSrc?: LoadAuthedImageSrc | null },
+) {
   return [
     StarterKit.configure({
       heading: {
@@ -948,6 +1026,7 @@ export function createEditorExtensions(placeholder: string) {
     MarkdownImage.configure({
       allowBase64: true,
       inline: false,
+      loadAuthedImageSrc: options?.loadAuthedImageSrc ?? null,
     }),
   ];
 }
