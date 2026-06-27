@@ -3,7 +3,8 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const indexHtmlPath = resolve("index.html");
-const previewImageUrl = "https://roughdraft.md/sneak-peek.png";
+const previewImageUrl = "https://roughdraft.md/og-image.png";
+const previewImageAlt = "margins logo";
 const pageTitle = "margins.md";
 const pageDescription =
   "A local-first Markdown review app for commenting, suggesting edits, and collaborating with your coding agent.";
@@ -23,7 +24,7 @@ function metaContent(
 }
 
 describe("homepage metadata", () => {
-  it("uses the homepage screenshot for social previews", () => {
+  it("uses the margins logo for social previews", () => {
     const document = readIndexDocument();
 
     expect(document.querySelector("title")?.textContent).toBe(pageTitle);
@@ -46,13 +47,13 @@ describe("homepage metadata", () => {
       previewImageUrl,
     );
     expect(metaContent(document, 'meta[property="og:image:alt"]')).toBe(
-      "margins markdown review workspace",
+      previewImageAlt,
     );
     expect(metaContent(document, 'meta[property="og:image:width"]')).toBe(
-      "3456",
+      "1200",
     );
     expect(metaContent(document, 'meta[property="og:image:height"]')).toBe(
-      "2234",
+      "630",
     );
 
     expect(metaContent(document, 'meta[name="twitter:card"]')).toBe(
@@ -66,7 +67,7 @@ describe("homepage metadata", () => {
       previewImageUrl,
     );
     expect(metaContent(document, 'meta[name="twitter:image:alt"]')).toBe(
-      "margins markdown review workspace",
+      previewImageAlt,
     );
   });
 });
