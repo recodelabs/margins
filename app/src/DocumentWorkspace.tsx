@@ -9,6 +9,7 @@ import {
   CodeXml,
   Eye,
   EyeOff,
+  History,
   Loader2,
   MessageSquarePlus,
   PencilLine,
@@ -61,6 +62,7 @@ import {
   type DocumentSessionStore,
   useDocumentSession,
 } from "./document-session";
+import { FileHistoryDialog } from "./FileHistoryDialog";
 import { isMarkdownPath } from "./file-types";
 import { gitHubHref } from "./github-route";
 import { getGuestName, setGuestName } from "./guest-identity";
@@ -351,6 +353,13 @@ export function DocumentWorkspace({
   // markdown-specific, so the view toggle and comment controls are hidden and
   // the editor is pinned to "code" regardless of any ?editor= URL override.
   const isMarkdownDoc = isMarkdownPath(documentFilenameLabel);
+  // File history needs a backend that can list commits and read past revisions
+  // (currently GitHub). Hidden in read-only/public view and when no file is open.
+  const canViewHistory =
+    !readOnly &&
+    !!activeDocumentPath &&
+    !!backend?.listFileHistory &&
+    !!backend?.readFileAtRef;
   const effectiveEditorViewMode: DocumentEditorViewMode = isMarkdownDoc
     ? documentEditorViewMode
     : "code";
@@ -393,6 +402,7 @@ export function DocumentWorkspace({
   const [reviewHandoffPopoverOpen, setReviewHandoffPopoverOpen] =
     useState(false);
   const [fileCopyMenuOpen, setFileCopyMenuOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [copiedFileAction, setCopiedFileAction] =
     useState<FileCopyAction | null>(null);
   const [overallComment, setOverallComment] = useState("");
@@ -1463,6 +1473,24 @@ export function DocumentWorkspace({
                         <TooltipContent>{agentBoxToggleLabel}</TooltipContent>
                       </Tooltip>
                     ) : null}
+                    {canViewHistory ? (
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <button
+                              type="button"
+                              data-testid="document-history-toggle"
+                              className="inline-flex h-[1.5rem] items-center justify-center rounded-full px-1 text-stone-400 outline-none transition hover:bg-[#EEE9E1] hover:text-stone-600 focus-visible:ring-2 focus-visible:ring-stone-300/70 dark:text-stone-500 dark:hover:bg-slate-800 dark:hover:text-stone-300 dark:focus-visible:ring-slate-600/70"
+                            >
+                              <History className="size-[0.78rem]" />
+                            </button>
+                          }
+                          aria-label="File history"
+                          onClick={() => setHistoryOpen(true)}
+                        />
+                        <TooltipContent>File history</TooltipContent>
+                      </Tooltip>
+                    ) : null}
                     {isMarkdownDoc ? (
                       <>
                         <Tooltip>
@@ -1593,6 +1621,19 @@ export function DocumentWorkspace({
             Open a file to begin.
           </div>
         )}
+        {historyOpen &&
+        activeDocumentPath &&
+        backend?.listFileHistory &&
+        backend.readFileAtRef ? (
+          <FileHistoryDialog
+            path={activeDocumentPath}
+            currentContent={documentPage?.content ?? ""}
+            listFileHistory={backend.listFileHistory.bind(backend)}
+            readFileAtRef={backend.readFileAtRef.bind(backend)}
+            commitUrl={backend.commitUrl?.bind(backend)}
+            onClose={() => setHistoryOpen(false)}
+          />
+        ) : null}
       </div>
     </div>
   );
