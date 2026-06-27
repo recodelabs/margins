@@ -1486,6 +1486,64 @@ export function editorStateToCriticMarkdown(
   );
 }
 
+// The rich-text editor never reproduces source Markdown byte-for-byte: parsing
+// then re-serializing normalizes blank lines after headings, list indentation,
+// table cell padding, trailing newlines, and resolved URLs. That means a
+// freshly-loaded, untouched document serializes to something *different* from
+// the bytes on disk — which naively reads as "the user has unsaved changes"
+// and pops the manual-commit affordance on every page load. Canonicalizing
+// (round-tripping through the same parse/serialize the editor uses) puts both
+// sides in the same space so we only flag genuine edits.
+const canonicalCache = new Map<string, string>();
+
+export function canonicalizeRichTextMarkdown(
+  markdown: string,
+  options?: MarkdownOptions,
+): string {
+  // Cache keyed only on the input string. Resolver options are component-scoped
+  // but stable for a given document; skip caching when custom options are
+  // supplied to avoid returning a value resolved against a different document.
+  const cacheable = !options;
+  if (cacheable) {
+    const cached = canonicalCache.get(markdown);
+    if (cached !== undefined) return cached;
+  }
+  let result: string;
+  try {
+    const { doc, comments, frontmatter, endmatter } =
+      criticMarkdownToEditorState(markdown, options);
+    result = editorStateToCriticMarkdown(doc, comments, {
+      frontmatter,
+      endmatter,
+    });
+  } catch {
+    // If parsing fails for any reason, fall back to the raw text so callers
+    // never crash on comparison; worst case the document looks dirty.
+    result = markdown;
+  }
+  if (cacheable) {
+    if (canonicalCache.size > 64) canonicalCache.clear();
+    canonicalCache.set(markdown, result);
+  }
+  return result;
+}
+
+// True when two Markdown strings describe the same rich-text document, ignoring
+// the cosmetic normalization the editor applies on round-trip. Use this instead
+// of `===` whenever deciding whether the live editor content differs from the
+// last-saved baseline.
+export function markdownEquivalent(
+  a: string,
+  b: string,
+  options?: MarkdownOptions,
+): boolean {
+  if (a === b) return true;
+  return (
+    canonicalizeRichTextMarkdown(a, options) ===
+    canonicalizeRichTextMarkdown(b, options)
+  );
+}
+
 export function createCriticComment(
   partial?: Partial<CriticComment>,
   options?: {
