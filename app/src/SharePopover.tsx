@@ -12,6 +12,12 @@ export interface SharePopoverProps {
   content: string;
   onSetPublic: (next: boolean) => Promise<void>;
   onSetComments?: (next: boolean) => Promise<void>;
+  /**
+   * Optional controlled open state, so the command palette can open Share. When
+   * omitted the popover stays uncontrolled (its trigger button manages it).
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function SharePopover({
@@ -20,6 +26,8 @@ export function SharePopover({
   content,
   onSetPublic,
   onSetComments,
+  open,
+  onOpenChange,
 }: SharePopoverProps) {
   const flags = getSharingFlags(content);
   const isPublic = flags.public;
@@ -28,7 +36,7 @@ export function SharePopover({
   const [copied, setCopied] = useState(false);
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger
         render={
           <button

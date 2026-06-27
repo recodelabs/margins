@@ -19,6 +19,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -32,6 +33,8 @@ import {
   writeStoredAgentBoxHidden,
 } from "./agent-box-visibility";
 import type { DocumentEditorViewMode } from "./app-navigation";
+import { CommandPalette } from "./CommandPalette";
+import type { PaletteCommand } from "./command-palette";
 import {
   readStoredCommentsHidden,
   writeStoredCommentsHidden,
@@ -62,6 +65,8 @@ import {
   useDocumentSession,
 } from "./document-session";
 import { isMarkdownPath } from "./file-types";
+import { getStoredToken } from "./github-auth";
+import { listAccessibleRepos, listBranches } from "./github-repos";
 import { gitHubHref } from "./github-route";
 import { getGuestName, setGuestName } from "./guest-identity";
 import { InstructionSender } from "./InstructionSender";
@@ -77,6 +82,10 @@ import type { PublicBackend } from "./public-backend";
 import { SharePopover } from "./SharePopover";
 import { getSharingFlags } from "./sharing-frontmatter";
 import type { CompleteReviewOptions, Page, StorageBackend } from "./storage";
+import { currentTheme, setTheme } from "./theme";
+
+/** Groups the palette keeps hidden until the user types (stable identity). */
+const PALETTE_HIDDEN_GROUPS = ["Files"];
 
 type DiskChangeState = "clean" | "changed" | "conflict" | "paused";
 type ReviewHandoffState =
@@ -360,6 +369,252 @@ export function DocumentWorkspace({
     ? "viewing"
     : documentInteractionMode;
   const saveState = useDocumentSession(documentSession, (s) => s.saveState);
+
+  // --- Command palette (⌘K, REC-504) --------------------------------------
+  // A keyboard-first launcher for the actions otherwise scattered across the
+  // toolbar. File quick-open and branch/repo switching need the GitHub backend;
+  // everything else degrades gracefully on local/public docs.
+  const isGitHubBackend = backend?.info.kind === "github";
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [palettePage, setPalettePage] = useState<"branches" | "repos" | null>(
+    null,
+  );
+  const [palettePageItems, setPalettePageItems] = useState<PaletteCommand[]>(
+    [],
+  );
+  const [palettePageLoading, setPalettePageLoading] = useState(false);
+  const [palettePageError, setPalettePageError] = useState<string | null>(null);
+  const [paletteFiles, setPaletteFiles] = useState<string[]>([]);
+  const paletteFilesLoadedRef = useRef(false);
+
+  // Lazily load the repo's markdown paths the first time the palette opens, so
+  // file quick-open is instant on subsequent opens. Failures are non-fatal:
+  // quick-open just stays empty.
+  useEffect(() => {
+    if (!paletteOpen || paletteFilesLoadedRef.current || !backend) return;
+    const lister = backend as unknown as {
+      listMarkdownPaths?: () => Promise<{ path: string }[]>;
+    };
+    if (!lister.listMarkdownPaths) return;
+    paletteFilesLoadedRef.current = true;
+    let cancelled = false;
+    void lister
+      .listMarkdownPaths()
+      .then((files) => {
+        if (!cancelled) setPaletteFiles(files.map((f) => f.path));
+      })
+      .catch(() => {
+        paletteFilesLoadedRef.current = false;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [paletteOpen, backend]);
+
+  // Closing the palette returns it to the root page.
+  useEffect(() => {
+    if (!paletteOpen) {
+      setPalettePage(null);
+      setPalettePageItems([]);
+      setPalettePageError(null);
+      setPalettePageLoading(false);
+    }
+  }, [paletteOpen]);
+
+  const paletteRootCommands = useMemo<PaletteCommand[]>(() => {
+    const commands: PaletteCommand[] = [];
+    if (!readOnly) {
+      commands.push({
+        id: "action:save",
+        title: "Save document",
+        group: "Actions",
+        keywords: ["commit", "write"],
+      });
+    }
+    if (!readOnly && isMarkdownDoc) {
+      commands.push({
+        id: "action:suggest",
+        title:
+          documentInteractionMode === "suggesting"
+            ? "Turn off suggesting mode"
+            : "Turn on suggesting mode",
+        group: "Actions",
+        keywords: ["review", "track changes"],
+      });
+    }
+    commands.push({
+      id: "action:theme",
+      title: "Toggle theme",
+      group: "Actions",
+      keywords: ["dark", "light", "appearance"],
+    });
+    if (isGitHubBackend) {
+      commands.push({
+        id: "action:share",
+        title: "Open share…",
+        group: "Actions",
+        keywords: ["public", "link", "invite"],
+      });
+      if (githubNav) {
+        commands.push(
+          {
+            id: "action:branches",
+            title: "Switch branch…",
+            group: "Actions",
+          },
+          {
+            id: "action:repos",
+            title: "Switch repository…",
+            group: "Actions",
+          },
+        );
+      }
+    }
+    for (const path of paletteFiles) {
+      commands.push({ id: `file:${path}`, title: path, group: "Files" });
+    }
+    return commands;
+  }, [
+    readOnly,
+    isMarkdownDoc,
+    documentInteractionMode,
+    isGitHubBackend,
+    githubNav,
+    paletteFiles,
+  ]);
+
+  const closePalette = useCallback(() => setPaletteOpen(false), []);
+
+  const openBranchesPage = useCallback(async () => {
+    if (!githubNav) return;
+    const token = getStoredToken();
+    if (!token) return;
+    setPalettePage("branches");
+    setPalettePageError(null);
+    setPalettePageLoading(true);
+    try {
+      const branches = await listBranches(
+        token,
+        githubNav.owner,
+        githubNav.repo,
+      );
+      setPalettePageItems(
+        branches.map((name) => ({
+          id: `branch:${name}`,
+          title: name,
+          group: "Branches",
+          hint: name === githubNav.branch ? "current" : undefined,
+        })),
+      );
+    } catch {
+      setPalettePageItems([]);
+      setPalettePageError("Couldn't load branches.");
+    } finally {
+      setPalettePageLoading(false);
+    }
+  }, [githubNav]);
+
+  const openReposPage = useCallback(async () => {
+    const token = getStoredToken();
+    if (!token) return;
+    setPalettePage("repos");
+    setPalettePageError(null);
+    setPalettePageLoading(true);
+    try {
+      const repos = await listAccessibleRepos(token);
+      setPalettePageItems(
+        repos.map((repo) => ({
+          id: `repo:${repo.fullName}|${repo.defaultBranch}`,
+          title: repo.fullName,
+          group: "Repositories",
+        })),
+      );
+    } catch {
+      setPalettePageItems([]);
+      setPalettePageError("Couldn't load repositories.");
+    } finally {
+      setPalettePageLoading(false);
+    }
+  }, []);
+
+  const popPalettePage = useCallback(() => {
+    setPalettePage(null);
+    setPalettePageItems([]);
+    setPalettePageError(null);
+  }, []);
+
+  const runPaletteCommand = useCallback(
+    (id: string) => {
+      if (id.startsWith("file:") && githubNav && onNavigate) {
+        closePalette();
+        onNavigate(
+          gitHubHref({
+            owner: githubNav.owner,
+            repo: githubNav.repo,
+            branch: githubNav.branch,
+            path: id.slice("file:".length),
+          }),
+        );
+        return;
+      }
+      if (id.startsWith("branch:") && githubNav && onNavigate) {
+        closePalette();
+        onNavigate(
+          gitHubHref({
+            owner: githubNav.owner,
+            repo: githubNav.repo,
+            branch: id.slice("branch:".length),
+            path: githubNav.path,
+          }),
+        );
+        return;
+      }
+      if (id.startsWith("repo:") && onNavigate) {
+        const [fullName, defaultBranch] = id.slice("repo:".length).split("|");
+        const [owner, repo] = (fullName ?? "").split("/");
+        if (owner && repo) {
+          closePalette();
+          onNavigate(gitHubHref({ owner, repo, branch: defaultBranch }));
+        }
+        return;
+      }
+      switch (id) {
+        case "action:save":
+          void documentSession.getSnapshot().saveController?.flushSave();
+          closePalette();
+          break;
+        case "action:suggest":
+          setDocumentInteractionMode((mode) =>
+            mode === "suggesting" ? "editing" : "suggesting",
+          );
+          closePalette();
+          break;
+        case "action:theme":
+          setTheme(currentTheme() === "dark" ? "light" : "dark");
+          closePalette();
+          break;
+        case "action:share":
+          closePalette();
+          setShareOpen(true);
+          break;
+        case "action:branches":
+          void openBranchesPage();
+          break;
+        case "action:repos":
+          void openReposPage();
+          break;
+      }
+    },
+    [
+      closePalette,
+      githubNav,
+      onNavigate,
+      documentSession,
+      openBranchesPage,
+      openReposPage,
+    ],
+  );
   const [commentsHidden, setCommentsHidden] = useState<boolean>(
     readStoredCommentsHidden,
   );
@@ -1528,6 +1783,8 @@ export function DocumentWorkspace({
                         content={documentPage?.content ?? ""}
                         onSetPublic={onSetPublic}
                         onSetComments={onSetComments}
+                        open={shareOpen}
+                        onOpenChange={setShareOpen}
                       />
                     ) : null}
                   </div>
@@ -1594,6 +1851,30 @@ export function DocumentWorkspace({
           </div>
         )}
       </div>
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        commands={palettePage === null ? paletteRootCommands : palettePageItems}
+        onRun={runPaletteCommand}
+        onBack={palettePage === null ? undefined : popPalettePage}
+        loading={palettePageLoading}
+        emptyMessage={
+          palettePageError ??
+          (palettePage === "branches"
+            ? "No branches found."
+            : palettePage === "repos"
+              ? "No repositories found."
+              : "No matching commands.")
+        }
+        hideGroupsWhenEmpty={PALETTE_HIDDEN_GROUPS}
+        placeholder={
+          palettePage === "branches"
+            ? "Switch to branch…"
+            : palettePage === "repos"
+              ? "Switch to repository…"
+              : "Type a command or search files…"
+        }
+      />
     </div>
   );
 }
