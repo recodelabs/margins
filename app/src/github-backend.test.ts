@@ -429,15 +429,100 @@ describe("GitHubBackend", () => {
     expect(page.title).toBe("Héllo");
   });
 
-  it("resolveFileUrl returns a raw URL; saveAsset throws not-supported; openProject is a no-op", async () => {
+  it("resolveFileUrl returns a raw URL; openProject is a no-op", async () => {
     const bk = backend();
     expect(bk.resolveFileUrl("img/x.png")).toBe(
       "https://raw.githubusercontent.com/o/r/main/img/x.png",
     );
-    await expect(bk.saveAsset(new File(["x"], "x.png"))).rejects.toThrow(
-      /not supported/i,
-    );
     await expect(bk.openProject("anything")).resolves.toBeUndefined();
+  });
+
+  describe("saveAsset", () => {
+    it("commits the file to a content-addressed path under assets/ and returns a working reference", async () => {
+      const calls: Array<{ url: string; init?: RequestInit }> = [];
+      const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+        calls.push({ url, init });
+        // Existence check for the content-addressed path: not there yet.
+        if (init?.method === undefined || init.method === "GET") {
+          return new Response("Not Found", { status: 404 });
+        }
+        // The commit PUT.
+        return new Response(JSON.stringify({ content: { sha: "blobsha" } }), {
+          status: 201,
+        });
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const asset = await backend().saveAsset(
+        new File(["hello"], "My Logo.png", { type: "image/png" }),
+      );
+
+      // Path: assets/<sanitized-name>-<hash8>.<ext>
+      expect(asset.markdownPath).toMatch(/^assets\/My-Logo-[0-9a-f]{8}\.png$/);
+      expect(asset.mimeType).toBe("image/png");
+
+      // The PUT carried the base64 bytes, a commit message, and the branch.
+      const put = calls.find((c) => c.init?.method === "PUT");
+      expect(put).toBeDefined();
+      expect(put?.url).toBe(
+        `https://api.github.com/repos/o/r/contents/${asset.markdownPath}`,
+      );
+      const body = JSON.parse(put?.init?.body as string) as {
+        content: string;
+        branch: string;
+        message: string;
+        sha?: string;
+      };
+      expect(body.branch).toBe("main");
+      expect(body.content).toBe(b64("hello"));
+      expect(body.sha).toBeUndefined();
+
+      // The inserted reference resolves through resolveFileUrl.
+      expect(backend().resolveFileUrl(asset.markdownPath)).toBe(
+        `https://raw.githubusercontent.com/o/r/main/${asset.markdownPath}`,
+      );
+    });
+
+    it("de-dupes identical content: reuses the existing blob without a second commit", async () => {
+      const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+        // Existence check finds the same content already committed.
+        if (init?.method === undefined || init.method === "GET") {
+          return new Response(JSON.stringify({ sha: "existing" }), {
+            status: 200,
+          });
+        }
+        throw new Error("should not PUT an already-present asset");
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const asset = await backend().saveAsset(
+        new File(["hello"], "logo.png", { type: "image/png" }),
+      );
+
+      expect(asset.markdownPath).toMatch(/^assets\/logo-[0-9a-f]{8}\.png$/);
+      expect(
+        fetchMock.mock.calls.some(
+          ([, init]) => (init as RequestInit | undefined)?.method === "PUT",
+        ),
+      ).toBe(false);
+    });
+
+    it("throws a clear error when the commit is rejected (e.g. permission)", async () => {
+      const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+        if (init?.method === undefined || init.method === "GET") {
+          return new Response("Not Found", { status: 404 });
+        }
+        return new Response(
+          JSON.stringify({ message: "Resource not accessible by integration" }),
+          { status: 403 },
+        );
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      await expect(
+        backend().saveAsset(new File(["x"], "x.png", { type: "image/png" })),
+      ).rejects.toThrow(/403|not accessible/i);
+    });
   });
 
   describe("large-file guard", () => {
