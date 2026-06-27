@@ -678,8 +678,30 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
   const [pendingFocusCommentId, setPendingFocusCommentId] = useState<
     string | null
   >(null);
+  const [mentionCandidates, setMentionCandidates] = useState<string[]>([]);
 
   const authorId = backend?.info.authorLabel ?? "user";
+
+  // Repo collaborators power the comment @mention menu. Fetched once per backend
+  // (the backend caches/falls back internally); failures degrade to no menu.
+  useEffect(() => {
+    let cancelled = false;
+    const pending = backend.listCollaborators?.();
+    if (!pending) {
+      setMentionCandidates([]);
+      return;
+    }
+    pending
+      .then((logins) => {
+        if (!cancelled) setMentionCandidates(logins);
+      })
+      .catch(() => {
+        if (!cancelled) setMentionCandidates([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [backend]);
 
   // Resolve an asset reference relative to the *document's* folder (matching
   // github.com) into a repo-root path before building its raw URL. External
@@ -1544,6 +1566,18 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
     [emitMarkdownChange],
   );
 
+  const toggleResolveComment = useCallback(
+    (commentId: string, resolved: boolean) => {
+      updateComment(commentId, (current) => ({
+        ...current,
+        resolved,
+        resolvedBy: resolved ? authorId : null,
+        resolvedAt: resolved ? new Date().toISOString() : null,
+      }));
+    },
+    [authorId, updateComment],
+  );
+
   const replyToComment = useCallback(
     (commentId: string) => {
       const currentEditor = editorRef.current;
@@ -1850,6 +1884,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
               comments={activeComments}
               className={fallbackClass}
               testId="document-comment-fallback"
+              mentionCandidates={mentionCandidates}
               selectedCommentId={selectedCommentId}
               hoveredCommentId={hoveredCommentId}
               onDeleteComment={deleteComment}
@@ -1859,6 +1894,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
                   content: nextContent,
                 }));
               }}
+              onToggleResolveComment={toggleResolveComment}
               onReplyComment={
                 interactionMode === "viewing" && onPublicReply
                   ? onPublicReply
@@ -1932,6 +1968,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
             selectedChangeId={selectedChangeId}
             hoveredChangeId={hoveredChangeId}
             contentHeight={contentHeight}
+            mentionCandidates={mentionCandidates}
             onDeleteComment={deleteComment}
             onUpdateComment={(commentId, nextContent) => {
               updateComment(commentId, (current) => ({
@@ -1939,6 +1976,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
                 content: nextContent,
               }));
             }}
+            onToggleResolveComment={toggleResolveComment}
             onReplyComment={
               interactionMode === "viewing" && onPublicReply
                 ? onPublicReply

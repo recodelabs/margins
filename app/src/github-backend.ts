@@ -703,4 +703,49 @@ export class GitHubBackend implements StorageBackend {
       return false;
     }
   }
+
+  /**
+   * Logins that can be @mentioned in comments. Prefers the repo's collaborators
+   * (the people with explicit access), but that endpoint needs push access, so
+   * we fall back to public contributors when it's forbidden — read-only and
+   * guest viewers still get useful suggestions. One page of 100 is plenty for an
+   * autocomplete menu. Returns [] on any failure so the composer degrades to a
+   * plain textarea rather than throwing.
+   */
+  async listCollaborators(): Promise<string[]> {
+    const { owner, repo } = this.cfg;
+    const base = `${API}/repos/${owner}/${repo}`;
+    try {
+      const collaborators = await fetch(`${base}/collaborators?per_page=100`, {
+        headers: this.headers(),
+      });
+      if (collaborators.ok) {
+        return loginsFromUserList(await collaborators.json());
+      }
+
+      const contributors = await fetch(`${base}/contributors?per_page=100`, {
+        headers: this.headers(),
+      });
+      if (contributors.ok) {
+        return loginsFromUserList(await contributors.json());
+      }
+
+      return [];
+    } catch {
+      return [];
+    }
+  }
+}
+
+/** Extracts unique, non-empty `login` strings from a GitHub user-list payload. */
+function loginsFromUserList(body: unknown): string[] {
+  if (!Array.isArray(body)) return [];
+  const logins = body
+    .map((entry) =>
+      entry && typeof (entry as { login?: unknown }).login === "string"
+        ? (entry as { login: string }).login
+        : null,
+    )
+    .filter((login): login is string => Boolean(login));
+  return [...new Set(logins)];
 }

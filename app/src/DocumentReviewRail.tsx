@@ -56,8 +56,10 @@ interface DocumentReviewRailProps {
   className?: string;
   layout?: "anchored" | "flow";
   testId?: string;
+  mentionCandidates?: readonly string[];
   onDeleteComment: (commentId: string) => void;
   onUpdateComment: (commentId: string, nextContent: string) => void;
+  onToggleResolveComment?: (commentId: string, resolved: boolean) => void;
   onReplyComment: (commentId: string) => void;
   onSelectComment: (commentId: string) => void;
   onFocusComment: (commentId: string) => void;
@@ -186,8 +188,10 @@ export function DocumentReviewRail({
   className,
   layout: railLayout = "anchored",
   testId,
+  mentionCandidates = [],
   onDeleteComment,
   onUpdateComment,
+  onToggleResolveComment,
   onReplyComment,
   onSelectComment,
   onFocusComment,
@@ -452,10 +456,12 @@ export function DocumentReviewRail({
                   variant="rail"
                   className={cn(!isExpanded && "pointer-events-none")}
                   interactive={isExpanded}
+                  mentionCandidates={mentionCandidates}
                   selectedCommentId={selectedCommentId}
                   hoveredCommentId={hoveredCommentId}
                   onDeleteComment={onDeleteComment}
                   onUpdateComment={onUpdateComment}
+                  onToggleResolveComment={onToggleResolveComment}
                   onReplyComment={onReplyComment}
                   onSelectComment={onSelectComment}
                   onFocusComment={onFocusComment}
@@ -649,6 +655,7 @@ export function DocumentReviewRail({
               <CommentEditorList
                 comments={suggestionThreadComments}
                 variant="rail"
+                mentionCandidates={mentionCandidates}
                 selectedCommentId={
                   selectedCommentId ?? (isSelected ? suggestion.changeId : null)
                 }

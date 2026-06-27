@@ -1265,4 +1265,73 @@ describe("GitHubBackend", () => {
       expect(page.content).toBe("# Upper\n");
     });
   });
+
+  describe("listCollaborators", () => {
+    it("returns deduped logins from the collaborators endpoint", async () => {
+      const fetchMock = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify([
+              { login: "alice", type: "User" },
+              { login: "bob", type: "User" },
+              { login: "alice", type: "User" },
+            ]),
+            { status: 200 },
+          ),
+      );
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const logins = await backend().listCollaborators();
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://api.github.com/repos/o/r/collaborators?per_page=100",
+        {
+          headers: {
+            Authorization: "Bearer tok",
+            Accept: "application/vnd.github+json",
+          },
+        },
+      );
+      expect(logins).toEqual(["alice", "bob"]);
+    });
+
+    it("falls back to contributors when collaborators is forbidden", async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(new Response("", { status: 403 }))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify([{ login: "carol" }, { login: null }]), {
+            status: 200,
+          }),
+        );
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const logins = await backend().listCollaborators();
+
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        "https://api.github.com/repos/o/r/contributors?per_page=100",
+        expect.anything(),
+      );
+      expect(logins).toEqual(["carol"]);
+    });
+
+    it("returns [] when both endpoints fail", async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(new Response("", { status: 403 }))
+        .mockResolvedValueOnce(new Response("", { status: 404 }));
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      expect(await backend().listCollaborators()).toEqual([]);
+    });
+
+    it("returns [] when the request throws", async () => {
+      const fetchMock = vi.fn(async () => {
+        throw new Error("network down");
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      expect(await backend().listCollaborators()).toEqual([]);
+    });
+  });
 });

@@ -13,6 +13,12 @@ export interface CriticComment {
   parentCommentId?: string | null;
   scope?: "document";
   guest?: boolean;
+  /** Whether the thread has been marked resolved. Meaningful on a thread root. */
+  resolved?: boolean;
+  /** Author label of whoever resolved the thread (null/undefined when open). */
+  resolvedBy?: string | null;
+  /** ISO timestamp of when the thread was resolved (null/undefined when open). */
+  resolvedAt?: string | null;
 }
 
 export interface CriticCommentThread {
