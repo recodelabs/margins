@@ -197,4 +197,10 @@ export interface StorageBackend {
   saveAsset(file: File): Promise<StoredAsset>;
   resolveFileUrl(path: string): string | null;
   openProject(path: string): Promise<void>;
+  /**
+   * Logins that can be @mentioned in comments (repo collaborators, falling back
+   * to contributors). Present only for backends backed by a remote host; absent
+   * backends simply offer no mention suggestions.
+   */
+  listCollaborators?(): Promise<string[]>;
 }

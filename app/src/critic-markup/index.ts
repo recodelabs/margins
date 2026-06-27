@@ -114,6 +114,11 @@ function parseLegacyMetadata(
     authorId: author.toUpperCase() === "AI" ? null : author,
     parentCommentId: fields.get("re") ?? null,
     guest: fields.get("guest") === "true",
+    ...resolvedFieldsFromStrings(
+      fields.get("resolved"),
+      fields.get("resolvedBy"),
+      fields.get("resolvedAt"),
+    ),
   };
 }
 
@@ -148,6 +153,31 @@ function parseAttributeMetadata(
     authorId: author.toUpperCase() === "AI" ? null : author,
     parentCommentId: fields.get("re") ?? null,
     guest: fields.get("guest") === "true",
+    ...resolvedFieldsFromStrings(
+      fields.get("resolved"),
+      fields.get("resolvedBy"),
+      fields.get("resolvedAt"),
+    ),
+  };
+}
+
+/**
+ * Normalizes the loosely-typed `resolved`/`resolvedBy`/`resolvedAt` values that
+ * appear in inline attribute metadata and YAML endmatter into the
+ * `CriticComment` shape. Returns an empty object when the thread is open so the
+ * fields stay absent from serialized output (mirroring how `guest`/`re` behave).
+ */
+function resolvedFieldsFromStrings(
+  resolved: unknown,
+  resolvedBy: unknown,
+  resolvedAt: unknown,
+): Partial<Pick<CriticComment, "resolved" | "resolvedBy" | "resolvedAt">> {
+  if (resolved !== true && resolved !== "true") return {};
+
+  return {
+    resolved: true,
+    resolvedBy: typeof resolvedBy === "string" ? resolvedBy : null,
+    resolvedAt: typeof resolvedAt === "string" ? resolvedAt : null,
   };
 }
 
@@ -167,6 +197,11 @@ function commentPartialFromEndmatterEntry(
     authorId: author.toUpperCase() === "AI" ? null : author,
     parentCommentId:
       includeParent && typeof entry?.re === "string" ? entry.re : null,
+    ...resolvedFieldsFromStrings(
+      entry?.resolved,
+      entry?.resolvedBy,
+      entry?.resolvedAt,
+    ),
   };
 }
 
@@ -205,6 +240,12 @@ function serializeMetadata(comment: CriticComment): string {
 
   if (comment.parentCommentId) {
     fields.push(["re", comment.parentCommentId]);
+  }
+
+  if (comment.resolved) {
+    fields.push(["resolved", "true"]);
+    if (comment.resolvedBy) fields.push(["resolvedBy", comment.resolvedBy]);
+    if (comment.resolvedAt) fields.push(["resolvedAt", comment.resolvedAt]);
   }
 
   return `{${fields
@@ -327,6 +368,16 @@ function endmatterEntryForComment(
     by,
     at: comment.createdAt,
   };
+
+  if (comment.resolved) {
+    next.resolved = true;
+    next.resolvedBy = comment.resolvedBy ?? null;
+    next.resolvedAt = comment.resolvedAt ?? null;
+  } else {
+    delete next.resolved;
+    delete next.resolvedBy;
+    delete next.resolvedAt;
+  }
 
   if (comment.scope === "document") {
     next.body = comment.content;
@@ -455,6 +506,9 @@ function createCommentWithContext(
     parentCommentId: partial?.parentCommentId ?? null,
     scope: partial?.scope,
     guest: partial?.guest,
+    resolved: partial?.resolved,
+    resolvedBy: partial?.resolvedBy,
+    resolvedAt: partial?.resolvedAt,
   };
 }
 

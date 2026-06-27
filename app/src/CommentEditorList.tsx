@@ -1,4 +1,14 @@
-import { Bot, Check, Pencil, Reply, Trash2, User, X } from "lucide-react";
+import {
+  Bot,
+  Check,
+  CircleCheck,
+  CircleDot,
+  Pencil,
+  Reply,
+  Trash2,
+  User,
+  X,
+} from "lucide-react";
 import {
   type KeyboardEvent,
   type MouseEvent,
@@ -11,7 +21,6 @@ import {
   useState,
 } from "react";
 import { Button } from "./components/ui/button";
-import { Textarea } from "./components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
@@ -22,7 +31,9 @@ import {
   type CriticComment,
   type CriticCommentThread,
 } from "./critic-markup";
+import { formatRelativeTime } from "./format";
 import { cn } from "./lib/utils";
+import { MentionTextarea } from "./MentionTextarea";
 
 interface CommentEditorListProps {
   comments: CriticComment[];
@@ -32,8 +43,12 @@ interface CommentEditorListProps {
   className?: string;
   testId?: string;
   interactive?: boolean;
+  /** Logins offered for @mention autocomplete in the composer. */
+  mentionCandidates?: readonly string[];
   onDeleteComment: (commentId: string) => void;
   onUpdateComment: (commentId: string, nextContent: string) => void;
+  /** Toggles a thread's resolved state; enables the resolve/reopen affordance. */
+  onToggleResolveComment?: (commentId: string, resolved: boolean) => void;
   onSelectComment?: (commentId: string) => void;
   onHoverComment?: (commentId: string | null) => void;
   onFocusComment?: (commentId: string) => void;
@@ -107,8 +122,10 @@ export function CommentEditorList({
   className,
   testId,
   interactive = true,
+  mentionCandidates = [],
   onDeleteComment,
   onUpdateComment,
+  onToggleResolveComment,
   onSelectComment,
   onHoverComment,
   onFocusComment,
@@ -300,6 +317,7 @@ export function CommentEditorList({
           parentLines={[]}
           variant={variant}
           interactive={interactive}
+          mentionCandidates={mentionCandidates}
           drafts={drafts}
           editingCommentIds={editingCommentIds}
           selectedCommentId={selectedCommentId}
@@ -307,6 +325,7 @@ export function CommentEditorList({
           textareaRefs={textareaRefs}
           onDeleteComment={onDeleteComment}
           onUpdateComment={onUpdateComment}
+          onToggleResolveComment={onToggleResolveComment}
           onSelectComment={onSelectComment}
           onHoverComment={onHoverComment}
           onFocusComment={onFocusComment}
@@ -336,6 +355,7 @@ interface CommentThreadNodeProps {
   parentLines: boolean[];
   variant: "banner" | "rail";
   interactive: boolean;
+  mentionCandidates: readonly string[];
   drafts: Record<string, string>;
   editingCommentIds: string[];
   selectedCommentId: string | null;
@@ -343,6 +363,7 @@ interface CommentThreadNodeProps {
   textareaRefs: MutableRefObject<Map<string, HTMLTextAreaElement>>;
   onDeleteComment: (commentId: string) => void;
   onUpdateComment: (commentId: string, nextContent: string) => void;
+  onToggleResolveComment?: (commentId: string, resolved: boolean) => void;
   onSelectComment?: (commentId: string) => void;
   onHoverComment?: (commentId: string | null) => void;
   onFocusComment?: (commentId: string) => void;
@@ -422,6 +443,7 @@ function CommentThreadNode({
   parentLines,
   variant,
   interactive,
+  mentionCandidates,
   drafts,
   editingCommentIds,
   selectedCommentId,
@@ -429,6 +451,7 @@ function CommentThreadNode({
   textareaRefs,
   onDeleteComment,
   onUpdateComment,
+  onToggleResolveComment,
   onSelectComment,
   onHoverComment,
   onFocusComment,
@@ -446,6 +469,9 @@ function CommentThreadNode({
   const isSelected = comment.id === selectedCommentId;
   const isHovered = comment.id === hoveredCommentId;
   const isEditing = interactive && editingCommentIds.includes(comment.id);
+  const isResolved = Boolean(comment.resolved);
+  const canResolve =
+    interactive && isRootThread && Boolean(onToggleResolveComment);
   const isAiAuthor = comment.authorType === "ai";
   const userAuthorId = comment.authorId?.trim();
   const baseLabel = isAiAuthor
@@ -507,6 +533,24 @@ function CommentThreadNode({
         },
       ]
     : [
+        ...(canResolve
+          ? [
+              {
+                key: "resolve",
+                label: isResolved ? "Reopen" : "Resolve",
+                icon: isResolved ? (
+                  <CircleDot className="size-3.5" />
+                ) : (
+                  <CircleCheck className="size-3.5" />
+                ),
+                compact: true,
+                onClick: (event: MouseEvent) => {
+                  event.stopPropagation();
+                  onToggleResolveComment?.(comment.id, !isResolved);
+                },
+              } satisfies CommentActionDefinition,
+            ]
+          : []),
         {
           key: "reply",
           label: "Reply",
@@ -561,6 +605,7 @@ function CommentThreadNode({
       data-testid={`comment-${variant}-${comment.id}`}
       data-comment-thread-root-id={isRootThread ? comment.id : undefined}
       tabIndex={interactive && isRootThread ? 0 : undefined}
+      data-resolved={isRootThread && isResolved ? "true" : undefined}
       className={cn(
         "relative transition-all duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-300 dark:focus-visible:ring-slate-600",
         variant === "rail" &&
@@ -568,6 +613,7 @@ function CommentThreadNode({
           (index > 0
             ? "border-t border-slate-200/80 dark:border-slate-700/80 pt-3"
             : "pt-0"),
+        isRootThread && isResolved && !isSelected && !isHovered && "opacity-60",
       )}
       onClick={() => {
         if (!interactive) return;
@@ -684,9 +730,31 @@ function CommentThreadNode({
                 bodyTone,
               )}
             >
-              <div className="truncate text-[13px] font-semibold text-slate-900 dark:text-slate-100">
-                {authorLabel}
+              <div className="flex min-w-0 items-baseline gap-1.5">
+                <span className="truncate text-[13px] font-semibold text-slate-900 dark:text-slate-100">
+                  {authorLabel}
+                </span>
+                {comment.createdAt ? (
+                  <span className="shrink-0 text-[11px] text-slate-400 dark:text-slate-500">
+                    {formatRelativeTime(comment.createdAt, new Date())}
+                  </span>
+                ) : null}
               </div>
+              {isRootThread && isResolved ? (
+                <div
+                  data-testid={`comment-${variant}-${comment.id}-resolved`}
+                  className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400"
+                >
+                  <CircleCheck className="size-3 shrink-0" />
+                  <span className="truncate">
+                    Resolved
+                    {comment.resolvedBy ? ` by ${comment.resolvedBy}` : ""}
+                    {comment.resolvedAt
+                      ? ` · ${formatRelativeTime(comment.resolvedAt, new Date())}`
+                      : ""}
+                  </span>
+                </div>
+              ) : null}
               <div
                 className={cn(
                   "mt-1 text-sm leading-6 whitespace-pre-wrap",
@@ -698,9 +766,9 @@ function CommentThreadNode({
                 {isEditing ? null : renderedContent}
               </div>
               {isEditing ? (
-                <Textarea
-                  data-testid={`comment-${variant}-${comment.id}-editor`}
-                  ref={(node) => {
+                <MentionTextarea
+                  testId={`comment-${variant}-${comment.id}-editor`}
+                  registerRef={(node) => {
                     if (node) {
                       textareaRefs.current.set(comment.id, node);
                     } else {
@@ -718,38 +786,13 @@ function CommentThreadNode({
                       ? "border-amber-200 dark:border-amber-700 bg-white/90 dark:bg-slate-800/90 text-slate-800 dark:text-slate-200"
                       : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 shadow-none",
                   )}
-                  onPointerDown={(event) => {
-                    event.stopPropagation();
-                    onSelectComment?.(comment.id);
-                  }}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                  }}
-                  onKeyDown={(event) => {
-                    // Enter saves & closes the comment; Shift+Enter inserts a
-                    // newline (Cmd/Ctrl+Enter also submits, for muscle memory).
-                    if (
-                      event.key.toLowerCase() === "enter" &&
-                      !event.shiftKey
-                    ) {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      onSubmitEditingComment(comment.id);
-                      return;
-                    }
-
-                    if (event.key !== "Escape") return;
-
-                    event.preventDefault();
-                    event.stopPropagation();
-                    onCancelEditingComment(comment.id);
-                  }}
-                  onFocus={() => {
-                    onSelectComment?.(comment.id);
-                  }}
-                  onChange={(event) => {
-                    onChangeDraft(comment.id, event.target.value);
-                  }}
+                  mentionCandidates={mentionCandidates}
+                  // Enter saves & closes the comment; Shift+Enter inserts a
+                  // newline. While the @mention menu is open it owns these keys.
+                  onSubmit={() => onSubmitEditingComment(comment.id)}
+                  onCancel={() => onCancelEditingComment(comment.id)}
+                  onSelect={() => onSelectComment?.(comment.id)}
+                  onValueChange={(next) => onChangeDraft(comment.id, next)}
                 />
               ) : null}
               <div className="mt-2 flex flex-wrap items-center gap-1">
@@ -781,6 +824,7 @@ function CommentThreadNode({
               parentLines={depth === 0 ? [] : [...parentLines, !isLast]}
               variant={variant}
               interactive={interactive}
+              mentionCandidates={mentionCandidates}
               drafts={drafts}
               editingCommentIds={editingCommentIds}
               selectedCommentId={selectedCommentId}
@@ -788,6 +832,7 @@ function CommentThreadNode({
               textareaRefs={textareaRefs}
               onDeleteComment={onDeleteComment}
               onUpdateComment={onUpdateComment}
+              onToggleResolveComment={onToggleResolveComment}
               onSelectComment={onSelectComment}
               onHoverComment={onHoverComment}
               onFocusComment={onFocusComment}
