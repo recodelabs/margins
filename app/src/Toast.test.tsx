@@ -36,6 +36,20 @@ describe("Toast", () => {
     cleanup();
   });
 
+  it("renders a pull request link when given a prUrl", () => {
+    const { container, cleanup } = mount(
+      <Toast
+        message="Opened a pull request with your changes."
+        prUrl="https://github.com/o/r/pull/7"
+        onDismiss={() => {}}
+      />,
+    );
+    const link = container.querySelector("a");
+    expect(link?.getAttribute("href")).toBe("https://github.com/o/r/pull/7");
+    expect(link?.textContent).toContain("pull request");
+    cleanup();
+  });
+
   it("calls onDismiss when the dismiss button is clicked", () => {
     const onDismiss = vi.fn();
     const { container, cleanup } = mount(

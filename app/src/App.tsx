@@ -128,6 +128,9 @@ export function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [publicView, setPublicView] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
+  // "Propose changes" mode: commit through a working branch + PR instead of
+  // straight to the selected branch. Persisted per repo as a default.
+  const [proposeChanges, setProposeChanges] = useState(false);
   const [pendingNavHref, setPendingNavHref] = useState<string | null>(null);
   const [committingBeforeLeave, setCommittingBeforeLeave] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
@@ -138,7 +141,11 @@ export function App() {
   const [toast, setToast] = useState<{
     message: string;
     commitUrl?: string;
+    prUrl?: string;
   } | null>(null);
+  // The PR URL we've already announced, so we toast it once per session rather
+  // than on every save in propose-changes mode.
+  const announcedPrUrlRef = useRef<string | null>(null);
   const [liveActivityEntries, setLiveActivityEntries] = useState<
     ActivityEntry[] | null
   >(null);
@@ -452,6 +459,54 @@ export function App() {
     [],
   );
 
+  // In propose-changes mode a save opens (or reuses) a PR; surface its URL the
+  // first time we see it so the user can jump to the pull request.
+  const announcePullRequest = useCallback(() => {
+    const url = backendRef.current?.pullRequestUrl?.() ?? null;
+    if (url && url !== announcedPrUrlRef.current) {
+      announcedPrUrlRef.current = url;
+      setToast({
+        message: "Opened a pull request with your changes.",
+        prUrl: url,
+      });
+    }
+  }, []);
+
+  // Load the per-repo "propose changes" default and apply it to the backend
+  // whenever the backend changes.
+  useEffect(() => {
+    if (!backend?.capabilities.pullRequests) {
+      setProposeChanges(false);
+      return;
+    }
+    let pref = false;
+    try {
+      pref =
+        localStorage.getItem(
+          `margins:proposeChanges:${backend.info.detail}`,
+        ) === "1";
+    } catch {
+      // localStorage unavailable (private mode) — fall back to direct commits.
+    }
+    setProposeChanges(pref);
+    backend.setProposeChanges?.(pref);
+  }, [backend]);
+
+  const handleProposeChangesChange = useCallback((next: boolean) => {
+    const currentBackend = backendRef.current;
+    if (!currentBackend?.capabilities.pullRequests) return;
+    setProposeChanges(next);
+    currentBackend.setProposeChanges?.(next);
+    try {
+      localStorage.setItem(
+        `margins:proposeChanges:${currentBackend.info.detail}`,
+        next ? "1" : "0",
+      );
+    } catch {
+      // Best-effort persistence; the in-session toggle still works without it.
+    }
+  }, []);
+
   const handleSaveDocument = useCallback(
     async (id: string, content: string) => {
       if (!activeDocumentPath) return;
@@ -479,6 +534,8 @@ export function App() {
             `${activeDocumentPath}:${outcome.savedDocument.version ?? Date.now()}:merged`,
           );
           setToast({ message: "Merged in changes saved by someone else." });
+        } else {
+          announcePullRequest();
         }
         return;
       }
@@ -493,7 +550,13 @@ export function App() {
         documentPageRef.current ?? { id, title: id, content },
       );
     },
-    [activeDocumentPath, applyDocumentPage, documentSession, runAutoMergeSave],
+    [
+      activeDocumentPath,
+      announcePullRequest,
+      applyDocumentPage,
+      documentSession,
+      runAutoMergeSave,
+    ],
   );
 
   useEffect(() => {
@@ -1000,6 +1063,7 @@ export function App() {
         <Toast
           message={toast.message}
           commitUrl={toast.commitUrl}
+          prUrl={toast.prUrl}
           onDismiss={dismissToast}
         />
       ) : null}
@@ -1037,6 +1101,9 @@ export function App() {
           onCompleteReview={handleCompleteReview}
           backend={backend}
           manualCommit={backend?.capabilities.manualCommit ?? false}
+          canProposeChanges={backend?.capabilities.pullRequests ?? false}
+          proposeChanges={proposeChanges}
+          onProposeChangesChange={handleProposeChangesChange}
           githubNav={githubNav}
           onNavigate={handleNavigateAway}
           liveActivityEntries={liveActivityEntries}

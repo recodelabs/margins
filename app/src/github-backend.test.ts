@@ -998,4 +998,181 @@ describe("GitHubBackend", () => {
       expect(page.content).toBe("# Upper\n");
     });
   });
+
+  describe("propose-changes (PR) mode", () => {
+    interface Call {
+      url: string;
+      method: string;
+      // biome-ignore lint/suspicious/noExplicitAny: test reads arbitrary bodies
+      body?: any;
+    }
+    function route(handler: (url: string, method: string) => Response): Call[] {
+      const calls: Call[] = [];
+      global.fetch = vi.fn(async (url: string, init?: RequestInit) => {
+        const method = init?.method ?? "GET";
+        calls.push({
+          url,
+          method,
+          body:
+            typeof init?.body === "string" ? JSON.parse(init.body) : undefined,
+        });
+        return handler(url, method);
+      }) as unknown as typeof fetch;
+      return calls;
+    }
+
+    it("exposes the pullRequests capability", () => {
+      expect(backend().capabilities.pullRequests).toBe(true);
+    });
+
+    it("save creates a working branch, commits there, and opens a PR", async () => {
+      const b = backend();
+      b.setProposeChanges(true);
+      const calls = route((url, method) => {
+        if (url.includes("/git/ref/heads/main")) {
+          return new Response(JSON.stringify({ object: { sha: "basesha" } }), {
+            status: 200,
+          });
+        }
+        if (url.endsWith("/git/refs") && method === "POST") {
+          return new Response("{}", { status: 201 });
+        }
+        if (url.includes("/contents/docs/x.md") && method === "PUT") {
+          return new Response(JSON.stringify({ content: { sha: "worksha" } }), {
+            status: 200,
+          });
+        }
+        if (url.endsWith("/pulls") && method === "POST") {
+          return new Response(
+            JSON.stringify({ html_url: "https://github.com/o/r/pull/7" }),
+            { status: 201 },
+          );
+        }
+        throw new Error(`unexpected ${method} ${url}`);
+      });
+
+      const page = await b.saveMarkdownFile("docs/x.md", "# New\n", "basesha");
+
+      expect(page.version).toBe("worksha");
+      expect(b.pullRequestUrl()).toBe("https://github.com/o/r/pull/7");
+
+      const createRef = calls.find((c) => c.url.endsWith("/git/refs"));
+      expect(createRef?.body).toEqual({
+        ref: "refs/heads/margins/octocat/main",
+        sha: "basesha",
+      });
+      const put = calls.find((c) => c.method === "PUT");
+      expect(put?.body.branch).toBe("margins/octocat/main");
+      const pull = calls.find(
+        (c) => c.url.endsWith("/pulls") && c.method === "POST",
+      );
+      expect(pull?.body.head).toBe("margins/octocat/main");
+      expect(pull?.body.base).toBe("main");
+    });
+
+    it("reuses an existing branch and PR (422s) without erroring", async () => {
+      const b = backend();
+      b.setProposeChanges(true);
+      route((url, method) => {
+        if (url.includes("/git/ref/heads/main")) {
+          return new Response(JSON.stringify({ object: { sha: "basesha" } }), {
+            status: 200,
+          });
+        }
+        if (url.endsWith("/git/refs") && method === "POST") {
+          // Branch already exists.
+          return new Response(
+            JSON.stringify({ message: "Reference already exists" }),
+            { status: 422 },
+          );
+        }
+        if (url.includes("/contents/docs/x.md") && method === "PUT") {
+          return new Response(JSON.stringify({ content: { sha: "worksha" } }), {
+            status: 200,
+          });
+        }
+        if (url.endsWith("/pulls") && method === "POST") {
+          // A PR is already open.
+          return new Response(
+            JSON.stringify({ message: "A pull request already exists" }),
+            { status: 422 },
+          );
+        }
+        if (url.includes("/pulls?head=") && method === "GET") {
+          return new Response(
+            JSON.stringify([{ html_url: "https://github.com/o/r/pull/3" }]),
+            { status: 200 },
+          );
+        }
+        throw new Error(`unexpected ${method} ${url}`);
+      });
+
+      const page = await b.saveMarkdownFile("docs/x.md", "# New\n", "basesha");
+      expect(page.version).toBe("worksha");
+      expect(b.pullRequestUrl()).toBe("https://github.com/o/r/pull/3");
+    });
+
+    it("reads from the base branch until the working branch exists, then from it", async () => {
+      const b = backend();
+      b.setProposeChanges(true);
+      const calls = route((url, method) => {
+        if (url.includes("/git/trees/")) {
+          return new Response(JSON.stringify({ tree: [] }), { status: 200 });
+        }
+        if (url.includes("/git/ref/heads/main")) {
+          return new Response(JSON.stringify({ object: { sha: "basesha" } }), {
+            status: 200,
+          });
+        }
+        if (url.endsWith("/git/refs") && method === "POST") {
+          return new Response("{}", { status: 201 });
+        }
+        if (url.includes("/contents/") && method === "PUT") {
+          return new Response(JSON.stringify({ content: { sha: "worksha" } }), {
+            status: 200,
+          });
+        }
+        if (url.endsWith("/pulls") && method === "POST") {
+          return new Response(
+            JSON.stringify({ html_url: "https://github.com/o/r/pull/9" }),
+            { status: 201 },
+          );
+        }
+        throw new Error(`unexpected ${method} ${url}`);
+      });
+
+      // Before any write, the listing comes from the base branch.
+      await b.listMarkdownPaths();
+      expect(calls.some((c) => c.url.includes("/git/trees/main"))).toBe(true);
+
+      // A save creates the working branch...
+      await b.saveMarkdownFile("docs/x.md", "# New\n", "basesha");
+
+      // ...and now reads target the working branch.
+      calls.length = 0;
+      await b.listMarkdownPaths();
+      expect(
+        calls.some((c) => c.url.includes("/git/trees/margins/octocat/main")),
+      ).toBe(true);
+    });
+
+    it("commits straight to the base branch when the toggle is off", async () => {
+      const b = backend();
+      const calls = route((url, method) => {
+        if (url.includes("/contents/docs/x.md") && method === "PUT") {
+          return new Response(JSON.stringify({ content: { sha: "def456" } }), {
+            status: 200,
+          });
+        }
+        throw new Error(`unexpected ${method} ${url}`);
+      });
+      await b.saveMarkdownFile("docs/x.md", "# New\n", "abc123");
+      expect(b.pullRequestUrl()).toBeNull();
+      const put = calls.find((c) => c.method === "PUT");
+      expect(put?.body.branch).toBe("main");
+      // No branch/PR machinery was touched.
+      expect(calls.every((c) => !c.url.includes("/git/refs"))).toBe(true);
+      expect(calls.every((c) => !c.url.endsWith("/pulls"))).toBe(true);
+    });
+  });
 });

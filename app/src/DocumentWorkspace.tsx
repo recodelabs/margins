@@ -9,6 +9,7 @@ import {
   CodeXml,
   Eye,
   EyeOff,
+  GitPullRequest,
   Loader2,
   MessageSquarePlus,
   PencilLine,
@@ -299,6 +300,12 @@ interface DocumentWorkspaceProps {
   ) => Promise<{ delivered: boolean }>;
   backend: StorageBackend | null;
   manualCommit?: boolean;
+  /** Whether this backend can open PRs (drives the "Propose changes" toggle). */
+  canProposeChanges?: boolean;
+  /** Current state of propose-changes mode. */
+  proposeChanges?: boolean;
+  /** Toggle propose-changes mode on/off. */
+  onProposeChangesChange?: (next: boolean) => void;
   githubNav?: GitHubDocNav | null;
   liveActivityEntries?: ActivityEntry[] | null;
   canEdit?: boolean;
@@ -336,6 +343,9 @@ export function DocumentWorkspace({
   onCompleteReview,
   backend,
   manualCommit = false,
+  canProposeChanges = false,
+  proposeChanges = false,
+  onProposeChangesChange,
   githubNav = null,
   onNavigate,
   liveActivityEntries,
@@ -761,6 +771,9 @@ export function DocumentWorkspace({
   const agentBoxToggleLabel = agentBoxHidden
     ? "Show agent box"
     : "Hide agent box";
+  const proposeChangesToggleLabel = proposeChanges
+    ? "Propose changes: on — saving opens a pull request"
+    : "Propose changes: off — saving commits to the branch";
   const activeDocumentInteractionMode = documentInteractionModeOptions.find(
     (option) => option.value === documentInteractionMode,
   );
@@ -932,11 +945,11 @@ export function DocumentWorkspace({
           {saveState === "saving" ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              Committing…
+              {proposeChanges ? "Proposing…" : "Committing…"}
             </>
           ) : (
             <>
-              Commit changes
+              {proposeChanges ? "Propose changes" : "Commit changes"}
               <kbd className="rounded bg-white/20 px-1.5 py-0.5 font-sans text-xs font-medium text-white/90">
                 {commitShortcutHint}
               </kbd>
@@ -1520,6 +1533,35 @@ export function DocumentWorkspace({
                           </SelectContent>
                         </Select>
                       </>
+                    ) : null}
+                    {canProposeChanges && manualCommit && canEdit ? (
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <button
+                              type="button"
+                              data-testid="propose-changes-toggle"
+                              aria-pressed={proposeChanges}
+                              className={cn(
+                                "inline-flex h-[1.5rem] items-center justify-center gap-1 rounded-full px-1.5 font-mono text-[0.7rem] outline-none transition focus-visible:ring-2 focus-visible:ring-stone-300/70 dark:focus-visible:ring-slate-600/70",
+                                proposeChanges
+                                  ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300"
+                                  : "text-stone-400 hover:bg-[#EEE9E1] hover:text-stone-600 dark:text-stone-500 dark:hover:bg-slate-800 dark:hover:text-stone-300",
+                              )}
+                            >
+                              <GitPullRequest className="size-[0.78rem]" />
+                              {proposeChanges ? "PR" : null}
+                            </button>
+                          }
+                          aria-label={proposeChangesToggleLabel}
+                          onClick={() =>
+                            onProposeChangesChange?.(!proposeChanges)
+                          }
+                        />
+                        <TooltipContent>
+                          {proposeChangesToggleLabel}
+                        </TooltipContent>
+                      </Tooltip>
                     ) : null}
                     {backend?.info.kind === "github" ? (
                       <SharePopover
