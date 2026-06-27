@@ -525,6 +525,58 @@ describe("GitHubBackend", () => {
     });
   });
 
+  describe("readAssetDataUrl", () => {
+    it("returns a data: URL with the right MIME from the Contents API base64", async () => {
+      const fetchMock = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              sha: "img1",
+              content: b64("PNGDATA"),
+              encoding: "base64",
+            }),
+            { status: 200 },
+          ),
+      );
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const url = await backend().readAssetDataUrl("assets/pic.png");
+      expect(url).toBe(`data:image/png;base64,${b64("PNGDATA")}`);
+      // Authenticated request to the Contents API path.
+      const [reqUrl, init] = fetchMock.mock.calls[0];
+      expect(String(reqUrl)).toContain("/repos/o/r/contents/assets/pic.png");
+      expect(headersOf(init as RequestInit).Authorization).toBe("Bearer tok");
+    });
+
+    it("falls back to the Git blob API when the Contents body is empty (>1 MB)", async () => {
+      const fetchMock = vi.fn(async (url: string) => {
+        if (url.includes("/git/blobs/")) {
+          return new Response(
+            JSON.stringify({ content: b64("BIGJPEG"), encoding: "base64" }),
+            { status: 200 },
+          );
+        }
+        return new Response(
+          JSON.stringify({ sha: "blobsha", content: "", encoding: "none" }),
+          { status: 200 },
+        );
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const url = await backend().readAssetDataUrl("assets/big.jpg");
+      expect(url).toBe(`data:image/jpeg;base64,${b64("BIGJPEG")}`);
+    });
+
+    it("returns null when the asset is missing", async () => {
+      const fetchMock = vi.fn(
+        async () => new Response("Not Found", { status: 404 }),
+      );
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      expect(await backend().readAssetDataUrl("assets/nope.png")).toBeNull();
+    });
+  });
+
   describe("large-file guard", () => {
     it("throws FileTooLargeError when the API returns encoding:none (file over 1 MB)", async () => {
       // GitHub's Contents API omits inline content for files >1 MB, responding

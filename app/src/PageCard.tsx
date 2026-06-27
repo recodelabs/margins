@@ -13,6 +13,7 @@ import {
   useState,
 } from "react";
 import { buildLocationForLinkedMarkdownDocument } from "./app-navigation";
+import { relativeAssetRef, resolveRepoAssetPath } from "./asset-path";
 import { CommentEditorList } from "./CommentEditorList";
 import { alignElementToTarget } from "./comment-scroll";
 import { shouldShowReviewRail } from "./comment-visibility";
@@ -680,10 +681,56 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
 
   const authorId = backend?.info.authorLabel ?? "user";
 
+  // Resolve an asset reference relative to the *document's* folder (matching
+  // github.com) into a repo-root path before building its raw URL. External
+  // refs (absolute URLs, data URLs) are left untouched.
   const resolveFileUrl = useCallback(
-    (path: string) => backend.resolveFileUrl(path),
-    [backend],
+    (path: string) => {
+      const repoPath = resolveRepoAssetPath(activeDocumentPath ?? "", path);
+      if (repoPath == null) return path;
+      return backend.resolveFileUrl(repoPath);
+    },
+    [activeDocumentPath, backend],
   );
+
+  // Recovery for images whose raw URL fails to load — chiefly private repos,
+  // where `raw.githubusercontent.com` 404s without auth. Fetches the bytes with
+  // the user's token and returns a `data:` URL. Tries the document-relative
+  // path first, then a repo-root interpretation so legacy `./assets/...` refs
+  // (which pointed at repo-root assets) still resolve.
+  const loadAuthedImageSrc = useCallback(
+    async (markdownSrc: string): Promise<string | null> => {
+      if (!backend.readAssetDataUrl) return null;
+      const candidates: string[] = [];
+      const resolved = resolveRepoAssetPath(
+        activeDocumentPath ?? "",
+        markdownSrc,
+      );
+      if (resolved) candidates.push(resolved);
+      const rootRelative = markdownSrc
+        .trim()
+        .replace(/^\/+/, "")
+        .replace(/^(?:\.\.?\/)+/, "");
+      if (rootRelative && !candidates.includes(rootRelative)) {
+        candidates.push(rootRelative);
+      }
+      for (const candidate of candidates) {
+        const url = await backend.readAssetDataUrl(candidate);
+        if (url) return url;
+      }
+      return null;
+    },
+    [activeDocumentPath, backend],
+  );
+  // Keep a stable identity for the editor (created once) while always calling
+  // the latest resolver, so it tracks the current document/backend.
+  const loadAuthedImageSrcRef = useRef(loadAuthedImageSrc);
+  loadAuthedImageSrcRef.current = loadAuthedImageSrc;
+  const stableLoadAuthedImageSrc = useCallback(
+    (markdownSrc: string) => loadAuthedImageSrcRef.current(markdownSrc),
+    [],
+  );
+
   const resolveLinkUrl = useCallback(
     (path: string) =>
       buildLocationForLinkedMarkdownDocument({
@@ -775,10 +822,16 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
       const markdown = assets
         .map((asset, index) => {
           const file = files[index];
+          // Reference the asset relative to this document's folder so the link
+          // works in margins AND when the .md is viewed on github.com.
+          const ref = relativeAssetRef(
+            activeDocumentPath ?? "",
+            asset.markdownPath,
+          );
           if (asset.mimeType.startsWith("image/")) {
-            return `![${file?.name || "Image"}](${asset.markdownPath})`;
+            return `![${file?.name || "Image"}](${ref})`;
           }
-          return `[${file?.name || "Attachment"}](${asset.markdownPath})`;
+          return `[${file?.name || "Attachment"}](${ref})`;
         })
         .join("\n\n");
 
@@ -793,7 +846,7 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
         )
         .run();
     },
-    [backend, resolveFileUrl, resolveLinkUrl],
+    [activeDocumentPath, backend, resolveFileUrl, resolveLinkUrl],
   );
 
   const refreshCriticChanges = useCallback(() => {
@@ -822,7 +875,9 @@ const RichTextEditorSurface = memo(function RichTextEditorSurface({
 
   const editor = useEditor(
     {
-      extensions: createEditorExtensions("Start writing..."),
+      extensions: createEditorExtensions("Start writing...", {
+        loadAuthedImageSrc: stableLoadAuthedImageSrc,
+      }),
       content: parsedContent.doc,
       immediatelyRender: false,
       shouldRerenderOnTransaction: false,

@@ -224,5 +224,12 @@ export interface StorageBackend {
   getReviewWatchStatus?(relativePath: string): Promise<ReviewWatchStatus>;
   saveAsset(file: File): Promise<StoredAsset>;
   resolveFileUrl(path: string): string | null;
+  /**
+   * Fetch an asset's bytes with the backend's credentials and return a
+   * directly-renderable URL (a `data:` URL). Needed for private repos, whose
+   * `resolveFileUrl` raw URLs 404 in an `<img>` tag because they carry no auth.
+   * `path` is repo-root-relative. Returns null if unavailable or on failure.
+   */
+  readAssetDataUrl?(path: string): Promise<string | null>;
   openProject(path: string): Promise<void>;
 }

@@ -70,6 +70,32 @@ async function sha256Hex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
     .join("");
 }
 
+/** Best-effort MIME type from a file extension, for building `data:` URLs. */
+function mimeFromPath(path: string): string {
+  const ext = path.slice(path.lastIndexOf(".") + 1).toLowerCase();
+  switch (ext) {
+    case "png":
+      return "image/png";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "gif":
+      return "image/gif";
+    case "webp":
+      return "image/webp";
+    case "svg":
+      return "image/svg+xml";
+    case "avif":
+      return "image/avif";
+    case "bmp":
+      return "image/bmp";
+    case "ico":
+      return "image/x-icon";
+    default:
+      return "application/octet-stream";
+  }
+}
+
 /** Strip characters that are awkward in a repo path, keeping a readable stem. */
 function sanitizeAssetName(filename: string): string {
   const trimmed = filename.trim() || "attachment";
@@ -613,6 +639,46 @@ export class GitHubBackend implements StorageBackend {
   resolveFileUrl(path: string): string | null {
     const { owner, repo, branch } = this.cfg;
     return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
+  }
+
+  /**
+   * Fetch an asset's bytes via the authenticated API and return a `data:` URL.
+   * Used to render images in **private** repos, whose `raw.githubusercontent.com`
+   * URLs 404 in an `<img>` tag (no auth header). The Contents API inlines the
+   * base64 body for files up to 1 MB; larger files fall back to the Git blob
+   * API (addressed by the sha the Contents response still returns).
+   */
+  async readAssetDataUrl(path: string): Promise<string | null> {
+    try {
+      const res = await githubFetch(this.contentsUrl(path), {
+        headers: this.headers(),
+      });
+      if (!res.ok) return null;
+      const json = (await res.json()) as {
+        content?: string;
+        encoding?: string;
+        sha?: string;
+      };
+      const mime = mimeFromPath(path);
+      let base64 = json.encoding === "base64" ? (json.content ?? "") : "";
+      // Contents API returns empty content for files >1 MB; fetch the blob.
+      if (!base64 && json.sha) {
+        const blobRes = await githubFetch(
+          `${API}/repos/${this.cfg.owner}/${this.cfg.repo}/git/blobs/${json.sha}`,
+          { headers: this.headers() },
+        );
+        if (!blobRes.ok) return null;
+        const blob = (await blobRes.json()) as {
+          content?: string;
+          encoding?: string;
+        };
+        base64 = blob.encoding === "base64" ? (blob.content ?? "") : "";
+      }
+      if (!base64) return null;
+      return `data:${mime};base64,${base64.replace(/\s/g, "")}`;
+    } catch {
+      return null;
+    }
   }
 
   async openProject(_path: string): Promise<void> {
