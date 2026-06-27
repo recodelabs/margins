@@ -50,13 +50,43 @@ function decodeBase64(b64: string): string {
   );
   return new TextDecoder().decode(bytes);
 }
-function encodeBase64(text: string): string {
-  const bytes = new TextEncoder().encode(text);
+function encodeBase64Bytes(bytes: Uint8Array): string {
   let bin = "";
   bytes.forEach((byte) => {
     bin += String.fromCharCode(byte);
   });
   return btoa(bin);
+}
+function encodeBase64(text: string): string {
+  return encodeBase64Bytes(new TextEncoder().encode(text));
+}
+
+/** Lowercase hex SHA-256 of the given bytes (used to content-address assets). */
+async function sha256Hex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/** Strip characters that are awkward in a repo path, keeping a readable stem. */
+function sanitizeAssetName(filename: string): string {
+  const trimmed = filename.trim() || "attachment";
+  return trimmed.replace(/[^a-zA-Z0-9._-]/g, "-");
+}
+
+/**
+ * Content-addressed repo path for an uploaded asset:
+ * `assets/<sanitized-stem>-<hash8><.ext>`. Embedding a slice of the content
+ * hash means identical bytes always map to the same path (free de-dupe) while
+ * different files that happen to share a name never collide.
+ */
+function assetPath(filename: string, hashHex: string): string {
+  const safe = sanitizeAssetName(filename);
+  const dot = safe.lastIndexOf(".");
+  const stem = dot > 0 ? safe.slice(0, dot) : safe;
+  const ext = dot > 0 ? safe.slice(dot) : "";
+  return `assets/${stem}-${hashHex.slice(0, 8)}${ext}`;
 }
 
 export class GitHubBackend implements StorageBackend {
@@ -446,10 +476,60 @@ export class GitHubBackend implements StorageBackend {
     return result;
   }
 
-  saveAsset(_file: File): Promise<StoredAsset> {
-    return Promise.reject(
-      new Error("Asset upload is not supported yet in GitHub mode"),
+  /**
+   * Commits a pasted/dropped file into the repo under `assets/` and returns a
+   * reference to insert into the document. The path is content-addressed
+   * (`assets/<name>-<hash8>.<ext>`), so re-uploading identical bytes reuses the
+   * existing blob instead of committing a duplicate.
+   *
+   * Uses the Contents API, which inlines the body as base64 — fine for typical
+   * pasted images. Files over ~1 MB need the Git Data (blob) API and are out of
+   * scope here (tracked by the large-file issue); GitHub's rejection surfaces as
+   * a clear error.
+   */
+  async saveAsset(file: File): Promise<StoredAsset> {
+    const { owner, repo, branch } = this.cfg;
+    const mimeType = file.type || "application/octet-stream";
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const path = assetPath(file.name, await sha256Hex(bytes));
+
+    const reference: StoredAsset = {
+      markdownPath: path,
+      previewUrl: this.resolveFileUrl(path) ?? path,
+      mimeType,
+    };
+
+    // Same content hash → same path: if it's already committed, reuse it.
+    const existing = await githubFetch(this.contentsUrl(path), {
+      headers: this.headers(),
+    });
+    if (existing.ok) return reference;
+    if (existing.status !== 404) {
+      throw new Error(`GitHub asset check failed (${existing.status})`);
+    }
+
+    const res = await githubFetch(
+      `${API}/repos/${owner}/${repo}/contents/${path}`,
+      {
+        method: "PUT",
+        headers: this.headers({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          message: `chore(margins): add asset ${path}`,
+          content: encodeBase64Bytes(bytes),
+          branch,
+        }),
+      },
     );
+    if (!res.ok) {
+      const errBody = (await res.json().catch(() => ({}))) as {
+        message?: string;
+      };
+      throw new Error(
+        `GitHub asset upload failed (${res.status}): ${errBody.message ?? "error"}`,
+      );
+    }
+    invalidateCachedUrl(this.contentsUrl(path));
+    return reference;
   }
 
   resolveFileUrl(path: string): string | null {
