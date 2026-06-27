@@ -28,6 +28,7 @@ export class RemoteBackend implements StorageBackend {
     remoteSession: true,
     createFile: false,
     activityLog: false,
+    pullRequests: false,
   };
   canManageProjects = false;
   sessionStatus: RemoteSessionStatus = "disconnected";

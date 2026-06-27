@@ -3,6 +3,7 @@ import { useEffect } from "react";
 export interface ToastProps {
   message: string;
   commitUrl?: string;
+  prUrl?: string;
   durationMs?: number;
   onDismiss: () => void;
 }
@@ -10,6 +11,7 @@ export interface ToastProps {
 export function Toast({
   message,
   commitUrl,
+  prUrl,
   durationMs = 6000,
   onDismiss,
 }: ToastProps) {
@@ -34,6 +36,16 @@ export function Toast({
             className="ml-2 whitespace-nowrap underline"
           >
             view commit ↗
+          </a>
+        ) : null}
+        {prUrl ? (
+          <a
+            href={prUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="ml-2 whitespace-nowrap underline"
+          >
+            view pull request ↗
           </a>
         ) : null}
       </div>

@@ -155,6 +155,12 @@ export interface BackendCapabilities {
   createFile: boolean;
   /** Supports reading/appending a per-file agent activity log. */
   activityLog: boolean;
+  /**
+   * Can commit through a working branch + Pull Request instead of straight to
+   * the selected branch (`setProposeChanges` / `pullRequestUrl`). Drives the
+   * "Propose changes" toggle.
+   */
+  pullRequests: boolean;
 }
 
 export interface StorageBackend {
@@ -217,6 +223,14 @@ export interface StorageBackend {
   listFileHistory?(relativePath: string, limit?: number): Promise<FileCommit[]>;
   /** Read a file's content at a specific commit/ref. Pairs with `listFileHistory`. */
   readFileAtRef?(relativePath: string, ref: string): Promise<string>;
+  /**
+   * Turn "propose changes" mode on/off. When on, saves land on a working branch
+   * and open a Pull Request rather than committing straight to the branch.
+   * Present when `capabilities.pullRequests`.
+   */
+  setProposeChanges?(enabled: boolean): void;
+  /** URL of the open PR once propose-changes mode has created one, else null. */
+  pullRequestUrl?(): string | null;
   completeReview?(
     relativePath: string,
     options?: CompleteReviewOptions,

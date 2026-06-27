@@ -116,6 +116,16 @@ function assetPath(filename: string, hashHex: string): string {
   return `assets/${stem}-${hashHex.slice(0, 8)}${ext}`;
 }
 
+/** Sanitise a path segment so it's safe to embed in a git branch name. */
+function branchSafe(segment: string): string {
+  return (
+    segment
+      .replace(/[^a-zA-Z0-9._/-]+/g, "-")
+      .replace(/^[-./]+|[-./]+$/g, "")
+      .replace(/\.\.+/g, "-") || "x"
+  );
+}
+
 export class GitHubBackend implements StorageBackend {
   info: BackendInfo;
   capabilities: BackendCapabilities = {
@@ -124,9 +134,24 @@ export class GitHubBackend implements StorageBackend {
     remoteSession: false,
     createFile: true,
     activityLog: true,
+    pullRequests: true,
   };
   canManageProjects = false;
   private cfg: GitHubBackendConfig;
+
+  /**
+   * "Propose changes" mode. When on, commits land on a working branch
+   * ({@link workingBranch}) instead of the selected base branch, and saving
+   * opens (or reuses) a Pull Request back to the base. Off by default, so the
+   * straight-to-branch behaviour is unchanged until the user opts in.
+   */
+  private proposeChanges = false;
+  /** Set once the working branch is known to exist (created or already there). */
+  private workingBranchEnsured = false;
+  /** In-flight ensure, so concurrent saves don't each try to create the branch. */
+  private ensurePromise: Promise<void> | null = null;
+  /** Cached open-PR URL, so we only create/look it up once per session. */
+  private prUrl: string | null = null;
 
   constructor(cfg: GitHubBackendConfig) {
     this.cfg = cfg;
@@ -138,6 +163,139 @@ export class GitHubBackend implements StorageBackend {
     };
   }
 
+  /** Stable per-user working branch for this repo, e.g. `margins/octocat/main`. */
+  private get workingBranch(): string {
+    return `margins/${branchSafe(this.cfg.login)}/${branchSafe(this.cfg.branch)}`;
+  }
+
+  /**
+   * The branch every read/write targets right now. In propose-changes mode this
+   * is the working branch *once it exists* — until the first write creates it,
+   * reads still come from the base branch (where the content is identical), so
+   * we never address a branch that isn't there.
+   */
+  private get ref(): string {
+    return this.proposeChanges && this.workingBranchEnsured
+      ? this.workingBranch
+      : this.cfg.branch;
+  }
+
+  /** Turn propose-changes mode on or off for this session. */
+  setProposeChanges(enabled: boolean): void {
+    this.proposeChanges = enabled;
+  }
+
+  /** Whether propose-changes mode is currently on. */
+  get isProposingChanges(): boolean {
+    return this.proposeChanges;
+  }
+
+  /** The open PR's URL once one has been created/found, else null. */
+  pullRequestUrl(): string | null {
+    return this.proposeChanges ? this.prUrl : null;
+  }
+
+  /**
+   * Ensure the working branch exists before a write lands on it. Creates it off
+   * the current base-branch head; a 422 means it already exists (reuse it). A
+   * no-op outside propose-changes mode and after the branch is known to exist.
+   */
+  private ensureWorkingBranch(): Promise<void> {
+    if (!this.proposeChanges || this.workingBranchEnsured) {
+      return Promise.resolve();
+    }
+    if (!this.ensurePromise) {
+      this.ensurePromise = this.createWorkingBranch().then(
+        () => {
+          this.workingBranchEnsured = true;
+        },
+        (err) => {
+          // Let the next write retry instead of wedging on a transient failure.
+          this.ensurePromise = null;
+          throw err;
+        },
+      );
+    }
+    return this.ensurePromise;
+  }
+
+  private async createWorkingBranch(): Promise<void> {
+    const { owner, repo, branch } = this.cfg;
+    const refRes = await githubFetch(
+      `${API}/repos/${owner}/${repo}/git/ref/heads/${branch}`,
+      { headers: this.headers() },
+    );
+    if (!refRes.ok) {
+      throw new Error(`GitHub base ref read failed (${refRes.status})`);
+    }
+    const refJson = (await refRes.json()) as { object?: { sha?: string } };
+    const sha = refJson.object?.sha;
+    if (!sha) throw new Error("GitHub base ref had no commit sha");
+
+    const createRes = await githubFetch(
+      `${API}/repos/${owner}/${repo}/git/refs`,
+      {
+        method: "POST",
+        headers: this.headers({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          ref: `refs/heads/${this.workingBranch}`,
+          sha,
+        }),
+      },
+    );
+    // 422 == the ref already exists; reuse it rather than erroring.
+    if (createRes.ok || createRes.status === 422) return;
+    throw new Error(
+      `GitHub working branch create failed (${createRes.status})`,
+    );
+  }
+
+  /**
+   * Make sure an open PR exists from the working branch back to the base, and
+   * cache its URL. Best-effort: the commit has already landed, so a PR failure
+   * is logged rather than thrown (it would otherwise fail an otherwise-good
+   * save). A 422 means a PR is already open — look it up and reuse it.
+   */
+  private async ensurePullRequest(): Promise<void> {
+    if (!this.proposeChanges || this.prUrl) return;
+    const { owner, repo, branch, login } = this.cfg;
+    try {
+      const res = await githubFetch(`${API}/repos/${owner}/${repo}/pulls`, {
+        method: "POST",
+        headers: this.headers({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          title: `margins: changes from ${login}`,
+          head: this.workingBranch,
+          base: branch,
+          body: "Proposed from [margins](https://github.com/recodelabs/margins).",
+        }),
+      });
+      if (res.ok) {
+        const json = (await res.json()) as { html_url?: string };
+        if (json.html_url) this.prUrl = json.html_url;
+        return;
+      }
+      if (res.status === 422) {
+        this.prUrl = await this.findOpenPullRequest();
+        return;
+      }
+      throw new Error(`GitHub pull request failed (${res.status})`);
+    } catch (error) {
+      console.error("Could not open pull request:", error);
+    }
+  }
+
+  private async findOpenPullRequest(): Promise<string | null> {
+    const { owner, repo, branch } = this.cfg;
+    const url =
+      `${API}/repos/${owner}/${repo}/pulls` +
+      `?head=${owner}:${this.workingBranch}&base=${branch}&state=open`;
+    const res = await githubFetch(url, { headers: this.headers() });
+    if (!res.ok) return null;
+    const list = (await res.json()) as Array<{ html_url?: string }>;
+    return list[0]?.html_url ?? null;
+  }
+
   private headers(extra: Record<string, string> = {}) {
     return {
       Authorization: `Bearer ${this.cfg.token}`,
@@ -147,8 +305,8 @@ export class GitHubBackend implements StorageBackend {
   }
 
   private contentsUrl(relativePath: string, ref?: string): string {
-    const { owner, repo, branch } = this.cfg;
-    return `${API}/repos/${owner}/${repo}/contents/${relativePath}?ref=${ref ?? branch}`;
+    const { owner, repo } = this.cfg;
+    return `${API}/repos/${owner}/${repo}/contents/${relativePath}?ref=${ref ?? this.ref}`;
   }
 
   private async readFile(relativePath: string): Promise<Page> {
@@ -202,7 +360,10 @@ export class GitHubBackend implements StorageBackend {
     if (!isSupportedPath(relativePath)) {
       throw new Error("This file type can't be opened in margins");
     }
-    const { owner, repo, branch } = this.cfg;
+    // In propose-changes mode this creates the working branch (if needed) so the
+    // commit below lands there and `this.ref` resolves to it.
+    await this.ensureWorkingBranch();
+    const { owner, repo } = this.cfg;
     const res = await githubFetch(
       `${API}/repos/${owner}/${repo}/contents/${relativePath}`,
       {
@@ -212,7 +373,7 @@ export class GitHubBackend implements StorageBackend {
           message: `Update ${relativePath}`,
           content: encodeBase64(content),
           sha: expectedVersion,
-          branch,
+          branch: this.ref,
         }),
       },
     );
@@ -241,6 +402,8 @@ export class GitHubBackend implements StorageBackend {
     // The file changed on the server — drop any cached read so the next open
     // re-fetches (and re-conditionalises) instead of serving stale content.
     invalidateCachedUrl(this.contentsUrl(relativePath));
+    // The working branch now has a commit ahead of base — open (or reuse) a PR.
+    await this.ensurePullRequest();
     return {
       id: pageId(relativePath),
       title: titleFromContent(
@@ -259,7 +422,8 @@ export class GitHubBackend implements StorageBackend {
     if (!isSupportedPath(relativePath)) {
       throw new Error("This file type can't be created in margins");
     }
-    const { owner, repo, branch } = this.cfg;
+    await this.ensureWorkingBranch();
+    const { owner, repo } = this.cfg;
     const res = await githubFetch(
       `${API}/repos/${owner}/${repo}/contents/${relativePath}`,
       {
@@ -268,7 +432,7 @@ export class GitHubBackend implements StorageBackend {
         body: JSON.stringify({
           message: `Create ${relativePath}`,
           content: encodeBase64(content),
-          branch,
+          branch: this.ref,
         }),
       },
     );
@@ -291,6 +455,7 @@ export class GitHubBackend implements StorageBackend {
     if (!res.ok) throw new Error(`GitHub create failed (${res.status})`);
     const json = (await res.json()) as { content: { sha: string } };
     invalidateCachedUrl(this.contentsUrl(relativePath));
+    await this.ensurePullRequest();
     return {
       id: pageId(relativePath),
       title: titleFromContent(
@@ -374,7 +539,9 @@ export class GitHubBackend implements StorageBackend {
     docPath: string,
     entry: ActivityEntry,
   ): Promise<void> {
-    const { owner, repo, branch } = this.cfg;
+    // Settle on one branch up front so the read-sha and the write target match.
+    await this.ensureWorkingBranch();
+    const { owner, repo } = this.cfg;
     const path = activityLogPath(docPath);
 
     // GET the current sha then PUT with it. If another writer appended in
@@ -391,7 +558,7 @@ export class GitHubBackend implements StorageBackend {
             message: `chore(margins): activity (${entry.role}) on ${docPath}`,
             content: encodeBase64(nextText),
             sha: existing?.sha,
-            branch,
+            branch: this.ref,
           }),
         },
       );
@@ -412,8 +579,8 @@ export class GitHubBackend implements StorageBackend {
   }
 
   async listMarkdownPaths(): Promise<FileMeta[]> {
-    const { owner, repo, branch } = this.cfg;
-    const url = `${API}/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
+    const { owner, repo } = this.cfg;
+    const url = `${API}/repos/${owner}/${repo}/git/trees/${this.ref}?recursive=1`;
     return githubGet(url, this.headers(), async (res) => {
       if (!res.ok) throw new Error(`GitHub tree failed (${res.status})`);
       const json = (await res.json()) as {
@@ -447,11 +614,12 @@ export class GitHubBackend implements StorageBackend {
     const result = new Map<string, FileCommitInfo>();
     if (paths.length === 0) return result;
 
-    const { owner, repo, branch } = this.cfg;
+    const { owner, repo } = this.cfg;
+    const ref = this.ref;
     const fields = paths
       .map(
         (path, i) =>
-          `f${i}: object(expression: ${JSON.stringify(branch)}) { ` +
+          `f${i}: object(expression: ${JSON.stringify(ref)}) { ` +
           `... on Commit { history(first: 1, path: ${JSON.stringify(path)}) { ` +
           `nodes { committedDate author { name user { login } } } } } }`,
       )
@@ -637,8 +805,8 @@ export class GitHubBackend implements StorageBackend {
   }
 
   resolveFileUrl(path: string): string | null {
-    const { owner, repo, branch } = this.cfg;
-    return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
+    const { owner, repo } = this.cfg;
+    return `https://raw.githubusercontent.com/${owner}/${repo}/${this.ref}/${path}`;
   }
 
   /**

@@ -123,8 +123,11 @@ After deploying, add the production callback URL to your GitHub App:
 - **Conflicts surfaced but not merged.** If someone else pushed to the file between your
   load and your save, the Contents API returns a SHA mismatch error. The app surfaces this
   as a conflict — reload to get the latest version and re-apply your edits manually.
-- **Commits go straight to the selected branch.** There is no "open a PR" button; saves
-  commit directly to whichever branch you selected in the picker (default: repo default
-  branch).
+- **Commits go straight to the selected branch by default.** Saves commit directly to
+  whichever branch you selected in the picker (default: repo default branch). Toggle
+  **Propose changes** on (per repo) to instead commit to a per-session working branch
+  (`margins/<login>/<base>`) and open a Pull Request back to the base — handy when the
+  base branch is protected. Uses only the existing `repo` scope; the PR link is shown in
+  a toast after saving.
 - **Large files.** The GitHub Contents API has a ~1 MB limit per file. Very large markdown
   files may fail to load or save.

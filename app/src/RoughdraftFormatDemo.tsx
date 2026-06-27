@@ -45,6 +45,7 @@ const demoBackend: StorageBackend = {
     remoteSession: false,
     createFile: false,
     activityLog: false,
+    pullRequests: false,
   },
   canManageProjects: false,
   async getMarkdownFile() {
