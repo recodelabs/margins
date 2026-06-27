@@ -1,4 +1,5 @@
 import type { ActivityEntry } from "./activity-log";
+import type { FileMeta } from "./github-tree";
 
 export interface Page {
   id: string;
@@ -187,6 +188,12 @@ export interface StorageBackend {
     docPath: string,
     onChange: (entries: ActivityEntry[]) => void,
   ): () => void;
+  /**
+   * Recursively list every supported file path (with size) in the repo, for
+   * the workspace file-tree sidebar and the picker. Only the GitHub backend
+   * exposes a recursive listing today; callers gate on its presence.
+   */
+  listMarkdownPaths?(): Promise<FileMeta[]>;
   /** Absolute URL for a commit sha (for "view commit" links). */
   commitUrl?(sha: string): string;
   completeReview?(
