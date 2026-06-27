@@ -53,7 +53,7 @@ interface Change {
  * matched index pairs in increasing order. Standard O(n*m) DP — fine for the
  * document sizes margins handles (a save is a single file).
  */
-function lcsMatches(a: string[], b: string[]): Array<[number, number]> {
+export function lcsMatches(a: string[], b: string[]): Array<[number, number]> {
   const n = a.length;
   const m = b.length;
   const dp: number[][] = Array.from({ length: n + 1 }, () =>

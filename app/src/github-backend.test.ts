@@ -280,6 +280,136 @@ describe("GitHubBackend", () => {
     });
   });
 
+  describe("listFileHistory", () => {
+    it("fetches recent commits for a path via one GraphQL call", async () => {
+      const fetchMock = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              data: {
+                repository: {
+                  object: {
+                    history: {
+                      nodes: [
+                        {
+                          oid: "sha2",
+                          messageHeadline: "Second change",
+                          committedDate: "2026-06-20T10:00:00Z",
+                          author: {
+                            name: "Octo Cat",
+                            user: { login: "octocat" },
+                          },
+                        },
+                        {
+                          oid: "sha1",
+                          messageHeadline: "First change",
+                          committedDate: "2026-06-19T10:00:00Z",
+                          author: { name: "Amadeus Agent", user: null },
+                        },
+                      ],
+                    },
+                  },
+                },
+              },
+            }),
+            { status: 200 },
+          ),
+      );
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const commits = await backend().listFileHistory("docs/x.md");
+
+      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe("https://api.github.com/graphql");
+      expect(init.method).toBe("POST");
+      expect(headersOf(init).Authorization).toBe("Bearer tok");
+      expect(String(init.body)).toContain("docs/x.md");
+
+      expect(commits).toEqual([
+        {
+          sha: "sha2",
+          message: "Second change",
+          date: "2026-06-20T10:00:00Z",
+          authorName: "Octo Cat",
+          authorLogin: "octocat",
+        },
+        {
+          sha: "sha1",
+          message: "First change",
+          date: "2026-06-19T10:00:00Z",
+          authorName: "Amadeus Agent",
+          authorLogin: null,
+        },
+      ]);
+    });
+
+    it("returns an empty list when the file has no history", async () => {
+      const fetchMock = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              data: { repository: { object: { history: { nodes: [] } } } },
+            }),
+            { status: 200 },
+          ),
+      );
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const commits = await backend().listFileHistory("ghost.md");
+      expect(commits).toEqual([]);
+    });
+  });
+
+  describe("readFileAtRef", () => {
+    it("reads and decodes a file's content at a specific commit", async () => {
+      const fetchMock = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              sha: "blob1",
+              content: b64("# Old\n\nbody"),
+              encoding: "base64",
+            }),
+            { status: 200 },
+          ),
+      );
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const content = await backend().readFileAtRef("docs/x.md", "sha1");
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://api.github.com/repos/o/r/contents/docs/x.md?ref=sha1",
+        {
+          headers: {
+            Authorization: "Bearer tok",
+            Accept: "application/vnd.github+json",
+          },
+        },
+      );
+      expect(content).toBe("# Old\n\nbody");
+    });
+
+    it("throws FileTooLargeError when GitHub omits inline content", async () => {
+      const fetchMock = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              sha: "blob1",
+              content: "",
+              encoding: "none",
+              size: 2_000_000,
+            }),
+            { status: 200 },
+          ),
+      );
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      await expect(
+        backend().readFileAtRef("docs/big.md", "sha1"),
+      ).rejects.toBeInstanceOf(FileTooLargeError);
+    });
+  });
+
   it("round-trips multibyte UTF-8 content (accents, CJK, emoji)", async () => {
     const text = "# Héllo\n\n日本語 🎉\n";
     const fetchMock = vi.fn(

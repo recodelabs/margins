@@ -95,6 +95,20 @@ export class GitHubRateLimitError extends Error {
   }
 }
 
+/** One commit in a file's history, for the history & diff view. */
+export interface FileCommit {
+  /** Full commit SHA. */
+  sha: string;
+  /** First line of the commit message. */
+  message: string;
+  /** ISO 8601 committed date. */
+  date: string;
+  /** Commit author's display name (may be empty if GitHub omits it). */
+  authorName: string;
+  /** Author's GitHub login when the commit maps to a user, else null. */
+  authorLogin: string | null;
+}
+
 export interface StoredAsset {
   markdownPath: string;
   previewUrl: string;
@@ -196,6 +210,13 @@ export interface StorageBackend {
   listMarkdownPaths?(): Promise<FileMeta[]>;
   /** Absolute URL for a commit sha (for "view commit" links). */
   commitUrl?(sha: string): string;
+  /**
+   * Recent commits touching `relativePath`, newest first. Present on backends
+   * that expose file history (currently GitHub); callers gate on its presence.
+   */
+  listFileHistory?(relativePath: string, limit?: number): Promise<FileCommit[]>;
+  /** Read a file's content at a specific commit/ref. Pairs with `listFileHistory`. */
+  readFileAtRef?(relativePath: string, ref: string): Promise<string>;
   completeReview?(
     relativePath: string,
     options?: CompleteReviewOptions,

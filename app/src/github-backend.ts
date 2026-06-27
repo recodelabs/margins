@@ -13,6 +13,7 @@ import { titleFromContent } from "./markdown";
 import {
   type BackendCapabilities,
   type BackendInfo,
+  type FileCommit,
   FileTooLargeError,
   MarkdownFileConflictError,
   type Page,
@@ -89,9 +90,9 @@ export class GitHubBackend implements StorageBackend {
     };
   }
 
-  private contentsUrl(relativePath: string): string {
+  private contentsUrl(relativePath: string, ref?: string): string {
     const { owner, repo, branch } = this.cfg;
-    return `${API}/repos/${owner}/${repo}/contents/${relativePath}?ref=${branch}`;
+    return `${API}/repos/${owner}/${repo}/contents/${relativePath}?ref=${ref ?? branch}`;
   }
 
   private async readFile(relativePath: string): Promise<Page> {
@@ -444,6 +445,83 @@ export class GitHubBackend implements StorageBackend {
     });
 
     return result;
+  }
+
+  /**
+   * Recent commits touching `relativePath`, newest first — drives the file
+   * history view. One GraphQL round-trip walks the branch head's commit history
+   * filtered to the path, mirroring {@link listPathCommitInfo}.
+   */
+  async listFileHistory(
+    relativePath: string,
+    limit = 20,
+  ): Promise<FileCommit[]> {
+    const { owner, repo, branch } = this.cfg;
+    const query =
+      `query { repository(owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(repo)}) { ` +
+      `object(expression: ${JSON.stringify(branch)}) { ... on Commit { ` +
+      `history(first: ${limit}, path: ${JSON.stringify(relativePath)}) { ` +
+      `nodes { oid messageHeadline committedDate author { name user { login } } } } } } } }`;
+
+    const res = await githubFetch(`${API}/graphql`, {
+      method: "POST",
+      headers: this.headers({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ query }),
+    });
+    if (!res.ok) {
+      throw new Error(`GitHub file history failed (${res.status})`);
+    }
+    const json = (await res.json()) as {
+      data?: {
+        repository?: {
+          object?: {
+            history?: {
+              nodes?: Array<{
+                oid: string;
+                messageHeadline?: string;
+                committedDate: string;
+                author?: {
+                  name?: string;
+                  user?: { login?: string } | null;
+                } | null;
+              }>;
+            };
+          } | null;
+        } | null;
+      };
+    };
+
+    const nodes = json.data?.repository?.object?.history?.nodes ?? [];
+    return nodes.map((node) => ({
+      sha: node.oid,
+      message: node.messageHeadline ?? "",
+      date: node.committedDate,
+      authorName: node.author?.name ?? "",
+      authorLogin: node.author?.user?.login ?? null,
+    }));
+  }
+
+  /** Read a file's decoded content at a specific commit/ref. */
+  async readFileAtRef(relativePath: string, ref: string): Promise<string> {
+    return githubGet(
+      this.contentsUrl(relativePath, ref),
+      this.headers(),
+      async (res) => {
+        if (!res.ok) throw new Error(`GitHub read failed (${res.status})`);
+        const json = (await res.json()) as {
+          content: string;
+          encoding?: string;
+          size?: number;
+        };
+        if (
+          json.encoding === "none" ||
+          (json.content === "" && (json.size ?? 0) > 0)
+        ) {
+          throw new FileTooLargeError(relativePath, json.size);
+        }
+        return decodeBase64(json.content);
+      },
+    );
   }
 
   saveAsset(_file: File): Promise<StoredAsset> {

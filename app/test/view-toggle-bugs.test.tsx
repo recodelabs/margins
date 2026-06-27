@@ -295,11 +295,13 @@ describe("saving/saved status indicator (issue 2 fix)", () => {
     documentContent = "Hello world",
     watcherCount = 0,
     onSaveDocument = async () => {},
+    backend = createBackend({ watcherCount }),
   }: {
     documentDiskChangeState?: "clean" | "changed" | "conflict" | "paused";
     documentContent?: string;
     watcherCount?: number;
     onSaveDocument?: (id: string, content: string) => Promise<void>;
+    backend?: StorageBackend;
   } = {}) {
     (
       globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -321,7 +323,7 @@ describe("saving/saved status indicator (issue 2 fix)", () => {
           onKeepEditingWithoutAutosave={() => {}}
           onOverwriteDocumentOnDisk={() => {}}
           onCompleteReview={async () => ({ delivered: false })}
-          backend={createBackend({ watcherCount })}
+          backend={backend}
         />,
       );
       await Promise.resolve();
@@ -548,6 +550,42 @@ describe("saving/saved status indicator (issue 2 fix)", () => {
         reviewHandoffState: "idle",
       }),
     ).toBe(false);
+  });
+
+  function historyBackend(): StorageBackend {
+    const backend = createBackend();
+    backend.listFileHistory = vi.fn(async () => [
+      {
+        sha: "sha1",
+        message: "Only change",
+        date: "2026-06-20T10:00:00Z",
+        authorName: "Octo Cat",
+        authorLogin: "octocat",
+      },
+    ]);
+    backend.readFileAtRef = vi.fn(async () => "Hello world");
+    return backend;
+  }
+
+  it("offers a history button only when the backend supports file history", async () => {
+    await renderWorkspace();
+    expect(queryByTestId(container, "document-history-toggle")).toBeNull();
+
+    await renderWorkspace({ backend: historyBackend() });
+    expect(queryByTestId(container, "document-history-toggle")).not.toBeNull();
+  });
+
+  it("opens the file history dialog when the history button is clicked", async () => {
+    await renderWorkspace({ backend: historyBackend() });
+
+    expect(queryByTestId(document.body, "file-history-dialog")).toBeNull();
+    await click(getByTestId(container, "document-history-toggle"));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const dialog = getByTestId(document.body, "file-history-dialog");
+    expect(dialog.textContent).toContain("Only change");
   });
 });
 
