@@ -745,14 +745,21 @@ export function App() {
       const currentDocument = documentPageRef.current;
       if (!currentBackend || !currentPath || !currentDocument) return;
       const updated = setSharingFlag(currentDocument.content, "public", next);
-      await currentBackend.saveMarkdownFile(
+      // Apply the page the save returns rather than re-reading: GitHub's Contents
+      // API is eventually consistent, so an immediate re-read often serves the
+      // pre-commit blob and the controlled Share checkbox snaps back off. The
+      // returned page already holds the freshly-written content and new SHA
+      // (mirrors handleCompleteReview).
+      const savedDocument = await currentBackend.saveMarkdownFile(
         currentPath,
         updated,
         currentDocument.version,
       );
-      await loadDocument(currentBackend, currentPath);
+      applyDocumentPage(savedDocument);
+      documentSession.setDirty(false);
+      setDocumentDiskChangeState("clean");
     },
-    [loadDocument],
+    [applyDocumentPage, documentSession],
   );
 
   const handleSetComments = useCallback(
@@ -762,14 +769,18 @@ export function App() {
       const currentDocument = documentPageRef.current;
       if (!currentBackend || !currentPath || !currentDocument) return;
       const updated = setSharingFlag(currentDocument.content, "comments", next);
-      await currentBackend.saveMarkdownFile(
+      // See handleSetPublic: apply the save's returned page instead of re-reading,
+      // so the toggle reflects immediately despite GitHub's eventual consistency.
+      const savedDocument = await currentBackend.saveMarkdownFile(
         currentPath,
         updated,
         currentDocument.version,
       );
-      await loadDocument(currentBackend, currentPath);
+      applyDocumentPage(savedDocument);
+      documentSession.setDirty(false);
+      setDocumentDiskChangeState("clean");
     },
-    [loadDocument],
+    [applyDocumentPage, documentSession],
   );
 
   useEffect(() => {
